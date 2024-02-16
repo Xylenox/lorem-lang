@@ -1,1 +1,1 @@
-movb r1, [r4]
+movb r1, [r4]   movb r3, [r2]   movb r7, [r6]    
