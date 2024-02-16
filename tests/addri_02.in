@@ -1,0 +1,1 @@
+add r1, 0x123   add r2, 0xAB12  add r1, -5      sub r2, 100     sub r3, 18      add r6, 0x40000 add r2, 52       

@@ -1,1 +1,1 @@
-add r1, 0x123   add r2, 0xAB12  add r1, -5      mov r2, 100     sub r3, 18      mov r6, 0x400000  
+add r1, 0x123   add r2, 0xAB12  add r1, -5      mov r2, 100     sub r3, 18      mov r6, 0x40000 cmp r2, 52       
