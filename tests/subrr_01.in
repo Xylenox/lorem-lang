@@ -1,1 +1,1 @@
-sub r1, r3sub r2, r2
+sub r1, r3      sub r2, r2      sub r3, r7      
