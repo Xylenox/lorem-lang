@@ -1,0 +1,1 @@
+cmp r1, 12345   cmp r2, 0xABCD 
