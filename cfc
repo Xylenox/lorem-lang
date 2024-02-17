@@ -509,6 +509,8 @@ add r4, 8
 REX.WB         
 sub r2, 5      
 jmp -23                                        
+
+
 ; movmr        
 cmp r0, 0x766F6D               
 je 2           
@@ -576,6 +578,8 @@ add r4, 12
 REX.WB         
 sub r2, 9      
 jmp -28                                                        
+
+
 ; mulr         
 cmp r0, 0x6C756D               
 jne 4          
@@ -718,6 +722,8 @@ mov r0, 2
 REX.W          
 mov [r1], r3   
 jmp -32                                                        
+
+
 ; REX          
 cmp r0, 0x584552               
 je 2           
@@ -813,15 +819,21 @@ sub r2, 0
 jmp -31                                                        
 ; comments      
 cmp r0, 0x3B   
-je 2           
-jne 8                           
-REX.W          
-add r4, 15      
+jne 13                           
+sub r0, r0
+movb r0, [r4]
+cmp r0, 10
+je 6
+REX.W
+add r4, 1      
 REX.WB         
-sub r2, 15      
+sub r2, 1
+jmp -8     
 REX.WB         
 sub r6, 8      
-jmp -10                                        
+jmp -14
+
+
 ; space/newline
 sub r0, r0     
 movb r0, [r4]  
