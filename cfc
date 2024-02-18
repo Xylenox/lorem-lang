@@ -115,8 +115,7 @@ REX.WB
 sub r2, 0
 jne 18
 ; end of file
-; fix
-jumps
+; fix jumps
 REX.WB
 mov r0, r5
 REX.WB
@@ -254,6 +253,287 @@ REX.W
 mov r0, r5
 jmp 2
 jmp -30
+
+
+; syscall
+REX.W
+mov r3, r0
+mov r0, 0x6C6C61
+mov r1, 0x10000
+REX.W
+mul r1
+REX.W
+mul r1
+REX.W
+add r0, 0x63737973
+REX.W
+mov r1, r0
+REX.W
+mov r0, r3
+cmp r0, r1
+je 2
+jne 17
+REX.W
+sub r4, 4
+mov r0, 0x050F
+mov [r4], r0
+REX.WB
+mov r7, r1
+REX.W
+mov r6, r4
+mov r2, 2
+mov r0, 1
+syscall
+REX.W
+add r4, 4
+REX.WB
+sub r2, 0
+jmp -33
+
+; comments
+cmp r0, 0x3B
+jne 13
+sub r0, r0
+movb r0, [r4]
+cmp r0, 10
+je 6
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+jmp -8
+REX.WB
+sub r6, 8
+jmp -14
+
+; space/newline
+cmp r0, 0
+jne 8
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+REX.WB
+sub r6, 8
+jmp -9
+
+; REX
+cmp r0, 0x584552
+je 2
+jne 25
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+mov r0, 0x40
+sub r1, r1
+movb r1, [r4]
+sub r1, 0x57
+jne 6
+add r0, 8
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+sub r1, r1
+movb r1, [r4]
+sub r1, 0x52
+jne 9
+add r0, 4
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+jmp 3
+jmp 33
+jmp -29
+sub r1, r1
+movb r1, [r4]
+sub r1, 0x58
+jne 6
+add r0, 2
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+sub r1, r1
+movb r1, [r4]
+sub r1, 0x42
+jne 6
+add r0, 1
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+REX.W
+sub r4, 4
+mov [r4], r0
+REX.WB
+mov r7, r1
+REX.W
+mov r6, r4
+mov r2, 1
+mov r0, 1
+syscall
+REX.W
+add r4, 4
+jmp -31
+
+
+; read first operand
+
+
+; 1-operands
+
+; mulr
+cmp r0, 0x6C756D
+jne 4
+mov r2, 0xF7
+mov r3, 0xE0
+jmp 2
+jne 9
+REX.W
+mov r7, r4
+REX.W
+add r7, 1
+sub r1, r1
+movb r1, [r7]
+sub r1, 0x72
+je 3
+jne 27
+jmp -16
+REX.W
+sub r4, 3
+mov [r4], r2
+REX.W
+add r4, 5
+mov r0, [r4]
+sub r0, 0x30
+add r0, r3
+REX.W
+sub r4, 4
+mov [r4], r0
+REX.W
+sub r4, 1
+REX.WB
+mov r7, r1
+REX.W
+mov r6, r4
+mov r2, 2
+mov r0, 1
+syscall
+REX.W
+add r4, 6
+REX.WB
+sub r2, 3
+jmp -25
+
+; jumps
+cmp r0, 0x656E6A        ; jne
+jne 4
+mov r2, 0x850F
+mov r3, 2
+jmp 5
+cmp r0, 0x706D6A        ; jmp
+jne 4
+mov r2, 0xE9
+mov r3, 1
+jmp 5
+cmp r0, 0x656A          ; je
+jne 4
+mov r2, 0x840F
+mov r3, 2
+jmp 5
+cmp r0, 0x6C6A          ; jl
+jne 4
+mov r2, 0x8C0F
+mov r3, 2
+jmp 2
+jne 6
+REX.W
+add r4, 1
+mov r6, r3
+mov r7, r2
+jmp 3
+jmp 38
+jmp -28
+; read number
+mov r0, 0
+mov r1, 10
+mov r5, 1
+sub r3, r3
+movb r3, [r4]
+sub r3, 0x20
+je 3
+add r3, 0x20
+sub r3, 10
+je 25
+REX.W
+add r4, 1
+REX.WB
+sub r2, 1
+add r3, 10
+sub r3, 0x2D
+jne 3
+mov r5, -1
+jmp 5
+add r3, 0x2D
+sub r3, 0x78
+jne 3
+mov r1, 16
+jmp 10
+add r3, 0x78
+sub r3, 0x41
+jl 3
+add r3, 10
+jmp 3
+add r3, 0x41
+sub r3, 0x30
+mul r1
+add r0, r3
+jmp -30
+mul r5
+jmp 3
+jmp 34
+jmp -38
+mov r3, r6
+mov r2, r7
+REX.W
+sub r4, 7
+mov [r4], r2
+REX.W
+add r4, r3
+mov [r4], r0
+REX.W
+sub r4, r3
+REX.WB
+mov r7, r1
+REX.W
+mov r6, r4
+mov r2, r3
+add r2, 4
+mov r0, 1
+syscall
+REX.W
+add r4, 7
+REX.WB
+sub r2, 1
+REX.WB
+mov r1, r7
+REX.WB
+add r1, r6
+REX.W
+sub r1, 8
+mov r0, 2
+REX.W
+mov [r1], r3
+jmp -32
+
+
+
+; two operands
+
+
 
 ; sub/add/movrr
 cmp r0, 0x646461        ; add
@@ -449,7 +729,7 @@ sub r1, r1
 movb r1, [r3]
 sub r1, 0x72
 je 2
-jne 10
+jne 12
 mov r7, r2
 REX.W
 add r4, 2
@@ -457,10 +737,12 @@ mov r6, [r4]
 sub r6, 0x30
 add r6, r5
 REX.W
-add r4, 3
+add r4, 1
+REX.W
+add r4, 2
 jmp 3
 jmp 38
-jmp -41
+jmp -43
 ; read number
 mov r0, 0
 mov r1, 10
@@ -594,276 +876,8 @@ sub r2, 9
 jmp -28
 
 
-; mulr
-cmp r0, 0x6C756D
-jne 4
-mov r2, 0xF7
-mov r3, 0xE0
-jmp 2
-jne 9
-REX.W
-mov r7, r4
-REX.W
-add r7, 1
-sub r1, r1
-movb r1, [r7]
-sub r1, 0x72
-je 3
-jne 27
-jmp -16
-REX.W
-sub r4, 3
-mov [r4], r2
-REX.W
-add r4, 5
-mov r0, [r4]
-sub r0, 0x30
-add r0, r3
-REX.W
-sub r4, 4
-mov [r4], r0
-REX.W
-sub r4, 1
-REX.WB
-mov r7, r1
-REX.W
-mov r6, r4
-mov r2, 2
-mov r0, 1
-syscall
-REX.W
-add r4, 6
-REX.WB
-sub r2, 3
-jmp -25
-; jne
-cmp r0, 0x656E6A
-jne 4
-mov r2, 0x850F
-mov r3, 2
-jmp 5
-cmp r0, 0x706D6A
-jne 4
-mov r2, 0xE9
-mov r3, 1
-jmp 5
-cmp r0, 0x656A
-jne 4
-mov r2, 0x840F
-mov r3, 2
-jmp 5
-cmp r0, 0x6C6A
-jne 4
-mov r2, 0x8C0F
-mov r3, 2
-jmp 2
-jne 6
-REX.W
-add r4, 1
-mov r6, r3
-mov r7, r2
-jmp 3
-jmp 38
-jmp -28
-; read number
-mov r0, 0
-mov r1, 10
-mov r5, 1
-sub r3, r3
-movb r3, [r4]
-sub r3, 0x20
-je 3
-add r3, 0x20
-sub r3, 10
-je 25
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-add r3, 10
-sub r3, 0x2D
-jne 3
-mov r5, -1
-jmp 5
-add r3, 0x2D
-sub r3, 0x78
-jne 3
-mov r1, 16
-jmp 10
-add r3, 0x78
-sub r3, 0x41
-jl 3
-add r3, 10
-jmp 3
-add r3, 0x41
-sub r3, 0x30
-mul r1
-add r0, r3
-jmp -30
-mul r5
-jmp 3
-jmp 34
-jmp -38
-mov r3, r6
-mov r2, r7
-REX.W
-sub r4, 7
-mov [r4], r2
-REX.W
-add r4, r3
-mov [r4], r0
-REX.W
-sub r4, r3
-REX.WB
-mov r7, r1
-REX.W
-mov r6, r4
-mov r2, r3
-add r2, 4
-mov r0, 1
-syscall
-REX.W
-add r4, 7
-REX.WB
-sub r2, 1
-REX.WB
-mov r1, r7
-REX.WB
-add r1, r6
-REX.W
-sub r1, 8
-mov r0, 2
-REX.W
-mov [r1], r3
-jmp -32
 
 
-; REX
-cmp r0, 0x584552
-je 2
-jne 25
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-mov r0, 0x40
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x57
-jne 6
-add r0, 8
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x52
-jne 9
-add r0, 4
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-jmp 3
-jmp 33
-jmp -29
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x58
-jne 6
-add r0, 2
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x42
-jne 6
-add r0, 1
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-REX.W
-sub r4, 4
-mov [r4], r0
-REX.WB
-mov r7, r1
-REX.W
-mov r6, r4
-mov r2, 1
-mov r0, 1
-syscall
-REX.W
-add r4, 4
-jmp -31
-; syscall
-REX.W
-mov r3, r0
-mov r0, 0x6C6C61
-mov r1, 0x10000
-REX.W
-mul r1
-REX.W
-mul r1
-REX.W
-add r0, 0x63737973
-REX.W
-mov r1, r0
-REX.W
-mov r0, r3
-cmp r0, r1
-je 2
-jne 17
-REX.W
-sub r4, 4
-mov r0, 0x050F
-mov [r4], r0
-REX.WB
-mov r7, r1
-REX.W
-mov r6, r4
-mov r2, 2
-mov r0, 1
-syscall
-REX.W
-add r4, 4
-REX.WB
-sub r2, 0
-jmp -33
-; comments
-cmp r0, 0x3B
-jne 13
-sub r0, r0
-movb r0, [r4]
-cmp r0, 10
-je 6
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-jmp -8
-REX.WB
-sub r6, 8
-jmp -14
 
 
-; space/newline
-sub r0, r0
-movb r0, [r4]
-sub r0, 0x20
-je 3
-add r0, 0x20
-sub r0, 10
-je 2
-jne 8
-REX.W
-add r4, 1
-REX.WB
-sub r2, 1
-REX.WB
-sub r6, 8
-jmp -15
 ; invalid
