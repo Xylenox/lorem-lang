@@ -1,5 +1,12 @@
+; register layout
+; ----------------
+; r4 = pointer to input
+; r9 = output file descriptor
+; r10 = characters remaining in input
+;
+
 ; open input
-mov r6, 0x40
+mov r6, 0x0
 mov r2, 0xFFFF
 REX.W
 add r4, 16
@@ -56,10 +63,8 @@ mov r7, 0           ; address
 REX.WB
 mov r6, r2          ; length
 mov r2, 3           ; PROT_READ | PROT_WRITE
-REX.WB
-mov r2, 2           ; MAP_PRIVATE
-REX.WB
-mov r1, 0           ; offset
+mov r10, 2           ; MAP_PRIVATE
+mov r9, 0           ; offset
 syscall
 
 REX.WR
@@ -84,16 +89,13 @@ add r6, r6
 REX.W
 add r6, r6
 mov r2, 3
-REX.B
-mov r2, 0x22
+mov r10, 0x22
 REX.WRB
 mov r4, r0
 REX.WRB
 mov r5, r1
-REX.WB
-mov r0, -1
-REX.B
-mov r1, 0
+mov r8, -1
+mov r9, 0
 mov r0, 9
 syscall
 REX.WRB
@@ -110,9 +112,9 @@ REX.WRB
 mov r7, r2
 REX.WRB
 add r7, r7
+
 ; main loop
-REX.WB
-sub r2, 0
+sub r10, 0
 jne 18
 ; end of file
 ; fix jumps
@@ -138,7 +140,7 @@ jmp 5
 jmp 41
 jmp 41
 jmp -19
-jmp -23
+jmp -22
 REX.W
 sub r4, 6
 REX.W
@@ -202,7 +204,7 @@ syscall
 REX.W
 add r4, 0
 REX.WB
-add r5, 8
+add r13, 8
 jmp -24
 ; exit
 mov r0, 60
@@ -218,7 +220,7 @@ syscall
 REX.WB
 mov [r6], r0
 REX.WB
-add r6, 8
+add r14, 8
 jmp 2
 jmp -38
 
@@ -236,7 +238,7 @@ je 17
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 REX.W
 mul r1
 REX.W
@@ -287,7 +289,7 @@ syscall
 REX.W
 add r4, 4
 REX.WB
-sub r2, 0
+sub r10, 0
 jmp -33
 
 ; comments
@@ -300,10 +302,10 @@ je 6
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 jmp -8
 REX.WB
-sub r6, 8
+sub r14, 8
 jmp -14
 
 ; space/newline
@@ -312,9 +314,9 @@ jne 8
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 REX.WB
-sub r6, 8
+sub r14, 8
 jmp -9
 
 ; REX
@@ -324,7 +326,7 @@ jne 25
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 mov r0, 0x40
 sub r1, r1
 movb r1, [r4]
@@ -334,7 +336,7 @@ add r0, 8
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 sub r1, r1
 movb r1, [r4]
 sub r1, 0x52
@@ -343,7 +345,7 @@ add r0, 4
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 jmp 3
 jmp 33
 jmp -29
@@ -355,7 +357,7 @@ add r0, 2
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 sub r1, r1
 movb r1, [r4]
 sub r1, 0x42
@@ -364,7 +366,7 @@ add r0, 1
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 REX.W
 sub r4, 4
 mov [r4], r0
@@ -425,7 +427,7 @@ syscall
 REX.W
 add r4, 6
 REX.WB
-sub r2, 3
+sub r10, 3
 jmp -25
 
 ; jumps
@@ -471,7 +473,7 @@ je 25
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 add r3, 10
 sub r3, 0x2D
 jne 3
@@ -517,7 +519,7 @@ syscall
 REX.W
 add r4, 7
 REX.WB
-sub r2, 1
+sub r10, 1
 REX.WB
 mov r1, r7
 REX.WB
@@ -616,7 +618,7 @@ syscall
 REX.W
 add r4, 11
 REX.WB
-sub r2, 7
+sub r10, 7
 jmp -12
 ; add/mov/movbrm
 cmp r0, 0x646461
@@ -651,7 +653,7 @@ jne 5
 REX.W
 sub r4, 1
 REX.WB
-add r2, 1
+add r10, 1
 jne 17
 REX.W
 add r4, 2
@@ -697,7 +699,7 @@ syscall
 REX.W
 add r4, 12
 REX.WB
-sub r2, 9
+sub r10, 9
 jmp -27
 ; add/sub/mov/cmpri
 cmp r0, 0x646461
@@ -729,20 +731,59 @@ sub r1, r1
 movb r1, [r3]
 sub r1, 0x72
 je 2
-jne 12
+jne 48
 mov r7, r2
 REX.W
 add r4, 2
-mov r6, [r4]
+sub r6, r6
+REX.
+movb r6, [r4]
 sub r6, 0x30
-add r6, r5
 REX.W
 add r4, 1
+movb r1, [r4]
+cmp r1, 0x2C            ; ,
+je 9
+REX.
+movb r6, [r4]
+sub r6, 0x30
+add r6, 10
+REX.W
+add r4, 1
+REX.WB
+sub r10, 1
 REX.W
 add r4, 2
+mov r0, 0x48            ; REX byte
+cmp r6, 8
+jl 3
+add r0, 1
+sub r6, 8
+
+REX.R
+mov r0, r7
+mov r3, r6
+REX.W
+sub r4, 4
+mov [r4], r0
+REX.WB                  ; printst
+mov r7, r1
+REX.W
+mov r6, r4
+mov r2, 1
+mov r0, 1
+syscall
+REX.W
+add r4, 4
+REX.B
+mov r7, r0
+mov r6, r3
+
+add r6, r5
+
 jmp 3
 jmp 38
-jmp -43
+jmp -79
 ; read number
 mov r0, 0
 mov r1, 10
@@ -757,7 +798,7 @@ je 25
 REX.W
 add r4, 1
 REX.WB
-sub r2, 1
+sub r10, 1
 add r3, 10
 sub r3, 0x2D
 jne 3
@@ -803,7 +844,7 @@ syscall
 REX.W
 add r4, 8
 REX.WB
-sub r2, 5
+sub r10, 5
 jmp -23
 
 
@@ -872,7 +913,7 @@ syscall
 REX.W
 add r4, 12
 REX.WB
-sub r2, 9
+sub r10, 9
 jmp -28
 
 
