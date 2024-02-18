@@ -31,8 +31,7 @@ mov r6, 0x400000
 mov r2, 0x78
 mov r0, 1
 syscall
-; get input
-size
+; get input size
 REX.W
 sub r4, 0xC0
 REX.WB
@@ -47,17 +46,31 @@ REX.WR
 mov r2, [r4]
 REX.W
 sub r4, 48
-; read input
+
+; mmap input
 REX.WB
-sub r4, r2
+mov r3, r1          ; save r9
+
+mov r0, 9           ; mmap
+mov r7, 0           ; address
 REX.WB
-mov r7, r0
-REX.W
-mov r6, r4
+mov r6, r2          ; length
+mov r2, 3           ; PROT_READ | PROT_WRITE
 REX.WB
-mov r2, r2
-mov r0, 0
+mov r2, 2           ; MAP_PRIVATE
+REX.WB
+mov r1, 0           ; offset
 syscall
+
+REX.WR
+mov r0, r0          ; save mmap address
+REX.WR
+mov r1, r3          ; restore r9
+REX.WR
+mov r2, r6          ; restore r10
+REX.W
+mov r4, r0
+
 ; make heap
 mov r7, 0
 REX.WB
@@ -209,9 +222,10 @@ REX.WB
 add r6, 8
 jmp 2
 jmp -38
+
 ; read token
-mov r5, 0
-mov r1, 1
+mov r5, 0           ; token output
+mov r1, 1           ; power of 256
 sub r0, r0
 movb r0, [r4]
 cmp r0, 0x20
@@ -240,20 +254,21 @@ REX.W
 mov r0, r5
 jmp 2
 jmp -30
+
 ; sub/add/movrr
-cmp r0, 0x646461
+cmp r0, 0x646461        ; add
 jne 3
 mov r2, 3
 jmp 4
-cmp r0, 0x627573
+cmp r0, 0x627573        ; sub
 jne 3
 mov r2, 0x2B
 jmp 4
-cmp r0, 0x766F6D
+cmp r0, 0x766F6D        ; mov
 jne 3
 mov r2, 0x8B
 jmp 4
-cmp r0, 0x706D63
+cmp r0, 0x706D63        ; cmp
 jne 3
 mov r2, 0x3B
 jmp 2
