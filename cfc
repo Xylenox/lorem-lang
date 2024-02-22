@@ -777,13 +777,32 @@ jmp -27
 ; r5 = opcode
 ; r6 = opcode 2
 
-add r4, 2
+add r4, 2               ; get first register operand
 sub r2, r2
 movb r2, [r4]
 sub r2, 0x30
-add r4, -2
+add r4, 1
+sub r1, r1
+movb r1, [r4]
+cmp r1, 0x2C
+je 6
+; 2 digit number
+mov r2, r1
+sub r2, 0x30
+add r2, 10
+add r4, 1
+sub r10, 1
+; done
+add r4, 2
+
+mov r1, 0x48            ; REX byte
+cmp r2, 8
+jl 3
+add r1, 1
+sub r2, 8
+
 jmp 2
-jmp -7
+jmp -22
 
 
 
@@ -808,34 +827,8 @@ jne 4
 mov r6, 0x81
 mov r7, 0xF8
 jmp 2
-jne 49
-REX.W
-add r4, 2
-sub r2, r2
-REX.
-movb r2, [r4]
-sub r2, 0x30
-REX.W
-add r4, 1
-sub r1, r1
-movb r1, [r4]
-cmp r1, 0x2C            ; ,
-je 9
-REX.
-movb r2, [r4]
-sub r2, 0x30
-add r2, 10
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-REX.W
-add r4, 2
-mov r0, 0x48            ; REX byte
-cmp r2, 8
-jl 3
-add r0, 1
-sub r2, 8
+jne 22
+
 
 add r2, r7
 mov r7, r6
@@ -844,7 +837,7 @@ mov r0, r7
 mov r3, r2
 REX.W
 sub r4, 4
-mov [r4], r0
+mov [r4], r1
 REX.WB                  ; printst
 mov r7, r1
 REX.W
@@ -861,7 +854,7 @@ mov r6, r3
 
 jmp 3
 jmp 38
-jmp -71
+jmp -44
 ; read number
 mov r0, 0
 mov r1, 10
