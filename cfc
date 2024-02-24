@@ -56,7 +56,9 @@ sub r4, 48
 
 ; mmap input
 REX.WB
-mov r3, r1          ; save r9
+push r1
+REX.WB
+push r2
 
 mov r0, 9           ; mmap
 mov r7, 0           ; address
@@ -69,19 +71,18 @@ syscall
 
 REX.WR
 mov r0, r0          ; save mmap address
-REX.WR
-mov r1, r3          ; restore r9
-REX.WR
-mov r2, r6          ; restore r10
-REX.W
-mov r4, r0
+REX.WB
+pop r2
+REX.WB
+pop r1
+
 
 ; make heap
 mov r7, 0           ; adress
 REX.WB
 mov r6, r2          ; length
-REX.WRB
-mov r7, r2
+REX.WB
+push r2             ; save length
 REX.W
 add r6, r6
 REX.W
@@ -102,8 +103,8 @@ REX.WRB
 mov r0, r4
 REX.WRB
 mov r1, r5
-REX.WRB
-mov r2, r7
+REX.WB
+pop r2              ; restore r10
 REX.WR
 mov r5, r0
 REX.WR
@@ -112,6 +113,10 @@ REX.WRB
 mov r7, r2
 REX.WRB
 add r7, r7
+
+
+
+
 
 ; main loop
 sub r10, 0
@@ -224,19 +229,21 @@ add r14, 8
 jmp 2
 jmp -38
 
+
+
 ; read token
 mov r5, 0           ; token output
 mov r1, 1           ; power of 256
 sub r0, r0
-movb r0, [r4]
+REX.B
+movb r0, [r0]
 cmp r0, 0x20
 je 2
 cmp r0, 10
 je 2
 cmp r0, 0x2E
-je 17
-REX.W
-add r4, 1
+je 16
+add r8, 1
 REX.WB
 sub r10, 1
 REX.W
@@ -257,6 +264,8 @@ jmp 2
 jmp -30
 
 
+
+
 ; syscall
 REX.W
 mov r3, r0
@@ -275,22 +284,34 @@ mov r0, r3
 cmp r0, r1
 je 2
 jne 17
-REX.W
-sub r4, 4
+sub r8, 4
 mov r0, 0x050F
-mov [r4], r0
+REX.B
+mov [r0], r0
 REX.WB
 mov r7, r1
-REX.W
-mov r6, r4
+REX.WB
+mov r6, r0
 mov r2, 2
 mov r0, 1
 syscall
 REX.W
-add r4, 4
+add r8, 4
 REX.WB
 sub r10, 0
 jmp -33
+
+
+; swap r4 and r0
+REX.WB
+mov r4, r0
+jmp 4
+REX.WR
+mov r0, r4
+jmp -6
+jmp 2
+jmp -4
+
 
 ; comments
 cmp r0, 0x3B
