@@ -388,10 +388,20 @@ jmp -31
 ; 1-operands
 
 ; mulr
-cmp r0, 0x6C756D
+cmp r0, 0x6C756D        ; mul
 jne 4
 mov r2, 0xF7
 mov r3, 0xE0
+jmp 5
+cmp r0, 0x68737570        ; push
+jne 4
+mov r2, 0xFF
+mov r3, 0xF0
+jmp 5
+cmp r0, 0x706F70        ; pop
+jne 4
+mov r2, 0x8F
+mov r3, 0xC0
 jmp 2
 jne 9
 REX.W
@@ -403,7 +413,7 @@ movb r1, [r7]
 sub r1, 0x72
 je 3
 jne 27
-jmp -16
+jmp -26
 REX.W
 sub r4, 3
 mov [r4], r2
