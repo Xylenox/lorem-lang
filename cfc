@@ -302,6 +302,100 @@ sub r10, 0
 jmp -33
 
 
+
+
+
+; comments
+cmp r0, 0x3B
+jne 13
+sub r0, r0
+REX.B
+movb r0, [r0]
+cmp r0, 10
+je 6
+add r8, 1
+REX.WB
+sub r10, 1
+jmp -8
+REX.WB
+sub r14, 8
+jmp -14
+
+
+
+; space/newline
+cmp r0, 0
+jne 8
+REX.W
+add r8, 1
+REX.WB
+sub r10, 1
+REX.WB
+sub r14, 8
+jmp -9
+
+
+
+; REX
+cmp r0, 0x584552
+je 2
+jne 55
+add r8, 1
+REX.WB
+sub r10, 1
+mov r0, 0x40
+sub r1, r1
+REX.B
+movb r1, [r0]
+cmp r1, 0x57
+jne 5
+add r0, 8
+add r8, 1
+REX.WB
+sub r10, 1
+sub r1, r1
+REX.B
+movb r1, [r0]
+cmp r1, 0x52
+jne 5
+add r0, 4
+add r8, 1
+REX.WB
+sub r10, 1
+sub r1, r1
+REX.B
+movb r1, [r0]
+cmp r1, 0x58
+jne 5
+add r0, 2
+add r8, 1
+REX.WB
+sub r10, 1
+sub r1, r1
+REX.B
+movb r1, [r0]
+sub r1, 0x42
+jne 6
+add r0, 1
+REX.W
+add r8, 1
+REX.WB
+sub r10, 1
+sub r8, 4
+REX.B
+mov [r0], r0
+REX.WB
+mov r7, r1
+REX.WB
+mov r6, r0
+mov r2, 1
+mov r0, 1
+syscall
+REX.W
+add r8, 4
+jmp -57
+
+
 ; swap r4 and r0
 REX.WB
 mov r4, r0
@@ -311,98 +405,6 @@ mov r0, r4
 jmp -6
 jmp 2
 jmp -4
-
-
-; comments
-cmp r0, 0x3B
-jne 13
-sub r0, r0
-movb r0, [r4]
-cmp r0, 10
-je 6
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-jmp -8
-REX.WB
-sub r14, 8
-jmp -14
-
-; space/newline
-cmp r0, 0
-jne 8
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-REX.WB
-sub r14, 8
-jmp -9
-
-; REX
-cmp r0, 0x584552
-je 2
-jne 25
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-mov r0, 0x40
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x57
-jne 6
-add r0, 8
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x52
-jne 9
-add r0, 4
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-jmp 3
-jmp 33
-jmp -29
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x58
-jne 6
-add r0, 2
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-sub r1, r1
-movb r1, [r4]
-sub r1, 0x42
-jne 6
-add r0, 1
-REX.W
-add r4, 1
-REX.WB
-sub r10, 1
-REX.W
-sub r4, 4
-mov [r4], r0
-REX.WB
-mov r7, r1
-REX.W
-mov r6, r4
-mov r2, 1
-mov r0, 1
-syscall
-REX.W
-add r4, 4
-jmp -31
-
-
 ; read first operand
 
 
