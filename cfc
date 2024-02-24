@@ -455,15 +455,7 @@ REX.WB
 sub r10, 3
 jmp -25
 
-; swap r4 and r0
-REX.WB
-mov r4, r0
-jmp 4
-REX.WR
-mov r0, r4
-jmp -6
-jmp 2
-jmp -4
+
 
 ; jumps
 cmp r0, 0x656E6A        ; jne
@@ -488,25 +480,26 @@ mov r3, 2
 jmp 2
 jne 6
 REX.W
-add r4, 1
+add r8, 1
 mov r6, r3
 mov r7, r2
 jmp 3
-jmp 38
+jmp 39
 jmp -28
 ; read number
 mov r0, 0
 mov r1, 10
 mov r5, 1
 sub r3, r3
-movb r3, [r4]
+REX.B
+movb r3, [r0]
 sub r3, 0x20
 je 3
 add r3, 0x20
 sub r3, 10
 je 25
 REX.W
-add r4, 1
+add r8, 1
 REX.WB
 sub r10, 1
 add r3, 10
@@ -528,31 +521,32 @@ add r3, 0x41
 sub r3, 0x30
 mul r1
 add r0, r3
-jmp -30
+jmp -31
 mul r5
 jmp 3
-jmp 34
-jmp -38
+jmp 35
+jmp -39
 mov r3, r6
 mov r2, r7
-REX.W
-sub r4, 7
-mov [r4], r2
-REX.W
-add r4, r3
-mov [r4], r0
-REX.W
-sub r4, r3
+sub r8, 7
+REX.B
+mov [r0], r2
+REX.WR
+add r0, r3
+REX.B
+mov [r0], r0
+REX.WR
+sub r0, r3
 REX.WB
 mov r7, r1
-REX.W
-mov r6, r4
+REX.WB
+mov r6, r0
 mov r2, r3
 add r2, 4
 mov r0, 1
 syscall
 REX.W
-add r4, 7
+add r8, 7
 REX.WB
 sub r10, 1
 REX.WB
@@ -564,8 +558,18 @@ sub r1, 8
 mov r0, 2
 REX.W
 mov [r1], r3
-jmp -32
+jmp -33
 
+
+; swap r4 and r0
+REX.WB
+mov r4, r0
+jmp 4
+REX.WR
+mov r0, r4
+jmp -6
+jmp 2
+jmp -4
 
 
 ; two operands
