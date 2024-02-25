@@ -635,7 +635,6 @@ jmp -28
 
 
 
-
 ; sub/add/movrr
 cmp r0, 0x646461        ; add
 jne 3
@@ -721,15 +720,7 @@ sub r10, 7
 jmp -12
 
 
-; swap r4 and r0
-REX.WB
-mov r4, r0
-jmp 4
-REX.WR
-mov r0, r4
-jmp -6
-jmp 2
-jmp -4
+
 
 
 
@@ -747,8 +738,8 @@ jne 3
 mov r2, 0x8A
 jmp 2
 jne 9
-REX.W
-mov r3, r4
+REX.WB
+mov r3, r0
 REX.W
 add r3, 1
 sub r1, r1
@@ -764,56 +755,68 @@ je 8
 sub r2, 0x8A
 jne 5
 REX.W
-sub r4, 1
+sub r8, 1
 REX.WB
 add r10, 1
 jne 17
-REX.W
-add r4, 2
-movb r0, [r4]
+add r8, 2
+REX.B
+movb r0, [r0]
 sub r0, 0x30
 add r0, r0
 add r0, r0
 add r0, r0
-REX.W
-add r4, 5
+add r8, 5
 sub r1, r1
-movb r1, [r4]
-add r0, [r4]
+REX.B
+movb r1, [r0]
+REX.B
+add r0, [r0]
 sub r0, 0x30
-REX.W
-sub r4, 10
+sub r8, 10
 jmp 3
 jmp 29
 jmp -52
-mov [r4], r2
-REX.W
-add r4, 1
-mov [r4], r0
-REX.W
-sub r4, 1
+REX.B
+mov [r0], r2
+add r8, 1
+REX.B
+mov [r0], r0
+sub r8, 1
 mov r2, 2
 ; source is r4
 sub r1, 0x34
 jne 8
 REX.W
-add r4, 2
+add r8, 2
 mov r0, 0x24
-mov [r4], r0
-REX.W
-sub r4, 2
+REX.B
+mov [r0], r0
+sub r8, 2
 mov r2, 3
 REX.WB
 mov r7, r1
-REX.W
-mov r6, r4
+REX.WB
+mov r6, r0
 mov r0, 1
 syscall
 REX.W
-add r4, 12
+add r8, 12
 REX.WB
 sub r10, 9
 jmp -27
+
+
+; swap r4 and r0
+REX.WB
+mov r4, r0
+jmp 4
+REX.WR
+mov r0, r4
+jmp -6
+jmp 2
+jmp -4
+
 
 ; r1 = REX byte
 ; r2 = reg
