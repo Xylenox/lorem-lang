@@ -634,15 +634,6 @@ jmp -28
 
 
 
-; swap r4 and r0
-REX.WB
-mov r4, r0
-jmp 4
-REX.WR
-mov r0, r4
-jmp -6
-jmp 2
-jmp -4
 
 
 ; sub/add/movrr
@@ -663,8 +654,8 @@ jne 3
 mov r5, 0x3B
 jmp 2
 jne 9
-REX.W
-mov r3, r4
+REX.WB
+mov r3, r0
 REX.W
 add r3, 1
 sub r1, r1
@@ -694,40 +685,54 @@ sub r1, 0x72
 je 3
 jne 36
 jmp -48
-REX.W
-add r4, 2
-movb r0, [r4]
+add r8, 2
+REX.B
+movb r0, [r0]
 sub r0, 0x30
 add r0, r0
 add r0, r0
 add r0, r0
-REX.W
-add r4, 4
-add r0, [r4]
+add r8, 4
+REX.B
+add r0, [r0]
 sub r0, 0x30
 add r0, 0xC0
+sub r8, 10
+REX.B
+mov [r0], r5
+add r8, 1
+REX.B
+mov [r0], r0
 REX.W
-sub r4, 10
-mov [r4], r5
-REX.W
-add r4, 1
-mov [r4], r0
-REX.W
-sub r4, 1
+sub r8, 1
 jmp 2
 jmp -22
 REX.WB
 mov r7, r1
-REX.W
-mov r6, r4
+REX.WB
+mov r6, r0
 mov r2, 2
 mov r0, 1
 syscall
 REX.W
-add r4, 11
+add r8, 11
 REX.WB
 sub r10, 7
 jmp -12
+
+
+; swap r4 and r0
+REX.WB
+mov r4, r0
+jmp 4
+REX.WR
+mov r0, r4
+jmp -6
+jmp 2
+jmp -4
+
+
+
 ; add/mov/movbrm
 cmp r0, 0x646461
 jne 3
