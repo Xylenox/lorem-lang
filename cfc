@@ -807,6 +807,44 @@ sub r10, 9
 jmp -27
 
 
+
+
+; r1 = REX byte
+; r2 = reg
+; r3 = r/m/immediate
+; r5 = opcode
+; r6 = opcode 2
+
+add r8, 2               ; get first register operand
+sub r2, r2
+REX.B
+movb r2, [r0]
+sub r2, 0x30
+add r8, 1
+sub r1, r1
+REX.B
+movb r1, [r0]
+cmp r1, 0x2C
+je 6
+; 2 digit number
+mov r2, r1
+sub r2, 0x30
+add r2, 10
+add r8, 1
+sub r10, 1
+; done
+add r8, 2
+
+mov r1, 0x48            ; REX byte
+cmp r2, 8
+jl 3
+add r1, 1
+sub r2, 8
+
+jmp 2
+jmp -24
+
+
 ; swap r4 and r0
 REX.WB
 mov r4, r0
@@ -816,40 +854,6 @@ mov r0, r4
 jmp -6
 jmp 2
 jmp -4
-
-
-; r1 = REX byte
-; r2 = reg
-; r3 = r/m/immediate
-; r5 = opcode
-; r6 = opcode 2
-
-add r4, 2               ; get first register operand
-sub r2, r2
-movb r2, [r4]
-sub r2, 0x30
-add r4, 1
-sub r1, r1
-movb r1, [r4]
-cmp r1, 0x2C
-je 6
-; 2 digit number
-mov r2, r1
-sub r2, 0x30
-add r2, 10
-add r4, 1
-sub r10, 1
-; done
-add r4, 2
-
-mov r1, 0x48            ; REX byte
-cmp r2, 8
-jl 3
-add r1, 1
-sub r2, 8
-
-jmp 2
-jmp -22
 
 
 
