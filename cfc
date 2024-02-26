@@ -6,111 +6,114 @@
 ;
 
 ; open input
-mov r6, 0x0
-mov r2, 0xFFFF
+mov r6, 0x0             ; READ_ONLY
+mov r2, 0xFFFF          ; all perms
 REX.W
 add r4, 16
 REX.W
-mov r7, [r4]
+mov r7, [r4]            ; argv[1]
 REX.W
 sub r4, 16
 mov r0, 2
 syscall
 REX.WR
-mov r0, r0
+mov r0, r0              ; save input file descriptor
 ; open output
-mov r0, 2
-mov r2, 0xFFFF
-mov r6, 0x242
+mov r0, 2               ; READ_WRITE
+mov r2, 0xFFFF          ; all perms
+mov r6, 0x242           ; truncate/create/.??
 REX.W
 add r4, 24
 REX.W
-mov r7, [r4]
+mov r7, [r4]            ; argv[2]
 REX.W
 sub r4, 24
 syscall
 REX.WR
-mov r1, r0
+mov r1, r0              ; save output file descriptor
 ; write header
 REX.WB
-mov r7, r1
-mov r6, 0x400000
-mov r2, 0x78
-mov r0, 1
+mov r7, r1              ; output file descriptor
+mov r6, 0x400000        ; program header location
+mov r2, 0x78            ; program header length
+mov r0, 1               ; write
 syscall
 ; get input size
 REX.W
-sub r4, 0xC0
+sub r4, 0xC0            ; fstat size
 REX.WB
-mov r7, r0
+mov r7, r0              ; input file descriptor
 REX.W
-mov r6, r4
-mov r0, 5
+mov r6, r4              ; fstat buffer
+mov r0, 5               ; fstat
 syscall
 REX.W
 add r4, 48
 REX.WR
-mov r2, [r4]
+mov r2, [r4]            ; file size
 REX.W
 sub r4, 48
 
 ; mmap input
 REX.WB
-push r1
-REX.WB
+push r1                 ; save r9
+REX.WB                  ; save r10
 push r2
 
-mov r0, 9           ; mmap
-mov r7, 0           ; address
+mov r0, 9               ; mmap
+mov r7, 0               ; address
 REX.WB
-mov r6, r2          ; length
-mov r2, 3           ; PROT_READ | PROT_WRITE
-mov r10, 2           ; MAP_PRIVATE
-mov r9, 0           ; offset
+mov r6, r2              ; length
+mov r2, 3               ; PROT_READ | PROT_WRITE
+mov r10, 2              ; MAP_PRIVATE
+mov r9, 0               ; offset
 syscall
 
 REX.WR
-mov r0, r0          ; save mmap address
+mov r0, r0              ; save mmap address
 REX.WB
-pop r2
+pop r2                  ; restore r10
 REX.WB
-pop r1
+pop r1                  ; restore r9
 
 
 ; make heap
-mov r7, 0           ; adress
+mov r7, 0               ; adress
 REX.WB
-mov r6, r2          ; length
+mov r6, r2              ; length
 REX.WB
-push r2             ; save length
+push r2                 ; save length
+REX.W
+add r6, r6              ; multiply length by 16
 REX.W
 add r6, r6
 REX.W
 add r6, r6
 REX.W
 add r6, r6
-mov r2, 3
-mov r10, 0x22
-REX.WRB
-mov r4, r0
-REX.WRB
-mov r5, r1
-mov r8, -1
-mov r9, 0
-mov r0, 9
+
+mov r2, 3               ; PROT_READ | PROT_WRITE
+mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
+REX.WB
+push r0                 ; save r8
+REX.WB
+push r1                 ; save r9
+mov r8, -1              ; file descriptor empty, anonymous
+mov r9, 0               ; offset
+mov r0, 9               ; mmap
 syscall
-REX.WRB
-mov r0, r4
-REX.WRB
-mov r1, r5
 REX.WB
-pop r2              ; restore r10
+pop r1                  ; restore r9
+REX.WB
+pop r0                  ; restore r8
+REX.WB
+pop r2                  ; restore r10
 REX.WR
-mov r5, r0
+mov r5, r0              ; save instruction location array
 REX.WR
-mov r6, r0
+mov r6, r0              ; save instruction location array end
 REX.WRB
-mov r7, r2
+mov r7, r2              ; store max length of instsruction location array
 REX.WRB
 add r7, r7
 
@@ -843,7 +846,6 @@ sub r2, 8
 
 jmp 2
 jmp -24
-
 
 
 
