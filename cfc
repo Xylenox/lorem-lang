@@ -113,10 +113,17 @@ mov r5, r0              ; save instruction location array
 REX.WR
 mov r6, r0              ; save instruction location array end
 REX.WRB
-mov r7, r2              ; store max length of instsruction location array
+mov r7, r2              ; store max length of instruction location array
 REX.WRB
 add r7, r7
-
+REX.R
+push r7                 ; save jump info array
+REX.WB
+mov r0, r7
+REX.WB
+add r0, r7
+REX.W
+push r0                 ; save label info array
 
 
 
@@ -240,9 +247,11 @@ mov r1, 1           ; power of 256
 sub r0, r0
 REX.B
 movb r0, [r0]
-cmp r0, 0x20
+cmp r0, 0x20        ; space
 je 2
-cmp r0, 10
+cmp r0, 10          ; newline
+je 2
+cmp r0, 58          ; label
 je 2
 cmp r0, 0x2E
 je 16
@@ -260,11 +269,11 @@ REX.W
 mul r1
 REX.W
 mov r1, r0
-jmp -23
+jmp -25
 REX.W
 mov r0, r5
 jmp 2
-jmp -30
+jmp -32
 
 
 
@@ -328,15 +337,28 @@ jmp -14
 
 ; space/newline
 cmp r0, 0
-jne 8
+jne 6
 REX.W
 add r8, 1
-REX.WB
 sub r10, 1
-REX.WB
 sub r14, 8
-jmp -9
+jmp -7
 
+
+; label
+sub r1, r1
+REX.B
+movb r1, [r0]
+cmp r1, 58
+jne 9
+REX.WB
+mov r3, r6
+REX.W
+add r3, [r4]
+REX.W
+mov [r3], r0
+sub r14, 8
+jmp -13
 
 
 ; REX
@@ -560,7 +582,7 @@ REX.W
 sub r1, 8
 mov r0, 2
 REX.W
-mov [r1], r3
+mov [r1], r3            ; save jump information in instruction location array
 jmp -33
 
 
