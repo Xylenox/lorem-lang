@@ -253,7 +253,7 @@ cmp r0, 10          ; newline
 je 2
 cmp r0, 58          ; label
 je 2
-cmp r0, 0x2E
+cmp r0, 0x2E        ; period
 je 16
 add r8, 1
 REX.WB
@@ -350,7 +350,7 @@ sub r1, r1
 REX.B
 movb r1, [r0]
 cmp r1, 58
-jne 9
+jne 11
 REX.WB
 mov r3, r6
 REX.W
@@ -358,7 +358,9 @@ add r3, [r4]
 REX.W
 mov [r3], r0
 sub r14, 8
-jmp -13
+add r8, 1
+sub r10, 1
+jmp -15
 
 
 ; REX
@@ -993,3 +995,4 @@ jmp -25
 
 
 ; invalid
+jmp 0
