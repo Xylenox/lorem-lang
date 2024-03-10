@@ -511,7 +511,7 @@ add r8, 1
 mov r6, r3
 mov r7, r2
 jmp 3
-jmp 39
+jmp 47
 jmp -28
 ; read number
 mov r0, 0
@@ -520,16 +520,24 @@ mov r5, 1
 sub r3, r3
 REX.B
 movb r3, [r0]
+cmp r3, 58
+jne 5
+mov r1, 256
+add r8, 1
+sub r10, 1
+jmp -8
 sub r3, 0x20
 je 3
 add r3, 0x20
 sub r3, 10
-je 25
+je 27
 REX.W
 add r8, 1
 REX.WB
 sub r10, 1
 add r3, 10
+cmp r1, 256
+je 17
 sub r3, 0x2D
 jne 3
 mov r5, -1
@@ -548,11 +556,11 @@ add r3, 0x41
 sub r3, 0x30
 mul r1
 add r0, r3
-jmp -31
+jmp -39
 mul r5
 jmp 3
 jmp 35
-jmp -39
+jmp -47
 mov r3, r6
 mov r2, r7
 sub r8, 7
@@ -995,4 +1003,5 @@ jmp -25
 
 
 ; invalid
-jmp 0
+jmp :
+
