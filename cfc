@@ -152,8 +152,8 @@ mov r2, 0
 mov r0, 8
 syscall
 jmp 5
-jmp 41
-jmp 41
+jmp 43
+jmp 43
 jmp -19
 jmp -22
 REX.W
@@ -167,7 +167,9 @@ REX.WB
 mov r0, r5
 REX.WB
 add r0, r7
-mov r5, [r0]
+sub r5, r5
+REX.
+movb r5, [r0]                ; get jump info
 sub r5, 0
 je 46
 REX.W
@@ -195,8 +197,8 @@ sub r2, r3
 jmp 5
 jmp 30
 jmp 26
-jmp -41
-jmp -41
+jmp -43
+jmp -43
 sub r2, 4
 sub r2, r5
 mov [r4], r2
@@ -559,7 +561,7 @@ add r0, r3
 jmp -39
 mul r5
 jmp 3
-jmp 35
+jmp 38
 jmp -47
 mov r3, r6
 mov r2, r7
@@ -585,15 +587,18 @@ add r8, 7
 REX.WB
 sub r10, 1
 REX.WB
-mov r1, r7
+mov r2, r7
 REX.WB
-add r1, r6
+add r2, r6
 REX.W
-sub r1, 8
+sub r2, 8
 mov r0, 2
+cmp r1, 256
+je 2
+add r3, 256
 REX.W
-mov [r1], r3            ; save jump information in instruction location array
-jmp -33
+mov [r2], r3            ; save jump information in instruction location array
+jmp -36
 
 
 
