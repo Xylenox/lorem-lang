@@ -122,6 +122,8 @@ REX.WB
 mov r0, r7
 REX.WB
 add r0, r7
+REX.WB
+push r5
 REX.W
 push r0                 ; save label info array
 
@@ -152,8 +154,8 @@ mov r2, 0
 mov r0, 8
 syscall
 jmp 5
-jmp 43
-jmp 43
+jmp 58
+jmp 58
 jmp -19
 jmp -22
 REX.W
@@ -167,15 +169,33 @@ REX.WB
 mov r0, r5
 REX.WB
 add r0, r7
-sub r5, r5
-REX.
-movb r5, [r0]                ; get jump info
+mov r5, [r0]                ; get jump info
+
 sub r5, 0
-je 46
+je 63
+
+cmp r5, 256
+jl 14
+sub r5, 256
+add r4, 6
+pop r0                      ; label info offset
+pop r1                      ; array location
+push r1
+push r0
+sub r4, 6
 REX.W
+add r1, r0
+REX.W
+mov r2, [r1]                ; get label at r0
+REX.W
+sub r1, r0
+REX.W
+
 add r4, r5
 sub r0, r0
 movb r0, [r4]
+REX.W
+sub r4, r5
 REX.WB
 mov r2, r5
 mov r1, r0
@@ -197,8 +217,8 @@ sub r2, r3
 jmp 5
 jmp 30
 jmp 26
-jmp -43
-jmp -43
+jmp -58
+jmp -58
 sub r2, 4
 sub r2, r5
 mov [r4], r2
@@ -219,7 +239,7 @@ mov r2, 4
 mov r0, 1
 syscall
 REX.W
-add r4, 0
+add r4, 6
 REX.WB
 add r13, 8
 jmp -24
@@ -773,9 +793,13 @@ cmp r0, 0x766F6D
 jne 3
 mov r2, 0x8B
 jmp 4
-cmp r0, 0x62766F6D
+cmp r0, 0x62766F6D              ; movbrm
 jne 3
 mov r2, 0x8A
+jmp 4
+cmp r0, 0x73766F6D              ; movs
+jne 3
+mov r2, 0x63
 jmp 2
 jne 9
 REX.WB
@@ -816,7 +840,7 @@ sub r0, 0x30
 sub r8, 10
 jmp 3
 jmp 29
-jmp -52
+jmp -56
 REX.B
 mov [r0], r2
 add r8, 1
