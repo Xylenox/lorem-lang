@@ -154,25 +154,31 @@ mov r2, 0
 mov r0, 8
 syscall
 jmp 5
-jmp 58
-jmp 58
+jmp 59
+jmp 59
 jmp -19
 jmp -22
-REX.W
-sub r4, 6
-REX.W
-mov r6, r4
-mov r2, 3
-mov r0, 0
-syscall
 REX.WB
 mov r0, r5
 REX.WB
 add r0, r7
 mov r5, [r0]                ; get jump info
 
+
+
+; read instruction stuffs
+REX.W
+sub r4, 6
+REX.W
+mov r6, r4
+mov r2, 3
+mov r0, 0
+syscall                     ; read instruction
+
+
+
 sub r5, 0
-je 63
+je 64
 
 cmp r5, 256
 jl 14
@@ -193,6 +199,7 @@ REX.W
 
 add r4, r5
 sub r0, r0
+REX.W
 movb r0, [r4]
 REX.W
 sub r4, r5
@@ -217,8 +224,8 @@ sub r2, r3
 jmp 5
 jmp 30
 jmp 26
-jmp -58
-jmp -58
+jmp -59
+jmp -59
 sub r2, 4
 sub r2, r5
 mov [r4], r2
