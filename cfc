@@ -154,8 +154,8 @@ mov r2, 0
 mov r0, 8
 syscall
 jmp 5
-jmp 53
-jmp 53
+jmp 61
+jmp 61
 jmp -19
 jmp -22
 REX.WB
@@ -178,10 +178,10 @@ syscall                     ; read instruction
 
 
 sub r5, 0
-je 58
+je 66
 
 cmp r5, 256
-jl 14
+jl 22
 sub r5, 256
 add r4, 6
 pop r0                      ; label info offset
@@ -192,10 +192,17 @@ sub r4, 6
 REX.W
 add r1, r0
 REX.W
-mov r2, [r1]                ; get label at r0
+add r4, r5
 REX.W
-sub r1, r0
-
+movs r7, [r4]
+REX.W
+sub r4, r5
+REX.W
+mov r2, [r1]                ; get label at r0
+cmp r2, r7
+jmp 3
+add r4, 8
+jmp -5
 
 REX.W
 add r4, r5
@@ -219,8 +226,8 @@ sub r2, r3
 jmp 5
 jmp 30
 jmp 26
-jmp -53
-jmp -53
+jmp -61
+jmp -61
 sub r2, 4
 sub r2, r5
 mov [r4], r2
