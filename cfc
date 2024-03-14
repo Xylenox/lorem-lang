@@ -171,7 +171,7 @@ REX.W
 sub r4, 6
 REX.W
 mov r6, r4
-mov r2, 3
+mov r2, 6                   ; TODO: read amount based on instruction id length
 mov r0, 0
 syscall                     ; read instruction
 
@@ -195,19 +195,20 @@ REX.W
 mov r2, [r1]                ; get label at r0
 REX.W
 sub r1, r0
-REX.W
 
+
+REX.W
 add r4, r5
 sub r0, r0
 REX.W
-movb r0, [r4]
+movs r0, [r4]
 REX.W
 sub r4, r5
 REX.WB
 mov r2, r5
 mov r1, r0
 sub r1, 0x80
-jl 3
+jmp 3
 REX.W
 sub r0, 0x100
 REX.W
@@ -234,17 +235,19 @@ REX.WB
 mov r7, r1
 mov r6, r5
 REX.W
-sub r6, 3
+sub r6, 6
 mov r2, 1
 mov r0, 8
 syscall
+
 REX.WB
 mov r7, r1
 REX.W
 mov r6, r4
 mov r2, 4
 mov r0, 1
-syscall
+syscall                     ; write jump offset
+
 REX.W
 add r4, 6
 REX.WB
@@ -1040,4 +1043,4 @@ jmp -25
 
 ; invalid
 jmp :
-
+mov r0, r0
