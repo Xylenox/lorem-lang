@@ -154,8 +154,8 @@ mov r2, 0
 mov r0, 8
 syscall
 jmp 5
-jmp 59
-jmp 59
+jmp 53
+jmp 53
 jmp -19
 jmp -22
 REX.WB
@@ -178,7 +178,7 @@ syscall                     ; read instruction
 
 
 sub r5, 0
-je 64
+je 58
 
 cmp r5, 256
 jl 14
@@ -199,18 +199,12 @@ sub r1, r0
 
 REX.W
 add r4, r5
-sub r0, r0
 REX.W
 movs r0, [r4]
 REX.W
 sub r4, r5
 REX.WB
 mov r2, r5
-mov r1, r0
-sub r1, 0x80
-jmp 3
-REX.W
-sub r0, 0x100
 REX.W
 add r0, r0
 REX.W
@@ -225,8 +219,8 @@ sub r2, r3
 jmp 5
 jmp 30
 jmp 26
-jmp -59
-jmp -59
+jmp -53
+jmp -53
 sub r2, 4
 sub r2, r5
 mov [r4], r2
