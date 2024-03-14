@@ -154,8 +154,8 @@ mov r2, 0
 mov r0, 8
 syscall
 jmp 5
-jmp 61
-jmp 61
+jmp 63
+jmp 63
 jmp -19
 jmp -22
 REX.WB
@@ -178,10 +178,10 @@ syscall                     ; read instruction
 
 
 sub r5, 0
-je 66
+je 68
 
 cmp r5, 256
-jl 22
+jl 24
 sub r5, 256
 add r4, 6
 pop r0                      ; label info offset
@@ -200,9 +200,11 @@ sub r4, r5
 REX.W
 mov r2, [r1]                ; get label at r0
 cmp r2, r7
-jmp 3
+je 3
 add r4, 8
 jmp -5
+mov r0, 0
+jmp 7
 
 REX.W
 add r4, r5
@@ -226,8 +228,8 @@ sub r2, r3
 jmp 5
 jmp 30
 jmp 26
-jmp -61
-jmp -61
+jmp -63
+jmp -63
 sub r2, 4
 sub r2, r5
 mov [r4], r2
@@ -592,8 +594,9 @@ add r0, r3
 jmp -39
 mul r5
 jmp 3
-jmp 38
+jmp 39
 jmp -47
+mov r5, r1
 mov r3, r6
 mov r2, r7
 sub r8, 7
@@ -624,12 +627,12 @@ add r2, r6
 REX.W
 sub r2, 8
 mov r0, 2
-cmp r1, 256
-je 2
+cmp r5, 256
+jne 2
 add r3, 256
 REX.W
 mov [r2], r3            ; save jump information in instruction location array
-jmp -36
+jmp -37
 
 
 
