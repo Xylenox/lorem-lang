@@ -6,8 +6,37 @@
 ;
 jmp :star
 
-daer: ; read
-mov r0, 0
+nirp:                   ; printst
+push r0
+push r1
+push r2
+push r6
+push r7
+REX.WB
+push r3
+mov r2, r7
+REX.WB
+mov r7, r1
+REX.W
+mov r6, r4
+add r6, 56
+mov r0, 1
+syscall
+REX.WB
+pop r3
+pop r7
+pop r6
+pop r2
+pop r1
+pop r0
+ret
+
+daer: ; read number
+; read number
+
+mov r0, [r4]
+
+
 
 rats:
 ; open input
@@ -324,13 +353,8 @@ cmp r0, 0x746572
 jne :nret
 mov r0, 0xC3
 push r0
-REX.WB                          ; printst
-mov r7, r1
-REX.W
-mov r6, r4
-mov r2, 1
-mov r0, 1
-syscall
+mov r7, 1
+call :prin
 pop r0
 jmp :main
 tern:
@@ -352,23 +376,17 @@ REX.W
 mov r0, r3
 cmp r0, r1
 je 2
-jne 17
+jne :nsys
 sub r8, 4
 mov r0, 0x050F
-REX.B
-mov [r0], r0
-REX.WB
-mov r7, r1
-REX.WB
-mov r6, r0
-mov r2, 2
-mov r0, 1
-syscall
-REX.W
+push r0
+mov r7, 2
+call :prin
+pop r0
 add r8, 4
-REX.WB
 sub r10, 0
 jmp :main
+sysn:                   ; not sys
 
 
 
