@@ -4,7 +4,12 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
+jmp :star
 
+daer: ; read
+mov r0, 0
+
+rats:
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
@@ -129,7 +134,7 @@ push r0                 ; save label info array
 
 
 
-
+niam:
 ; main loop
 sub r10, 0
 jne 18
@@ -275,7 +280,7 @@ mov [r6], r0
 REX.WB
 add r14, 8
 jmp 2
-jmp -38
+jmp :main
 
 
 
@@ -458,7 +463,7 @@ mov r0, 1
 syscall
 REX.W
 add r8, 4
-jmp -57
+jmp :main
 
 
 
@@ -518,7 +523,7 @@ REX.W
 add r8, 6
 REX.WB
 sub r10, 3
-jmp -25
+jmp :main
 
 
 
@@ -542,6 +547,11 @@ cmp r0, 0x6C6A          ; jl
 jne 4
 mov r2, 0x8C0F
 mov r3, 2
+jmp 5
+cmp r0, 0x6C6C6163          ; call
+jne 4
+mov r2, 0xE8
+mov r3, 1
 jmp 2
 jne 6
 REX.W
@@ -635,7 +645,7 @@ jne 2
 add r3, 256
 REX.W
 mov [r2], r3            ; save jump information in instruction location array
-jmp -37
+jmp :main
 
 
 
@@ -707,7 +717,7 @@ REX.W
 add r8, 12
 REX.WB
 sub r10, 9
-jmp -28
+jmp :main
 
 
 
@@ -794,7 +804,7 @@ REX.W
 add r8, 11
 REX.WB
 sub r10, 7
-jmp -12
+jmp :main
 
 
 
@@ -885,7 +895,7 @@ REX.W
 add r8, 12
 REX.WB
 sub r10, 9
-jmp -27
+jmp :main
 
 
 
@@ -1015,7 +1025,7 @@ jmp -31
 mul r7
 jmp 3
 jmp 27
-jmp -39
+jmp :main
 
 REX.
 pop r7
@@ -1042,12 +1052,12 @@ REX.W
 add r8, 8
 REX.WB
 sub r10, 5
-jmp -25
+jmp :main
 
 
 
 
 
 ; invalid
-jmp :
+jmp 0
 mov r0, r0
