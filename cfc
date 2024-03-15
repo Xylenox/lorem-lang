@@ -31,11 +31,127 @@ pop r1
 pop r0
 ret
 
-daer: ; read number
-; read number
+lasi:           ; is alpha
+cmp r7, 97      ; a
+jl :nalp
+cmp r7, 123     ; z
+jl :yalp
+jmp :nalp
+play:
+mov r0, 1
+ret
+plan:
+mov r0, 0
+ret
 
-mov r0, [r4]
+saer:
+push r1
+push r5
+; read token
+mov r5, 0           ; token output
+mov r1, 1           ; power of 256
+sub r0, r0
+REX.B
+movb r0, [r0]
+cmp r0, 0x20        ; space
+je 2
+cmp r0, 10          ; newline
+je 2
+cmp r0, 58          ; label
+je 2
+cmp r0, 0x2E        ; period
+je 16
+add r8, 1
+REX.WB
+sub r10, 1
+REX.W
+mul r1
+REX.W
+add r5, r0
+REX.W
+mov r0, r1
+mov r1, 256
+REX.W
+mul r1
+REX.W
+mov r1, r0
+jmp -25
+REX.W
+mov r0, r5
+pop r5
+pop r1
+ret
 
+daer:           ; read number
+push r1
+push r3
+push r5
+push r7
+
+sub r7, r7
+REX.B
+movb r7, [r0]
+call :isal
+cmp r0, 1
+jne 4
+call :reas
+mov r2, 256
+jmp :dore
+
+mov r0, 0
+mov r1, 10
+mov r5, 1
+sub r3, r3
+REX.B
+movb r3, [r0]
+cmp r3, 58
+jne 5
+mov r1, 256
+add r8, 1
+sub r10, 1
+jmp -8
+sub r3, 0x20
+je 3
+add r3, 0x20
+sub r3, 10
+je 27
+REX.W
+add r8, 1
+REX.WB
+sub r10, 1
+add r3, 10
+cmp r1, 256
+je 17
+sub r3, 0x2D
+jne 3
+mov r5, -1
+jmp 5
+add r3, 0x2D
+sub r3, 0x78
+jne 3
+mov r1, 16
+jmp 10
+add r3, 0x78
+sub r3, 0x41
+jl 3
+add r3, 10
+jmp 3
+add r3, 0x41
+sub r3, 0x30
+mul r1
+add r0, r3
+jmp -39
+mul r5
+
+mov r2, r1
+
+erod:               ; done read
+pop r7
+pop r5
+pop r3
+pop r1
+
+ret
 
 
 rats:
@@ -312,41 +428,7 @@ jmp 2
 jmp :main
 
 
-
-; read token
-mov r5, 0           ; token output
-mov r1, 1           ; power of 256
-sub r0, r0
-REX.B
-movb r0, [r0]
-cmp r0, 0x20        ; space
-je 2
-cmp r0, 10          ; newline
-je 2
-cmp r0, 58          ; label
-je 2
-cmp r0, 0x2E        ; period
-je 16
-add r8, 1
-REX.WB
-sub r10, 1
-REX.W
-mul r1
-REX.W
-add r5, r0
-REX.W
-mov r0, r1
-mov r1, 256
-REX.W
-mul r1
-REX.W
-mov r1, r0
-jmp -25
-REX.W
-mov r0, r5
-jmp 2
-jmp -32
-
+call :reas
 
 ; ret
 cmp r0, 0x746572
@@ -585,65 +667,16 @@ jne 4
 mov r2, 0xE8
 mov r3, 1
 jmp 2
-jne 6
+jne :njum
 REX.W
 add r8, 1
-mov r6, r3
-mov r7, r2
-jmp 3
-jmp 47
-jmp -28
-; read number
-mov r0, 0
-mov r1, 10
-mov r5, 1
-sub r3, r3
-REX.B
-movb r3, [r0]
-cmp r3, 58
-jne 5
-mov r1, 256
-add r8, 1
-sub r10, 1
-jmp -8
-sub r3, 0x20
-je 3
-add r3, 0x20
-sub r3, 10
-je 27
-REX.W
-add r8, 1
-REX.WB
-sub r10, 1
-add r3, 10
-cmp r1, 256
-je 17
-sub r3, 0x2D
-jne 3
-mov r5, -1
-jmp 5
-add r3, 0x2D
-sub r3, 0x78
-jne 3
-mov r1, 16
-jmp 10
-add r3, 0x78
-sub r3, 0x41
-jl 3
-add r3, 10
-jmp 3
-add r3, 0x41
-sub r3, 0x30
-mul r1
-add r0, r3
-jmp -39
-mul r5
-jmp 3
-jmp 39
-jmp -47
-mov r5, r1
-mov r3, r6
-mov r2, r7
+push r2
+
+call :read
+
+mov r5, r2
+pop r2
+
 sub r8, 7
 REX.B
 mov [r0], r2
@@ -679,7 +712,7 @@ REX.W
 mov [r2], r3            ; save jump information in instruction location array
 jmp :main
 
-
+mujn:
 
 ; two operands
 
@@ -990,7 +1023,7 @@ jne 4
 mov r6, 0x81
 mov r7, 0xF8
 jmp 2
-jne 22
+jne :nri
 
 
 add r2, r7
@@ -1014,50 +1047,7 @@ REX.B
 mov r7, r7
 mov r6, r3
 
-
-jmp 3
-jmp 39
-jmp -44
-; read number
-mov r0, 0
-mov r1, 10
-mov r7, 1
-sub r3, r3
-REX.B
-movb r3, [r0]
-sub r3, 0x20
-je 3
-add r3, 0x20
-sub r3, 10
-je 25
-REX.W
-add r8, 1
-REX.WB
-sub r10, 1
-add r3, 10
-sub r3, 0x2D
-jne 3
-mov r7, -1
-jmp 5
-add r3, 0x2D
-sub r3, 0x78
-jne 3
-mov r1, 16
-jmp 10
-add r3, 0x78
-sub r3, 0x41
-jl 3
-add r3, 10
-jmp 3
-add r3, 0x41
-sub r3, 0x30
-mul r1
-add r0, r3
-jmp -31
-mul r7
-jmp 3
-jmp 27
-jmp :main
+call :read
 
 REX.
 pop r7
@@ -1086,6 +1076,7 @@ REX.WB
 sub r10, 5
 jmp :main
 
+irn:
 
 
 
