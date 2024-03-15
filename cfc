@@ -319,7 +319,21 @@ jmp 2
 jmp -32
 
 
-
+; ret
+cmp r0, 0x746572
+jne :nret
+mov r0, 0xC3
+push r0
+REX.WB                          ; printst
+mov r7, r1
+REX.W
+mov r6, r4
+mov r2, 1
+mov r0, 1
+syscall
+pop r0
+jmp :main
+tern:
 
 ; syscall
 REX.W
@@ -354,7 +368,7 @@ REX.W
 add r8, 4
 REX.WB
 sub r10, 0
-jmp -33
+jmp :main
 
 
 
