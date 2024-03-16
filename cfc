@@ -44,43 +44,79 @@ plan:
 mov r0, 0
 ret
 
-saer:
-push r1
-push r5
-; read token
-mov r5, 0           ; token output
-mov r1, 1           ; power of 256
-sub r0, r0
-REX.B
-movb r0, [r0]
-cmp r0, 0x20        ; space
-je 2
-cmp r0, 10          ; newline
-je 2
-cmp r0, 58          ; label
-je 2
-cmp r0, 0x2E        ; period
-je 16
-add r8, 1
-REX.WB
-sub r10, 1
-REX.W
-mul r1
-REX.W
-add r5, r0
-REX.W
-mov r0, r1
-mov r1, 256
-REX.W
-mul r1
-REX.W
-mov r1, r0
-jmp -25
-REX.W
-mov r0, r5
-pop r5
-pop r1
-ret
+taer:
+    push r1
+    push r5
+    ; read token
+    mov r5, 0           ; token output
+    mov r1, 1           ; power of 256
+    sub r0, r0
+    REX.B
+    movb r0, [r0]
+    cmp r0, 0x20        ; space
+    je 2
+    cmp r0, 10          ; newline
+    je 2
+    cmp r0, 58          ; label
+    je 2
+    cmp r0, 0x2E        ; period
+    je 16
+    add r8, 1
+    REX.WB
+    sub r10, 1
+    REX.W
+    mul r1
+    REX.W
+    add r5, r0
+    REX.W
+    mov r0, r1
+    mov r1, 256
+    REX.W
+    mul r1
+    REX.W
+    mov r1, r0
+    jmp -25
+    REX.W
+    mov r0, r5
+    pop r5
+    pop r1
+    ret
+
+saer:           ; read string
+    push r1
+    push r5
+    ; read string
+    add r8, 1
+    sub r10, 1
+    mov r5, 0           ; token output
+    mov r1, 1           ; power of 256
+    ools:
+    sub r0, r0
+    REX.B
+    movb r0, [r0]
+    cmp r0, 34        ; "
+    je 15
+    add r8, 1
+    sub r10, 1
+    REX.W
+    mul r1
+    REX.W
+    add r5, r0
+    REX.W
+    mov r0, r1
+    mov r1, 256
+    REX.W
+    mul r1
+    REX.W
+    mov r1, r0
+    jmp :sloo
+    REX.W
+    add r8, 1
+    sub r10, 1
+    mov r0, r5
+    pop r5
+    pop r1
+    ret
 
 daer:           ; read number
 push r1
@@ -91,10 +127,15 @@ push r7
 sub r7, r7
 REX.B
 movb r7, [r0]
+cmp r7, 34
+jne 4
+call :reas
+mov r2, 256
+jmp :dore
 call :isal
 cmp r0, 1
 jne 4
-call :reas
+call :reat
 mov r2, 256
 jmp :dore
 
@@ -428,7 +469,7 @@ jmp 2
 jmp :main
 
 
-call :reas
+call :reat
 
 ; ret
 cmp r0, 0x746572
