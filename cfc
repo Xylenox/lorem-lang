@@ -44,9 +44,337 @@ nalp:
 mov r0, 0
 ret
 
+tore:           ; to register
+; 8-bit registers
+cmp r7, "al"
+jne 4
+mov r0, 0
+mov r2, 8
+ret
+cmp r7, "cl"
+jne 4
+mov r0, 1
+mov r2, 8
+ret
+cmp r7, "dl"
+jne 4
+mov r0, 2
+mov r2, 8
+ret
+cmp r7, "bl"
+jne 4
+mov r0, 3
+mov r2, 8
+ret
+cmp r7, "spl"
+jne 4
+mov r0, 4
+mov r2, 8
+ret
+cmp r7, "bpl"
+jne 4
+mov r0, 5
+mov r2, 8
+ret
+cmp r7, "sil"
+jne 4
+mov r0, 6
+mov r2, 8
+ret
+cmp r7, "dil"
+jne 4
+mov r0, 7
+mov r2, 8
+ret
+cmp r7, "r8b"
+jne 4
+mov r0, 8
+mov r2, 8
+ret
+cmp r7, "r9b"
+jne 4
+mov r0, 9
+mov r2, 8
+ret
+cmp r7, "r10b"
+jne 4
+mov r0, 10
+mov r2, 8
+ret
+cmp r7, "r11b"
+jne 4
+mov r0, 11
+mov r2, 8
+ret
+cmp r7, "r12b"
+jne 4
+mov r0, 12
+mov r2, 8
+ret
+cmp r7, "r13b"
+jne 4
+mov r0, 13
+mov r2, 8
+ret
+cmp r7, "r14b"
+jne 4
+mov r0, 14
+mov r2, 8
+ret
+cmp r7, "r15b"
+jne 4
+mov r0, 15
+mov r2, 8
+ret
+cmp r7, "ax"
+jne 4
+mov r0, 0
+mov r2, 16
+ret
+cmp r7, "cx"
+jne 4
+mov r0, 1
+mov r2, 16
+ret
+cmp r7, "dx"
+jne 4
+mov r0, 2
+mov r2, 16
+ret
+cmp r7, "bx"
+jne 4
+mov r0, 3
+mov r2, 16
+ret
+cmp r7, "sp"
+jne 4
+mov r0, 4
+mov r2, 16
+ret
+cmp r7, "bp"
+jne 4
+mov r0, 5
+mov r2, 16
+ret
+cmp r7, "si"
+jne 4
+mov r0, 6
+mov r2, 16
+ret
+cmp r7, "di"
+jne 4
+mov r0, 7
+mov r2, 16
+ret
+cmp r7, "r8w"
+jne 4
+mov r0, 8
+mov r2, 16
+ret
+cmp r7, "r9w"
+jne 4
+mov r0, 9
+mov r2, 16
+ret
+cmp r7, "r10w"
+jne 4
+mov r0, 10
+mov r2, 16
+ret
+cmp r7, "r11w"
+jne 4
+mov r0, 11
+mov r2, 16
+ret
+cmp r7, "r12w"
+jne 4
+mov r0, 12
+mov r2, 16
+ret
+cmp r7, "r13w"
+jne 4
+mov r0, 13
+mov r2, 16
+ret
+cmp r7, "r14w"
+jne 4
+mov r0, 14
+mov r2, 16
+ret
+cmp r7, "r15w"
+jne 4
+mov r0, 15
+mov r2, 16
+ret
+cmp r7, "eax"
+jne 4
+mov r0, 0
+mov r2, 32
+ret
+cmp r7, "ecx"
+jne 4
+mov r0, 1
+mov r2, 32
+ret
+cmp r7, "edx"
+jne 4
+mov r0, 2
+mov r2, 32
+ret
+cmp r7, "ebx"
+jne 4
+mov r0, 3
+mov r2, 32
+ret
+cmp r7, "esp"
+jne 4
+mov r0, 4
+mov r2, 32
+ret
+cmp r7, "ebp"
+jne 4
+mov r0, 5
+mov r2, 32
+ret
+cmp r7, "esi"
+jne 4
+mov r0, 6
+mov r2, 32
+ret
+cmp r7, "edi"
+jne 4
+mov r0, 7
+mov r2, 32
+ret
+cmp r7, "r8d"
+jne 4
+mov r0, 8
+mov r2, 32
+ret
+cmp r7, "r9d"
+jne 4
+mov r0, 9
+mov r2, 32
+ret
+cmp r7, "r10d"
+jne 4
+mov r0, 10
+mov r2, 32
+ret
+cmp r7, "r11d"
+jne 4
+mov r0, 11
+mov r2, 32
+ret
+cmp r7, "r12d"
+jne 4
+mov r0, 12
+mov r2, 32
+ret
+cmp r7, "r13d"
+jne 4
+mov r0, 13
+mov r2, 32
+ret
+cmp r7, "r14d"
+jne 4
+mov r0, 14
+mov r2, 32
+ret
+cmp r7, "r15d"
+jne 4
+mov r0, 15
+mov r2, 32
+ret
+cmp r7, "rax"
+jne 4
+mov r0, 0
+mov r2, 64
+ret
+cmp r7, "rcx"
+jne 4
+mov r0, 1
+mov r2, 64
+ret
+cmp r7, "rdx"
+jne 4
+mov r0, 2
+mov r2, 64
+ret
+cmp r7, "rbx"
+jne 4
+mov r0, 3
+mov r2, 64
+ret
+cmp r7, "rsp"
+jne 4
+mov r0, 4
+mov r2, 64
+ret
+cmp r7, "rbp"
+jne 4
+mov r0, 5
+mov r2, 64
+ret
+cmp r7, "rsi"
+jne 4
+mov r0, 6
+mov r2, 64
+ret
+cmp r7, "rdi"
+jne 4
+mov r0, 7
+mov r2, 64
+ret
+cmp r7, "r8"
+jne 4
+mov r0, 8
+mov r2, 64
+ret
+cmp r7, "r9"
+jne 4
+mov r0, 9
+mov r2, 64
+ret
+cmp r7, "r10"
+jne 4
+mov r0, 10
+mov r2, 64
+ret
+cmp r7, "r11"
+jne 4
+mov r0, 11
+mov r2, 64
+ret
+cmp r7, "r12"
+jne 4
+mov r0, 12
+mov r2, 64
+ret
+cmp r7, "r13"
+jne 4
+mov r0, 13
+mov r2, 64
+ret
+cmp r7, "r14"
+jne 4
+mov r0, 14
+mov r2, 64
+ret
+cmp r7, "r15"
+jne 4
+mov r0, 15
+mov r2, 64
+ret
+
+mov r0, r7
+mov r2, 0
+ret
+
 reat:
     push r1
     push r5
+    push r7
     ; read token
     mov r5, 0           ; token output
     mov r1, 1           ; power of 256
@@ -79,7 +407,9 @@ reat:
     mov r1, r0
     jmp -27
     REX.W
-    mov r0, r5
+    mov r7, r5
+    call tore
+    pop r7
     pop r5
     pop r1
     ret
@@ -138,7 +468,6 @@ call isal
 cmp r0, 1
 jne 4
 call reat
-mov r2, 256
 jmp dore
 
 mov r0, 0
@@ -147,12 +476,6 @@ mov r5, 1
 sub r3, r3
 REX.B
 movb r3, [r0]
-cmp r3, 58
-jne 5
-mov r1, 256
-add r8, 1
-sub r10, 1
-jmp -8
 cmp r3, " "
 je 2
 sub r3, 10              ; newline
@@ -182,10 +505,10 @@ add r3, 0x41
 sub r3, 0x30
 mul r1
 add r0, r3
-jmp -38
+jmp -32
 mul r5
 
-mov r2, r1
+mov r2, 1           ; type is integer
 
 dore:               ; done read
 pop r7
@@ -746,7 +1069,7 @@ add r2, r6
 REX.W
 sub r2, 8
 mov r0, 2
-cmp r5, 256
+cmp r5, 0
 jne 2
 add r3, 256
 REX.W
@@ -1044,22 +1367,22 @@ jmp -24
 
 
 ; add/sub/mov/cmpri
-cmp r0, 0x646461
+cmp r0, "add"
 jne 4
 mov r6, 0x81
 mov r7, 0xC0
 jmp 5
-cmp r0, 0x627573
+cmp r0, "sub"
 jne 4
 mov r6, 0x81
 mov r7, 0xE8
 jmp 5
-cmp r0, 0x766F6D
+cmp r0, "mov"
 jne 4
 mov r6, 0xC7
 mov r7, 0xC0
 jmp 5
-cmp r0, 0x706D63
+cmp r0, "cmp"
 jne 4
 mov r6, 0x81
 mov r7, 0xF8
@@ -1073,15 +1396,12 @@ REX.
 push r7
 mov r3, r2
 sub r8, 4
-REX.B
-mov [r0], r1
-REX.WB                  ; printst
-mov r7, r1
-REX.WB
-mov r6, r0
-mov r2, 1
-mov r0, 1
-syscall
+
+push r1
+mov r7, 1
+call prin
+pop r1
+
 REX.W
 add r8, 4
 REX.B
