@@ -4,9 +4,9 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-jmp :star
+jmp star
 
-nirp:                   ; printst
+prin:                   ; printst
 push r0
 push r1
 push r2
@@ -31,20 +31,20 @@ pop r1
 pop r0
 ret
 
-lasi:           ; is alpha
+isal:           ; is alpha
 cmp r7, 97      ; a
-jl :nalp
+jl nalp
 cmp r7, 123     ; z
-jl :yalp
-jmp :nalp
-play:
+jl yalp
+jmp nalp
+yalp:
 mov r0, 1
 ret
-plan:
+nalp:
 mov r0, 0
 ret
 
-taer:
+reat:
     push r1
     push r5
     ; read token
@@ -53,13 +53,15 @@ taer:
     sub r0, r0
     REX.B
     movb r0, [r0]
-    cmp r0, 0x20        ; space
+    cmp r0, " "        ; space
     je 2
     cmp r0, 10          ; newline
     je 2
-    cmp r0, 58          ; label
+    cmp r0, ":"          ; label
     je 2
-    cmp r0, 0x2E        ; period
+    cmp r0, "."        ; period
+    je 2
+    cmp r0, ","
     je 16
     add r8, 1
     REX.WB
@@ -75,14 +77,14 @@ taer:
     mul r1
     REX.W
     mov r1, r0
-    jmp -25
+    jmp -27
     REX.W
     mov r0, r5
     pop r5
     pop r1
     ret
 
-saer:           ; read string
+reas:           ; read string
     push r1
     push r5
     ; read string
@@ -90,7 +92,7 @@ saer:           ; read string
     sub r10, 1
     mov r5, 0           ; token output
     mov r1, 1           ; power of 256
-    ools:
+    sloo:
     sub r0, r0
     REX.B
     movb r0, [r0]
@@ -109,7 +111,7 @@ saer:           ; read string
     mul r1
     REX.W
     mov r1, r0
-    jmp :sloo
+    jmp sloo
     REX.W
     add r8, 1
     sub r10, 1
@@ -118,7 +120,7 @@ saer:           ; read string
     pop r1
     ret
 
-daer:           ; read number
+read:           ; read number
 push r1
 push r3
 push r5
@@ -129,15 +131,15 @@ REX.B
 movb r7, [r0]
 cmp r7, 34
 jne 4
-call :reas
+call reas
 mov r2, 256
-jmp :dore
-call :isal
+jmp dore
+call isal
 cmp r0, 1
 jne 4
-call :reat
+call reat
 mov r2, 256
-jmp :dore
+jmp dore
 
 mov r0, 0
 mov r1, 10
@@ -151,10 +153,9 @@ mov r1, 256
 add r8, 1
 sub r10, 1
 jmp -8
-sub r3, 0x20
-je 3
-add r3, 0x20
-sub r3, 10
+cmp r3, " "
+je 2
+sub r3, 10              ; newline
 je 27
 REX.W
 add r8, 1
@@ -181,12 +182,12 @@ add r3, 0x41
 sub r3, 0x30
 mul r1
 add r0, r3
-jmp -39
+jmp -38
 mul r5
 
 mov r2, r1
 
-erod:               ; done read
+dore:               ; done read
 pop r7
 pop r5
 pop r3
@@ -195,7 +196,7 @@ pop r1
 ret
 
 
-rats:
+star:
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
@@ -320,7 +321,7 @@ push r0                 ; save label info array
 
 
 
-niam:
+main:
 ; main loop
 sub r10, 0
 jne 18
@@ -466,50 +467,50 @@ mov [r6], r0
 REX.WB
 add r14, 8
 jmp 2
-jmp :main
+jmp main
 
 
-call :reat
+call reat
 
 ; ret
-cmp r0, 0x746572
-jne :nret
+cmp r0, "ret"
+jne nret
 mov r0, 0xC3
 push r0
 mov r7, 1
-call :prin
+call prin
 pop r0
-jmp :main
-tern:
+jmp main
+nret:
 
 ; syscall
 REX.W
 mov r3, r0
-mov r0, 0x6C6C61
+mov r0, "all"
 mov r1, 0x10000
 REX.W
 mul r1
 REX.W
 mul r1
 REX.W
-add r0, 0x63737973
+add r0, "sysc"
 REX.W
 mov r1, r0
 REX.W
 mov r0, r3
 cmp r0, r1
 je 2
-jne :nsys
+jne nsys
 sub r8, 4
 mov r0, 0x050F
 push r0
 mov r7, 2
-call :prin
+call prin
 pop r0
 add r8, 4
 sub r10, 0
-jmp :main
-sysn:                   ; not sys
+jmp main
+nsys:                   ; not sys
 
 
 
@@ -530,7 +531,6 @@ jmp -8
 REX.WB
 sub r14, 8
 jmp -14
-
 
 
 ; space/newline
@@ -618,7 +618,7 @@ mov r0, 1
 syscall
 REX.W
 add r8, 4
-jmp :main
+jmp main
 
 
 
@@ -678,7 +678,7 @@ REX.W
 add r8, 6
 REX.WB
 sub r10, 3
-jmp :main
+jmp main
 
 
 
@@ -708,12 +708,12 @@ jne 4
 mov r2, 0xE8
 mov r3, 1
 jmp 2
-jne :njum
+jne njum
 REX.W
 add r8, 1
 push r2
 
-call :read
+call read
 
 mov r5, r2
 pop r2
@@ -751,9 +751,9 @@ jne 2
 add r3, 256
 REX.W
 mov [r2], r3            ; save jump information in instruction location array
-jmp :main
+jmp main
 
-mujn:
+njum:
 
 ; two operands
 
@@ -823,7 +823,7 @@ REX.W
 add r8, 12
 REX.WB
 sub r10, 9
-jmp :main
+jmp main
 
 
 
@@ -910,7 +910,7 @@ REX.W
 add r8, 11
 REX.WB
 sub r10, 7
-jmp :main
+jmp main
 
 
 
@@ -1001,7 +1001,7 @@ REX.W
 add r8, 12
 REX.WB
 sub r10, 9
-jmp :main
+jmp main
 
 
 
@@ -1064,7 +1064,7 @@ jne 4
 mov r6, 0x81
 mov r7, 0xF8
 jmp 2
-jne :nri
+jne nri
 
 
 add r2, r7
@@ -1088,7 +1088,7 @@ REX.B
 mov r7, r7
 mov r6, r3
 
-call :read
+call read
 
 REX.
 pop r7
@@ -1115,9 +1115,9 @@ REX.W
 add r8, 8
 REX.WB
 sub r10, 5
-jmp :main
+jmp main
 
-irn:
+nri:
 
 
 
