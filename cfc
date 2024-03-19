@@ -45,331 +45,331 @@ mov r0, 0
 ret
 
 tore:           ; to register
-; 8-bit registers
-cmp r7, "al"
-jne 4
-mov r0, 0
-mov r2, 8
-ret
-cmp r7, "cl"
-jne 4
-mov r0, 1
-mov r2, 8
-ret
-cmp r7, "dl"
-jne 4
-mov r0, 2
-mov r2, 8
-ret
-cmp r7, "bl"
-jne 4
-mov r0, 3
-mov r2, 8
-ret
-cmp r7, "spl"
-jne 4
-mov r0, 4
-mov r2, 8
-ret
-cmp r7, "bpl"
-jne 4
-mov r0, 5
-mov r2, 8
-ret
-cmp r7, "sil"
-jne 4
-mov r0, 6
-mov r2, 8
-ret
-cmp r7, "dil"
-jne 4
-mov r0, 7
-mov r2, 8
-ret
-cmp r7, "r8b"
-jne 4
-mov r0, 8
-mov r2, 8
-ret
-cmp r7, "r9b"
-jne 4
-mov r0, 9
-mov r2, 8
-ret
-cmp r7, "r10b"
-jne 4
-mov r0, 10
-mov r2, 8
-ret
-cmp r7, "r11b"
-jne 4
-mov r0, 11
-mov r2, 8
-ret
-cmp r7, "r12b"
-jne 4
-mov r0, 12
-mov r2, 8
-ret
-cmp r7, "r13b"
-jne 4
-mov r0, 13
-mov r2, 8
-ret
-cmp r7, "r14b"
-jne 4
-mov r0, 14
-mov r2, 8
-ret
-cmp r7, "r15b"
-jne 4
-mov r0, 15
-mov r2, 8
-ret
-cmp r7, "ax"
-jne 4
-mov r0, 0
-mov r2, 16
-ret
-cmp r7, "cx"
-jne 4
-mov r0, 1
-mov r2, 16
-ret
-cmp r7, "dx"
-jne 4
-mov r0, 2
-mov r2, 16
-ret
-cmp r7, "bx"
-jne 4
-mov r0, 3
-mov r2, 16
-ret
-cmp r7, "sp"
-jne 4
-mov r0, 4
-mov r2, 16
-ret
-cmp r7, "bp"
-jne 4
-mov r0, 5
-mov r2, 16
-ret
-cmp r7, "si"
-jne 4
-mov r0, 6
-mov r2, 16
-ret
-cmp r7, "di"
-jne 4
-mov r0, 7
-mov r2, 16
-ret
-cmp r7, "r8w"
-jne 4
-mov r0, 8
-mov r2, 16
-ret
-cmp r7, "r9w"
-jne 4
-mov r0, 9
-mov r2, 16
-ret
-cmp r7, "r10w"
-jne 4
-mov r0, 10
-mov r2, 16
-ret
-cmp r7, "r11w"
-jne 4
-mov r0, 11
-mov r2, 16
-ret
-cmp r7, "r12w"
-jne 4
-mov r0, 12
-mov r2, 16
-ret
-cmp r7, "r13w"
-jne 4
-mov r0, 13
-mov r2, 16
-ret
-cmp r7, "r14w"
-jne 4
-mov r0, 14
-mov r2, 16
-ret
-cmp r7, "r15w"
-jne 4
-mov r0, 15
-mov r2, 16
-ret
-cmp r7, "eax"
-jne 4
-mov r0, 0
-mov r2, 32
-ret
-cmp r7, "ecx"
-jne 4
-mov r0, 1
-mov r2, 32
-ret
-cmp r7, "edx"
-jne 4
-mov r0, 2
-mov r2, 32
-ret
-cmp r7, "ebx"
-jne 4
-mov r0, 3
-mov r2, 32
-ret
-cmp r7, "esp"
-jne 4
-mov r0, 4
-mov r2, 32
-ret
-cmp r7, "ebp"
-jne 4
-mov r0, 5
-mov r2, 32
-ret
-cmp r7, "esi"
-jne 4
-mov r0, 6
-mov r2, 32
-ret
-cmp r7, "edi"
-jne 4
-mov r0, 7
-mov r2, 32
-ret
-cmp r7, "r8d"
-jne 4
-mov r0, 8
-mov r2, 32
-ret
-cmp r7, "r9d"
-jne 4
-mov r0, 9
-mov r2, 32
-ret
-cmp r7, "r10d"
-jne 4
-mov r0, 10
-mov r2, 32
-ret
-cmp r7, "r11d"
-jne 4
-mov r0, 11
-mov r2, 32
-ret
-cmp r7, "r12d"
-jne 4
-mov r0, 12
-mov r2, 32
-ret
-cmp r7, "r13d"
-jne 4
-mov r0, 13
-mov r2, 32
-ret
-cmp r7, "r14d"
-jne 4
-mov r0, 14
-mov r2, 32
-ret
-cmp r7, "r15d"
-jne 4
-mov r0, 15
-mov r2, 32
-ret
-cmp r7, "rax"
-jne 4
-mov r0, 0
-mov r2, 64
-ret
-cmp r7, "rcx"
-jne 4
-mov r0, 1
-mov r2, 64
-ret
-cmp r7, "rdx"
-jne 4
-mov r0, 2
-mov r2, 64
-ret
-cmp r7, "rbx"
-jne 4
-mov r0, 3
-mov r2, 64
-ret
-cmp r7, "rsp"
-jne 4
-mov r0, 4
-mov r2, 64
-ret
-cmp r7, "rbp"
-jne 4
-mov r0, 5
-mov r2, 64
-ret
-cmp r7, "rsi"
-jne 4
-mov r0, 6
-mov r2, 64
-ret
-cmp r7, "rdi"
-jne 4
-mov r0, 7
-mov r2, 64
-ret
-cmp r7, "r8"
-jne 4
-mov r0, 8
-mov r2, 64
-ret
-cmp r7, "r9"
-jne 4
-mov r0, 9
-mov r2, 64
-ret
-cmp r7, "r10"
-jne 4
-mov r0, 10
-mov r2, 64
-ret
-cmp r7, "r11"
-jne 4
-mov r0, 11
-mov r2, 64
-ret
-cmp r7, "r12"
-jne 4
-mov r0, 12
-mov r2, 64
-ret
-cmp r7, "r13"
-jne 4
-mov r0, 13
-mov r2, 64
-ret
-cmp r7, "r14"
-jne 4
-mov r0, 14
-mov r2, 64
-ret
-cmp r7, "r15"
-jne 4
-mov r0, 15
-mov r2, 64
-ret
+    ; 8-bit registers
+    cmp r7, "al"
+    jne 4
+    mov r0, 0
+    mov r2, 8
+    ret
+    cmp r7, "cl"
+    jne 4
+    mov r0, 1
+    mov r2, 8
+    ret
+    cmp r7, "dl"
+    jne 4
+    mov r0, 2
+    mov r2, 8
+    ret
+    cmp r7, "bl"
+    jne 4
+    mov r0, 3
+    mov r2, 8
+    ret
+    cmp r7, "spl"
+    jne 4
+    mov r0, 4
+    mov r2, 8
+    ret
+    cmp r7, "bpl"
+    jne 4
+    mov r0, 5
+    mov r2, 8
+    ret
+    cmp r7, "sil"
+    jne 4
+    mov r0, 6
+    mov r2, 8
+    ret
+    cmp r7, "dil"
+    jne 4
+    mov r0, 7
+    mov r2, 8
+    ret
+    cmp r7, "r8b"
+    jne 4
+    mov r0, 8
+    mov r2, 8
+    ret
+    cmp r7, "r9b"
+    jne 4
+    mov r0, 9
+    mov r2, 8
+    ret
+    cmp r7, "r10b"
+    jne 4
+    mov r0, 10
+    mov r2, 8
+    ret
+    cmp r7, "r11b"
+    jne 4
+    mov r0, 11
+    mov r2, 8
+    ret
+    cmp r7, "r12b"
+    jne 4
+    mov r0, 12
+    mov r2, 8
+    ret
+    cmp r7, "r13b"
+    jne 4
+    mov r0, 13
+    mov r2, 8
+    ret
+    cmp r7, "r14b"
+    jne 4
+    mov r0, 14
+    mov r2, 8
+    ret
+    cmp r7, "r15b"
+    jne 4
+    mov r0, 15
+    mov r2, 8
+    ret
+    cmp r7, "ax"
+    jne 4
+    mov r0, 0
+    mov r2, 16
+    ret
+    cmp r7, "cx"
+    jne 4
+    mov r0, 1
+    mov r2, 16
+    ret
+    cmp r7, "dx"
+    jne 4
+    mov r0, 2
+    mov r2, 16
+    ret
+    cmp r7, "bx"
+    jne 4
+    mov r0, 3
+    mov r2, 16
+    ret
+    cmp r7, "sp"
+    jne 4
+    mov r0, 4
+    mov r2, 16
+    ret
+    cmp r7, "bp"
+    jne 4
+    mov r0, 5
+    mov r2, 16
+    ret
+    cmp r7, "si"
+    jne 4
+    mov r0, 6
+    mov r2, 16
+    ret
+    cmp r7, "di"
+    jne 4
+    mov r0, 7
+    mov r2, 16
+    ret
+    cmp r7, "r8w"
+    jne 4
+    mov r0, 8
+    mov r2, 16
+    ret
+    cmp r7, "r9w"
+    jne 4
+    mov r0, 9
+    mov r2, 16
+    ret
+    cmp r7, "r10w"
+    jne 4
+    mov r0, 10
+    mov r2, 16
+    ret
+    cmp r7, "r11w"
+    jne 4
+    mov r0, 11
+    mov r2, 16
+    ret
+    cmp r7, "r12w"
+    jne 4
+    mov r0, 12
+    mov r2, 16
+    ret
+    cmp r7, "r13w"
+    jne 4
+    mov r0, 13
+    mov r2, 16
+    ret
+    cmp r7, "r14w"
+    jne 4
+    mov r0, 14
+    mov r2, 16
+    ret
+    cmp r7, "r15w"
+    jne 4
+    mov r0, 15
+    mov r2, 16
+    ret
+    cmp r7, "eax"
+    jne 4
+    mov r0, 0
+    mov r2, 32
+    ret
+    cmp r7, "ecx"
+    jne 4
+    mov r0, 1
+    mov r2, 32
+    ret
+    cmp r7, "edx"
+    jne 4
+    mov r0, 2
+    mov r2, 32
+    ret
+    cmp r7, "ebx"
+    jne 4
+    mov r0, 3
+    mov r2, 32
+    ret
+    cmp r7, "esp"
+    jne 4
+    mov r0, 4
+    mov r2, 32
+    ret
+    cmp r7, "ebp"
+    jne 4
+    mov r0, 5
+    mov r2, 32
+    ret
+    cmp r7, "esi"
+    jne 4
+    mov r0, 6
+    mov r2, 32
+    ret
+    cmp r7, "edi"
+    jne 4
+    mov r0, 7
+    mov r2, 32
+    ret
+    cmp r7, "r8d"
+    jne 4
+    mov r0, 8
+    mov r2, 32
+    ret
+    cmp r7, "r9d"
+    jne 4
+    mov r0, 9
+    mov r2, 32
+    ret
+    cmp r7, "r10d"
+    jne 4
+    mov r0, 10
+    mov r2, 32
+    ret
+    cmp r7, "r11d"
+    jne 4
+    mov r0, 11
+    mov r2, 32
+    ret
+    cmp r7, "r12d"
+    jne 4
+    mov r0, 12
+    mov r2, 32
+    ret
+    cmp r7, "r13d"
+    jne 4
+    mov r0, 13
+    mov r2, 32
+    ret
+    cmp r7, "r14d"
+    jne 4
+    mov r0, 14
+    mov r2, 32
+    ret
+    cmp r7, "r15d"
+    jne 4
+    mov r0, 15
+    mov r2, 32
+    ret
+    cmp r7, "rax"
+    jne 4
+    mov r0, 0
+    mov r2, 64
+    ret
+    cmp r7, "rcx"
+    jne 4
+    mov r0, 1
+    mov r2, 64
+    ret
+    cmp r7, "rdx"
+    jne 4
+    mov r0, 2
+    mov r2, 64
+    ret
+    cmp r7, "rbx"
+    jne 4
+    mov r0, 3
+    mov r2, 64
+    ret
+    cmp r7, "rsp"
+    jne 4
+    mov r0, 4
+    mov r2, 64
+    ret
+    cmp r7, "rbp"
+    jne 4
+    mov r0, 5
+    mov r2, 64
+    ret
+    cmp r7, "rsi"
+    jne 4
+    mov r0, 6
+    mov r2, 64
+    ret
+    cmp r7, "rdi"
+    jne 4
+    mov r0, 7
+    mov r2, 64
+    ret
+    cmp r7, "r8"
+    jne 4
+    mov r0, 8
+    mov r2, 64
+    ret
+    cmp r7, "r9"
+    jne 4
+    mov r0, 9
+    mov r2, 64
+    ret
+    cmp r7, "r10"
+    jne 4
+    mov r0, 10
+    mov r2, 64
+    ret
+    cmp r7, "r11"
+    jne 4
+    mov r0, 11
+    mov r2, 64
+    ret
+    cmp r7, "r12"
+    jne 4
+    mov r0, 12
+    mov r2, 64
+    ret
+    cmp r7, "r13"
+    jne 4
+    mov r0, 13
+    mov r2, 64
+    ret
+    cmp r7, "r14"
+    jne 4
+    mov r0, 14
+    mov r2, 64
+    ret
+    cmp r7, "r15"
+    jne 4
+    mov r0, 15
+    mov r2, 64
+    ret
 
-mov r0, r7
-mov r2, 0
-ret
+    mov r0, r7
+    mov r2, 0
+    ret
 
 reat:
     push r1
@@ -1390,56 +1390,33 @@ jmp 2
 jne nri
 
 
-add r2, r7
-mov r7, r6
-REX.
-push r7
-mov r3, r2
-sub r8, 4
+add r7, r2
 
+push r7
 push r1
 mov r7, 1
-call prin
+call prin                   ; print REX byte
 pop r1
-
-REX.W
-add r8, 4
-REX.B
-mov r7, r7
-mov r6, r3
+pop r7
 
 call read
 
-REX.
-pop r7
+sub r4, 8
+mov [r4], r6
+add r4, 1
+mov [r4], r7
+add r4, 1
+mov [r4], r0                ; imm
+sub r4, 2
 
-sub r8, 8
-REX.B
-mov [r0], r7
-add r8, 1
-REX.B
-mov [r0], r6
-add r8, 1
-REX.B
-mov [r0], r0
-REX.W
-sub r8, 2
-REX.WB
-mov r7, r1
-REX.WB
-mov r6, r0
-mov r2, 6
-mov r0, 1
-syscall
-REX.W
-add r8, 8
-REX.WB
+mov r7, 6
+call prin
+
+add r4, 8
 sub r10, 5
 jmp main
 
 nri:
-
-
 
 
 ; invalid
