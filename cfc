@@ -412,8 +412,22 @@ tore:           ; to register
     mov r2, 64
     ret
 
-    mov r0, r7
-    mov r2, 0
+mov r0, r7
+mov r2, 0
+ret
+
+
+whit:
+    sub r0, r0
+    REX.B
+    movb r0, [r0]
+    cmp r0, " "
+    je 2
+    cmp r0, 10
+    jne 4
+    add r8, 1
+    sub r10, 1
+    jmp whit
     ret
 
 reat:
@@ -501,6 +515,8 @@ read:           ; read number
     push r3
     push r5
     push r7
+
+    call whit
 
     sub r7, r7
     REX.B
@@ -1274,6 +1290,28 @@ jmp main
     nrm:
 
 
+
+; r1 = REX byte
+; r2 = reg
+; r3 = r/m/immediate
+; r5 = opcode
+; r6 = opcode 2
+
+push r0
+call read
+mov r1, r0
+pop r0
+
+add r8, 1
+sub r10, 1
+
+mov r3, 0x48            ; REX byte
+cmp r1, 8
+jl 3
+add r3, 1
+sub r1, 8
+; ptr will now be at space after the comma
+
 ; sub/add/movrr
 cmp r0, "add"        ; add
 jne 3
@@ -1293,92 +1331,38 @@ mov r5, 0x3B
 jmp 2
 jne nrr
 REX.WB
-mov r3, r0
-REX.W
-add r3, 1
-sub r1, r1
-movb r1, [r3]
-sub r1, 0x72
-je 2
-jne nrr
-REX.W
-add r3, 2
-sub r1, r1
-movb r1, [r3]
-cmp r1, 0x2C
-jne nrr
-REX.W
-add r3, 1
-sub r1, r1
-movb r1, [r3]
-cmp r1, 0x20
-jne nrr
-REX.W
-add r3, 1
-sub r1, r1
-movb r1, [r3]
-sub r1, 0x72
-jne nrr
-add r8, 2
-REX.B
-movb r0, [r0]
-sub r0, 0x30
-add r0, r0
-add r0, r0
-add r0, r0
-add r8, 4
-REX.B
-add r0, [r0]
-sub r0, 0x30
-add r0, 0xC0
-sub r8, 10
-REX.B
-mov [r0], r5
-add r8, 1
-REX.B
-mov [r0], r0
-REX.W
-sub r8, 1
-REX.WB
-mov r7, r1
-REX.WB
 mov r6, r0
-mov r2, 2
-mov r0, 1
-syscall
-REX.W
-add r8, 11
-REX.WB
-sub r10, 7
-jmp main
+add r6, 1
+sub r2, r2
+movb r2, [r6]
+cmp r2, 0x72
+jne nrr
 
-nrr:
+mov r0, r1
+shl r0, 3
 
-; r1 = REX byte
-; r2 = reg
-; r3 = r/m/immediate
-; r5 = opcode
-; r6 = opcode 2
 
-add r8, 1
-sub r10, 1
 push r0
-call reat
+call read
 mov r1, r0
 pop r0
 
-add r8, 2
-sub r10, 2
+add r0, r1
+add r0, 0xC0
 
-mov r3, 0x48            ; REX byte
-cmp r1, 8
-jl 3
-add r3, 1
-sub r1, 8
+sub r4, 8
+mov [r4], r5
+add r4, 1
+mov [r4], r0
+sub r4, 1
 
-jmp 2
+mov r7, 2
+call prin
+add r4, 8
+
 jmp main
 
+nrr:
 
 
 ; add/sub/mov/cmpri
