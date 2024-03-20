@@ -6,6 +6,11 @@
 ;
 jmp star
 
+exit:
+    mov r0, 60
+    mov r7, 0
+    syscall
+
 prin:                   ; printst
 push r0
 push r1
@@ -366,6 +371,46 @@ tore:           ; to register
     mov r0, 15
     mov r2, 64
     ret
+    cmp r7, "r0"
+    jne 4
+    mov r0, 0
+    mov r2, 64
+    ret
+    cmp r7, "r1"
+    jne 4
+    mov r0, 1
+    mov r2, 64
+    ret
+    cmp r7, "r2"
+    jne 4
+    mov r0, 2
+    mov r2, 64
+    ret
+    cmp r7, "r3"
+    jne 4
+    mov r0, 3
+    mov r2, 64
+    ret
+    cmp r7, "r4"
+    jne 4
+    mov r0, 4
+    mov r2, 64
+    ret
+    cmp r7, "r5"
+    jne 4
+    mov r0, 5
+    mov r2, 64
+    ret
+    cmp r7, "r6"
+    jne 4
+    mov r0, 6
+    mov r2, 64
+    ret
+    cmp r7, "r7"
+    jne 4
+    mov r0, 7
+    mov r2, 64
+    ret
 
     mov r0, r7
     mov r2, 0
@@ -381,13 +426,13 @@ reat:
     sub r0, r0
     REX.B
     movb r0, [r0]
-    cmp r0, " "        ; space
+    cmp r0, " "         ; space
     je 2
     cmp r0, 10          ; newline
     je 2
-    cmp r0, ":"          ; label
+    cmp r0, ":"         ; label
     je 2
-    cmp r0, "."        ; period
+    cmp r0, "."         ; period
     je 2
     cmp r0, ","
     je 16
@@ -406,6 +451,7 @@ reat:
     REX.W
     mov r1, r0
     jmp -27
+
     REX.W
     mov r7, r5
     call tore
@@ -451,64 +497,64 @@ reas:           ; read string
     ret
 
 read:           ; read number
-push r1
-push r3
-push r5
-push r7
+    push r1
+    push r3
+    push r5
+    push r7
 
-sub r7, r7
-REX.B
-movb r7, [r0]
-cmp r7, 34
-jne 4
-call reas
-mov r2, 256
-jmp dore
-call isal
-cmp r0, 1
-jne 4
-call reat
-jmp dore
+    sub r7, r7
+    REX.B
+    movb r7, [r0]
+    cmp r7, 34
+    jne 4
+    call reas
+    mov r2, 256
+    jmp dore
+    call isal
+    cmp r0, 1
+    jne 4
+    call reat
+    jmp dore
 
-mov r0, 0
-mov r1, 10
-mov r5, 1
-sub r3, r3
-REX.B
-movb r3, [r0]
-cmp r3, " "
-je 2
-sub r3, 10              ; newline
-je 27
-REX.W
-add r8, 1
-REX.WB
-sub r10, 1
-add r3, 10
-cmp r1, 256
-je 17
-sub r3, 0x2D
-jne 3
-mov r5, -1
-jmp 5
-add r3, 0x2D
-sub r3, 0x78
-jne 3
-mov r1, 16
-jmp 10
-add r3, 0x78
-sub r3, 0x41
-jl 3
-add r3, 10
-jmp 3
-add r3, 0x41
-sub r3, 0x30
-mul r1
-add r0, r3
-jmp -32
-mul r5
+    mov r0, 0
+    mov r1, 10
+    mov r5, 1
+    sub r3, r3
+    REX.B
+    movb r3, [r0]
+    cmp r3, " "
+    je 2
+    sub r3, 10              ; newline
+    je 27
+    REX.W
+    add r8, 1
+    REX.WB
+    sub r10, 1
+    add r3, 10
+    cmp r1, 256
+    je 17
+    sub r3, 0x2D
+    jne 3
+    mov r5, -1
+    jmp 5
+    add r3, 0x2D
+    sub r3, 0x78
+    jne 3
+    mov r1, 16
+    jmp 10
+    add r3, 0x78
+    sub r3, 0x41
+    jl 3
+    add r3, 10
+    jmp 3
+    add r3, 0x41
+    sub r3, 0x30
+    mul r1
+    add r0, r3
+    jmp -32
+    mul r5
 
-mov r2, 1           ; type is integer
+    mov r2, 1           ; type is integer
 
 dore:               ; done read
 pop r7
@@ -1335,25 +1381,15 @@ jmp main
 ; r5 = opcode
 ; r6 = opcode 2
 
-add r8, 2               ; get first register operand
-sub r2, r2
-REX.B
-movb r2, [r0]
-sub r2, 0x30
-add r8, 1
-sub r1, r1
-REX.B
-movb r1, [r0]
-cmp r1, 0x2C
-je 6
-; 2 digit number
-mov r2, r1
-sub r2, 0x30
-add r2, 10
 add r8, 1
 sub r10, 1
-; done
+push r0
+call reat
+mov r2, r0
+pop r0
+
 add r8, 2
+sub r10, 2
 
 mov r1, 0x48            ; REX byte
 cmp r2, 8
@@ -1362,7 +1398,7 @@ add r1, 1
 sub r2, 8
 
 jmp 2
-jmp -24
+jmp main
 
 
 
@@ -1413,12 +1449,39 @@ mov r7, 6
 call prin
 
 add r4, 8
-sub r10, 5
 jmp main
 
 nri:
 
 
 ; invalid
+sub r4, 4
+mov r0, 10
+mov [r4], r0
+sub r4, 4
+mov r0, "ion"
+mov [r4], r0
+sub r4, 4
+mov r0, "ruct"
+mov [r4], r0
+sub r4, 4
+mov r0, "inst"
+mov [r4], r0
+sub r4, 4
+mov r0, "lid "
+mov [r4], r0
+sub r4, 4
+mov r0, "inva"
+mov [r4], r0
+
+mov r7, 21
+mov r9, 0
+call prin
+
+pop r0
+pop r0
+pop r0
+
+call exit
 jmp 0
 mov r0, r0
