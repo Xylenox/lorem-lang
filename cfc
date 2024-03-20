@@ -1197,24 +1197,101 @@ jmp main
 
 
 
+; add/mov/movbrm
+    cmp r0, "add"
+    jne 3
+    mov r2, 3
+    jmp 4
+    cmp r0, "mov"
+    jne 3
+    mov r2, 0x8B
+    jmp 4
+    cmp r0, "movb"              ; movbrm
+    jne 3
+    mov r2, 0x8A
+    jmp 4
+    cmp r0, "movs"              ; movs
+    jne 3
+    mov r2, 0x63
+    jmp 2
+    jne nrm
+    REX.WB
+    mov r3, r0
+    REX.W
+    add r3, 1
+    sub r1, r1
+    movb r1, [r3]
+    cmp r1, 0x72
+    jne nrm
+    add r3, 2
+    mov r1, [r3]
+    cmp r1, 0x725B202C
+    jne nrm
+    add r8, 2
+    REX.B
+    movb r0, [r0]
+    sub r0, 0x30
+    add r0, r0
+    add r0, r0
+    add r0, r0
+    add r8, 5
+    sub r1, r1
+    REX.B
+    movb r1, [r0]
+    REX.B
+    add r0, [r0]
+    sub r0, 0x30
+    sub r8, 10
+    REX.B
+    mov [r0], r2
+    add r8, 1
+    REX.B
+    mov [r0], r0
+    sub r8, 1
+    mov r2, 2
+    ; source is r4
+    sub r1, 0x34
+    jne 8
+    REX.W
+    add r8, 2
+    mov r0, 0x24
+    REX.B
+    mov [r0], r0
+    sub r8, 2
+    mov r2, 3
+    REX.WB
+    mov r7, r1
+    REX.WB
+    mov r6, r0
+    mov r0, 1
+    syscall
+    REX.W
+    add r8, 12
+    REX.WB
+    sub r10, 9
+    jmp main
+
+    nrm:
+
+
 ; sub/add/movrr
-cmp r0, 0x646461        ; add
+cmp r0, "add"        ; add
 jne 3
 mov r5, 0x03
 jmp 4
-cmp r0, 0x627573        ; sub
+cmp r0, "sub"        ; sub
 jne 3
 mov r5, 0x2B
 jmp 4
-cmp r0, 0x766F6D        ; mov
+cmp r0, "mov"        ; mov
 jne 3
 mov r5, 0x8B
 jmp 4
-cmp r0, 0x706D63        ; cmp
+cmp r0, "cmp"        ; cmp
 jne 3
 mov r5, 0x3B
 jmp 2
-jne 9
+jne nrr
 REX.WB
 mov r3, r0
 REX.W
@@ -1223,29 +1300,25 @@ sub r1, r1
 movb r1, [r3]
 sub r1, 0x72
 je 2
-jne 7
+jne nrr
 REX.W
 add r3, 2
 sub r1, r1
 movb r1, [r3]
-sub r1, 0x2C
-je 2
-jne 7
+cmp r1, 0x2C
+jne nrr
 REX.W
 add r3, 1
 sub r1, r1
 movb r1, [r3]
-sub r1, 0x20
-je 2
-jne 7
+cmp r1, 0x20
+jne nrr
 REX.W
 add r3, 1
 sub r1, r1
 movb r1, [r3]
 sub r1, 0x72
-je 3
-jne 36
-jmp -48
+jne nrr
 add r8, 2
 REX.B
 movb r0, [r0]
@@ -1266,8 +1339,6 @@ REX.B
 mov [r0], r0
 REX.W
 sub r8, 1
-jmp 2
-jmp -22
 REX.WB
 mov r7, r1
 REX.WB
@@ -1281,99 +1352,7 @@ REX.WB
 sub r10, 7
 jmp main
 
-
-
-
-
-
-; add/mov/movbrm
-cmp r0, 0x646461
-jne 3
-mov r2, 3
-jmp 4
-cmp r0, 0x766F6D
-jne 3
-mov r2, 0x8B
-jmp 4
-cmp r0, 0x62766F6D              ; movbrm
-jne 3
-mov r2, 0x8A
-jmp 4
-cmp r0, 0x73766F6D              ; movs
-jne 3
-mov r2, 0x63
-jmp 2
-jne 9
-REX.WB
-mov r3, r0
-REX.W
-add r3, 1
-sub r1, r1
-movb r1, [r3]
-sub r1, 0x72
-je 2
-jne 6
-REX.W
-add r3, 2
-mov r1, [r3]
-cmp r1, 0x725B202C
-je 8
-sub r2, 0x8A
-jne 5
-REX.W
-sub r8, 1
-REX.WB
-add r10, 1
-jne 17
-add r8, 2
-REX.B
-movb r0, [r0]
-sub r0, 0x30
-add r0, r0
-add r0, r0
-add r0, r0
-add r8, 5
-sub r1, r1
-REX.B
-movb r1, [r0]
-REX.B
-add r0, [r0]
-sub r0, 0x30
-sub r8, 10
-jmp 3
-jmp 29
-jmp -56
-REX.B
-mov [r0], r2
-add r8, 1
-REX.B
-mov [r0], r0
-sub r8, 1
-mov r2, 2
-; source is r4
-sub r1, 0x34
-jne 8
-REX.W
-add r8, 2
-mov r0, 0x24
-REX.B
-mov [r0], r0
-sub r8, 2
-mov r2, 3
-REX.WB
-mov r7, r1
-REX.WB
-mov r6, r0
-mov r0, 1
-syscall
-REX.W
-add r8, 12
-REX.WB
-sub r10, 9
-jmp main
-
-
-
+nrr:
 
 ; r1 = REX byte
 ; r2 = reg
@@ -1385,17 +1364,17 @@ add r8, 1
 sub r10, 1
 push r0
 call reat
-mov r2, r0
+mov r1, r0
 pop r0
 
 add r8, 2
 sub r10, 2
 
-mov r1, 0x48            ; REX byte
-cmp r2, 8
+mov r3, 0x48            ; REX byte
+cmp r1, 8
 jl 3
-add r1, 1
-sub r2, 8
+add r3, 1
+sub r1, 8
 
 jmp 2
 jmp main
@@ -1404,35 +1383,51 @@ jmp main
 
 ; add/sub/mov/cmpri
 cmp r0, "add"
-jne 4
+jne 5
+mov r5, 4
 mov r6, 0x81
 mov r7, 0xC0
-jmp 5
+jmp 6
 cmp r0, "sub"
-jne 4
+jne 5
+mov r5, 4
 mov r6, 0x81
 mov r7, 0xE8
-jmp 5
+jmp 6
 cmp r0, "mov"
-jne 4
+jne 5
+mov r5, 4
 mov r6, 0xC7
 mov r7, 0xC0
-jmp 5
+jmp 6
 cmp r0, "cmp"
-jne 4
+jne 5
+mov r5, 4
 mov r6, 0x81
 mov r7, 0xF8
+jmp 6
+cmp r0, "shl"
+jne 5
+mov r5, 1
+mov r6, 0xC1
+mov r7, 0xE0
+jmp 6
+cmp r0, "shr"
+jne 5
+mov r5, 1
+mov r6, 0xC1
+mov r7, 0xE8
 jmp 2
 jne nri
 
 
-add r7, r2
+add r7, r1
 
 push r7
-push r1
+push r3
 mov r7, 1
 call prin                   ; print REX byte
-pop r1
+pop r3
 pop r7
 
 call read
@@ -1445,7 +1440,8 @@ add r4, 1
 mov [r4], r0                ; imm
 sub r4, 2
 
-mov r7, 6
+add r5, 2
+mov r7, r5
 call prin
 
 add r4, 8
