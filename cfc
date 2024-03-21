@@ -524,7 +524,7 @@ read:           ; read number
     cmp r7, 34
     jne 4
     call reas
-    mov r2, 256
+    mov r2, 1
     jmp dore
     call isal
     cmp r0, 1
@@ -572,24 +572,43 @@ read:           ; read number
 
     mov r2, 1           ; type is integer
 
-dore:               ; done read
-pop r7
-pop r5
-pop r3
-pop r1
-
+    dore:               ; done read
+    pop r7
+    pop r5
+    pop r3
+    pop r1
 ret
 
+rex:            ; encoding calculation, returns REX in r0 and 
+; source in rsi, rdi
+; dest in rcx, rdx
+
+mov rax, 0x40            ; right now it is only registers allowed in dest
+cmp rdx, 64
+jne 2
+; 64 bit
+add r0, 0x08
+cmp rdi, 1 
+jne 5
+cmp rcx, 8              ; ri
+jl 2
+add rax, 0x01           ; REX.B
+ret
+cmp rcx, 8              ; rr 
+jl 2
+add rax, 0x04           ; REX.R
+cmp rsi, 8
+jl 2
+add rax, 0x01           ; REX.B
+ret
 
 star:
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
-REX.W
 add r4, 16
 REX.W
 mov r7, [r4]            ; argv[1]
-REX.W
 sub r4, 16
 mov r0, 2
 syscall
@@ -1300,17 +1319,29 @@ jmp main
 push r0
 call read
 mov r1, r0
-pop r0
 
 add r8, 1
 sub r10, 1
 
-mov r3, 0x48            ; REX byte
-cmp r1, 8
-jl 3
-add r3, 1
-sub r1, 8
+
+push r2
+call read
+mov rsi, rax
+mov rdi, rdx
+pop r2
+
+call rex
+mov rbx, rax            ; REX byte
+cmp rcx, 8
+jl 2
+sub rcx, 8
 ; ptr will now be at space after the comma
+
+cmp rdi, 1
+mov r2, rsi
+pop r0
+je nrr
+
 
 ; sub/add/movrr
 cmp r0, "add"        ; add
@@ -1330,30 +1361,16 @@ jne 3
 mov r5, 0x3B
 jmp 2
 jne nrr
-REX.WB
-mov r6, r0
-add r6, 1
-sub r2, r2
-movb r2, [r6]
-cmp r2, 0x72
-jne nrr
 
-mov r0, r1
-shl r0, 3
+shl r1, 3
 
-
-push r0
-call read
-mov r1, r0
-pop r0
-
-add r0, r1
-add r0, 0xC0
+add r1, r2
+add r1, 0xC0
 
 sub r4, 8
 mov [r4], r5
 add r4, 1
-mov [r4], r0
+mov [r4], r1
 sub r4, 1
 
 mov r7, 2
@@ -1414,14 +1431,13 @@ call prin                   ; print REX byte
 pop r3
 pop r7
 
-call read
 
 sub r4, 8
 mov [r4], r6
 add r4, 1
 mov [r4], r7
 add r4, 1
-mov [r4], r0                ; imm
+mov [r4], r2                ; imm
 sub r4, 2
 
 add r5, 2
