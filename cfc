@@ -20,9 +20,7 @@ push r7
 REX.WB
 push r3
 mov r2, r7
-REX.WB
-mov r7, r1
-REX.W
+mov r7, r9
 mov r6, r4
 add r6, 56
 mov r0, 1
@@ -612,8 +610,7 @@ mov r7, [r4]            ; argv[1]
 sub r4, 16
 mov r0, 2
 syscall
-REX.WR
-mov r0, r0              ; save input file descriptor
+mov r8, r0              ; save input file descriptor
 ; open output
 mov r0, 2               ; READ_WRITE
 mov r2, 0xFFFF          ; all perms
@@ -625,11 +622,9 @@ mov r7, [r4]            ; argv[2]
 REX.W
 sub r4, 24
 syscall
-REX.WR
-mov r1, r0              ; save output file descriptor
+mov r9, r0              ; save output file descriptor
 ; write header
-REX.WB
-mov r7, r1              ; output file descriptor
+mov r7, r9              ; output file descriptor
 mov r6, 0x400000        ; program header location
 mov r2, 0x78            ; program header length
 mov r0, 1               ; write
@@ -637,8 +632,7 @@ syscall
 ; get input size
 REX.W
 sub r4, 0xC0            ; fstat size
-REX.WB
-mov r7, r0              ; input file descriptor
+mov r7, r8              ; input file descriptor
 REX.W
 mov r6, r4              ; fstat buffer
 mov r0, 5               ; fstat
@@ -658,15 +652,13 @@ push r2
 
 mov r0, 9               ; mmap
 mov r7, 0               ; address
-REX.WB
-mov r6, r2              ; length
+mov r6, r10              ; length
 mov r2, 3               ; PROT_READ | PROT_WRITE
 mov r10, 2              ; MAP_PRIVATE
 mov r9, 0               ; offset
 syscall
 
-REX.WR
-mov r0, r0              ; save mmap address
+mov r8, r0              ; save mmap address
 REX.WB
 pop r2                  ; restore r10
 REX.WB
@@ -675,18 +667,10 @@ pop r1                  ; restore r9
 
 ; make heap
 mov r7, 0               ; adress
-REX.WB
-mov r6, r2              ; length
+mov r6, r10              ; length
 REX.WB
 push r2                 ; save length
-REX.W
-add r6, r6              ; multiply length by 16
-REX.W
-add r6, r6
-REX.W
-add r6, r6
-REX.W
-add r6, r6
+shl r6, 4
 
 mov r2, 3               ; PROT_READ | PROT_WRITE
 mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
@@ -704,20 +688,14 @@ REX.WB
 pop r0                  ; restore r8
 REX.WB
 pop r2                  ; restore r10
-REX.WR
-mov r5, r0              ; save instruction location array
-REX.WR
-mov r6, r0              ; save instruction location array end
-REX.WRB
-mov r7, r2              ; store max length of instruction location array
-REX.WRB
-add r7, r7
+mov r13, r0              ; save instruction location array
+mov r14, r0              ; save instruction location array end
+mov r15, r10              ; store max length of instruction location array
+add r15, r15
 REX.R
 push r7                 ; save jump info array
-REX.WB
-mov r0, r7
-REX.WB
-add r0, r7
+mov r0, r15
+add r0, r15
 REX.WB
 push r5
 REX.W
@@ -732,18 +710,18 @@ jne 18
 ; end of file
 ; fix jumps
 REX.WB
-mov r0, r5
+mov r0, r13
 REX.WB
-sub r0, r6
+sub r0, r14
 je 14
 REX.WB
-mov r3, r5
+mov r3, r13
 REX.W
 mov r3, [r3]
 ; read opcode
 ; lseek
 REX.WB
-mov r7, r1
+mov r7, r9
 REX.W
 mov r6, r3
 mov r2, 0
@@ -755,9 +733,9 @@ jmp 66
 jmp -19
 jmp -22
 REX.WB
-mov r0, r5
+mov r0, r13
 REX.WB
-add r0, r7
+add r0, r15
 mov r5, [r0]                ; get jump info
 
 
@@ -795,7 +773,7 @@ REX.W
 sub r4, r5
 REX.W
 mov r2, [r1]                ; get label at r0
-cmp r2, r7
+cmp edx, edi
 je 3
 add r1, 8
 jmp -5
@@ -812,7 +790,7 @@ movs r0, [r4]
 REX.W
 sub r4, r5
 REX.WB
-mov r2, r5
+mov r2, r13
 REX.W
 add r0, r0
 REX.W
@@ -834,7 +812,7 @@ sub r2, r5
 mov [r4], r2
 ; lseek
 REX.WB
-mov r7, r1
+mov r7, r9
 mov r6, r5
 REX.W
 sub r6, 6
@@ -843,7 +821,7 @@ mov r0, 8
 syscall
 
 REX.WB
-mov r7, r1
+mov r7, r9
 REX.W
 mov r6, r4
 mov r2, 4
@@ -861,7 +839,7 @@ mov r7, 0
 syscall
 ; lseek
 REX.WB
-mov r7, r1
+mov r7, r9
 mov r6, 0
 mov r2, 1
 mov r0, 8
@@ -955,7 +933,7 @@ cmp r1, 58
 jne 11
 sub r14, 8
 REX.WB
-mov r3, r6
+mov r3, r14
 REX.W
 add r3, [r4]
 REX.W
@@ -1014,9 +992,9 @@ sub r8, 4
 REX.B
 mov [r0], r0
 REX.WB
-mov r7, r1
+mov r7, r9
 REX.WB
-mov r6, r0
+mov r6, r8
 mov r2, 1
 mov r0, 1
 syscall
@@ -1049,7 +1027,7 @@ mov r3, 0xC0
 jmp 2
 jne 9
 REX.WB
-mov r7, r0
+mov r7, r8
 REX.W
 add r7, 1
 sub r1, r1
@@ -1072,9 +1050,9 @@ mov [r0], r0
 REX.W
 sub r8, 1
 REX.WB
-mov r7, r1
+mov r7, r9
 REX.WB
-mov r6, r0
+mov r6, r8
 mov r2, 2
 mov r0, 1
 syscall
@@ -1126,15 +1104,15 @@ sub r8, 7
 REX.B
 mov [r0], r2
 REX.WR
-add r0, r3
+add r8, r3
 REX.B
 mov [r0], r0
 REX.WR
-sub r0, r3
+sub r8, r3
 REX.WB
-mov r7, r1
+mov r7, r9
 REX.WB
-mov r6, r0
+mov r6, r8
 mov r2, r3
 add r2, 4
 mov r0, 1
@@ -1144,9 +1122,9 @@ add r8, 7
 REX.WB
 sub r10, 1
 REX.WB
-mov r2, r7
+mov r2, r15
 REX.WB
-add r2, r6
+add r2, r14
 REX.W
 sub r2, 8
 mov r0, 2
@@ -1166,7 +1144,7 @@ cmp r0, 0x766F6D
 je 2
 jne 9
 REX.WB
-mov r3, r0
+mov r3, r8
 REX.W
 add r3, 7
 sub r1, r1
@@ -1218,9 +1196,9 @@ REX.W
 sub r8, 2
 mov r2, 3
 REX.WB
-mov r7, r1
+mov r7, r9
 REX.WB
-mov r6, r0
+mov r6, r8
 mov r0, 1
 syscall
 REX.W
@@ -1251,7 +1229,7 @@ jmp main
     jmp 2
     jne nrm
     REX.WB
-    mov r3, r0
+    mov r3, r8
     REX.W
     add r3, 1
     sub r1, r1
@@ -1295,9 +1273,9 @@ jmp main
     sub r8, 2
     mov r2, 3
     REX.WB
-    mov r7, r1
+    mov r7, r9
     REX.WB
-    mov r6, r0
+    mov r6, r8
     mov r0, 1
     syscall
     REX.W
@@ -1331,10 +1309,22 @@ mov rdi, rdx
 pop r2
 
 call rex
-mov rbx, rax            ; REX byte
-cmp rcx, 8
+push r7
+push r0
+mov r7, 1
+call prin                   ; print REX byte
+pop r0
+pop r7
+
+cmp rcx, 8                  ; normalize destination
 jl 2
 sub rcx, 8
+
+cmp rdi, 1                  ; normalize src
+je 4
+cmp rsi, 8
+jl 2
+sub rsi, 8
 ; ptr will now be at space after the comma
 
 cmp rdi, 1
@@ -1425,10 +1415,7 @@ jne nri
 add r7, r1
 
 push r7
-push r3
-mov r7, 1
-call prin                   ; print REX byte
-pop r3
+
 pop r7
 
 
