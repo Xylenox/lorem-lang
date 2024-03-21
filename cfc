@@ -435,6 +435,8 @@ reat:
     ; read token
     mov r5, 0           ; token output
     mov r1, 1           ; power of 256
+    
+    tloo:
     sub r0, r0
     REX.B
     movb r0, [r0]
@@ -447,24 +449,20 @@ reat:
     cmp r0, "."         ; period
     je 2
     cmp r0, ","
-    je 16
+    je tdon
     add r8, 1
-    REX.WB
     sub r10, 1
     REX.W
     mul r1
-    REX.W
     add r5, r0
-    REX.W
     mov r0, r1
     mov r1, 256
     REX.W
     mul r1
-    REX.W
     mov r1, r0
-    jmp -27
+    jmp tloo
 
-    REX.W
+    tdon:
     mov r7, r5
     call tore
     pop r7
@@ -485,22 +483,20 @@ reas:           ; read string
     REX.B
     movb r0, [r0]
     cmp r0, 34        ; "
-    je 15
+    je sdon
     add r8, 1
     sub r10, 1
     REX.W
     mul r1
-    REX.W
     add r5, r0
-    REX.W
     mov r0, r1
     mov r1, 256
     REX.W
     mul r1
-    REX.W
     mov r1, r0
     jmp sloo
-    REX.W
+
+    sdon:
     add r8, 1
     sub r10, 1
     mov r0, r5
@@ -519,7 +515,7 @@ read:           ; read number
     sub r7, r7
     REX.B
     movb r7, [r0]
-    cmp r7, 34
+    cmp r7, 34              ; "
     jne 4
     call reas
     mov r2, 1
@@ -615,11 +611,9 @@ mov r8, r0              ; save input file descriptor
 mov r0, 2               ; READ_WRITE
 mov r2, 0xFFFF          ; all perms
 mov r6, 0x242           ; truncate/create/.??
-REX.W
 add r4, 24
 REX.W
 mov r7, [r4]            ; argv[2]
-REX.W
 sub r4, 24
 syscall
 mov r9, r0              ; save output file descriptor
@@ -630,25 +624,21 @@ mov r2, 0x78            ; program header length
 mov r0, 1               ; write
 syscall
 ; get input size
-REX.W
 sub r4, 0xC0            ; fstat size
 mov r7, r8              ; input file descriptor
-REX.W
 mov r6, r4              ; fstat buffer
 mov r0, 5               ; fstat
 syscall
-REX.W
 add r4, 48
 REX.WR
 mov r2, [r4]            ; file size
-REX.W
 sub r4, 48
 
 ; mmap input
 REX.WB
 push r1                 ; save r9
-REX.WB                  ; save r10
-push r2
+REX.WB                  
+push r2                 ; save r10
 
 mov r0, 9               ; mmap
 mov r7, 0               ; address
@@ -704,152 +694,128 @@ push r0                 ; save label info array
 
 
 main:
-; main loop
-sub r10, 0
-jne 18
-; end of file
-; fix jumps
-REX.WB
-mov r0, r13
-REX.WB
-sub r0, r14
-je 14
-REX.WB
-mov r3, r13
-REX.W
-mov r3, [r3]
-; read opcode
-; lseek
-REX.WB
-mov r7, r9
-REX.W
-mov r6, r3
-mov r2, 0
-mov r0, 8
-syscall
-jmp 5
-jmp 66
-jmp 66
-jmp -19
-jmp -22
-REX.WB
-mov r0, r13
-REX.WB
-add r0, r15
-mov r5, [r0]                ; get jump info
+    ; main loop
+    sub r10, 0
+    jne cont
+    ; end of file
+    ; fix jumps
+fixj:
+    REX.WB
+    mov r0, r13
+    REX.WB
+    sub r0, r14
+    je exit
+    REX.WB
+    mov r3, r13
+    REX.W
+    mov r3, [r3]
+    ; read opcode
+    ; lseek
+    REX.WB
+    mov r7, r9
+    REX.W
+    mov r6, r3
+    mov r2, 0
+    mov r0, 8
+    syscall
+    REX.WB
+    mov r0, r13
+    REX.WB
+    add r0, r15
+    mov r5, [r0]                ; get jump info
 
+    ; read instruction stuffs
+    REX.W
+    sub r4, 6
+    REX.W
+    mov r6, r4
+    mov r2, 6                   ; TODO: read amount based on instruction id length
+    mov r0, 0
+    syscall                     ; read instruction
 
+    cmp r5, 0
+    je skip
 
-; read instruction stuffs
-REX.W
-sub r4, 6
-REX.W
-mov r6, r4
-mov r2, 6                   ; TODO: read amount based on instruction id length
-mov r0, 0
-syscall                     ; read instruction
+    cmp r5, 256
+    jl rel
+    sub r5, 256
+    add r4, 6
+    pop r0                      ; label info offset
+    pop r1                      ; array location
+    push r1
+    push r0
+    sub r4, 6
+    add r1, r0
+    add r4, r5
+    REX.W
+    mov r7, [r4]
+    sub r4, r5
+    REX.W
+    mov r2, [r1]                ; get label at r0
+    cmp edx, edi
+    je 3
+    add r1, 8
+    jmp -5
+    REX.W
+    sub r1, r0
+    REX.W
+    mov r2, [r1]
+    jmp drel
 
+rel:
+    add r4, r5
+    REX.W
+    movs r0, [r4]
+    sub r4, r5
+    mov r2, r13
+    REX.W
+    shl r0, 3
+    add r2, r0
+    mov r2, [r2]
 
+drel:
+    REX.W
+    sub r2, r3
+    sub r2, 4
+    sub r2, r5
+    mov [r4], r2
+    ; lseek
+    REX.WB
+    mov r7, r9
+    mov r6, r5
+    REX.W
+    sub r6, 6
+    mov r2, 1
+    mov r0, 8
+    syscall
 
-sub r5, 0
-je 71
+    REX.WB
+    mov r7, r9
+    REX.W
+    mov r6, r4
+    mov r2, 4
+    mov r0, 1
+    syscall                     ; write jump offset
 
-cmp r5, 256
-jl 27
-sub r5, 256
-add r4, 6
-pop r0                      ; label info offset
-pop r1                      ; array location
-push r1
-push r0
-sub r4, 6
-REX.W
-add r1, r0
-REX.W
-add r4, r5
-REX.W
-mov r7, [r4]
-REX.W
-sub r4, r5
-REX.W
-mov r2, [r1]                ; get label at r0
-cmp edx, edi
-je 3
-add r1, 8
-jmp -5
-REX.W
-sub r1, r0
-REX.W
-mov r2, [r1]
-jmp 18
+skip:
+    REX.W
+    add r4, 6
+    REX.WB
+    add r13, 8
+    jmp fixj
 
-REX.W
-add r4, r5
-REX.W
-movs r0, [r4]
-REX.W
-sub r4, r5
-REX.WB
-mov r2, r13
-REX.W
-add r0, r0
-REX.W
-add r0, r0
-REX.W
-add r0, r0
-REX.W
-add r2, r0
-mov r2, [r2]
-REX.W
-sub r2, r3
-jmp 5
-jmp 30
-jmp 26
-jmp -66
-jmp -66
-sub r2, 4
-sub r2, r5
-mov [r4], r2
-; lseek
-REX.WB
-mov r7, r9
-mov r6, r5
-REX.W
-sub r6, 6
-mov r2, 1
-mov r0, 8
-syscall
-
-REX.WB
-mov r7, r9
-REX.W
-mov r6, r4
-mov r2, 4
-mov r0, 1
-syscall                     ; write jump offset
-
-REX.W
-add r4, 6
-REX.WB
-add r13, 8
-jmp -24
-; exit
-mov r0, 60
-mov r7, 0
-syscall
-; lseek
-REX.WB
-mov r7, r9
-mov r6, 0
-mov r2, 1
-mov r0, 8
-syscall
-REX.WB
-mov [r6], r0
-REX.WB
-add r14, 8
-jmp 2
-jmp main
+    
+cont:
+    REX.WB
+    mov r7, r9
+    mov r6, 0
+    mov r2, 1
+    mov r0, 8
+    syscall                     ; lseek save current instruction position
+    REX.WB
+    mov [r6], r0
+    REX.WB
+    add r14, 8
 
 
 call reat
