@@ -449,6 +449,8 @@ reat:
     cmp r0, "."         ; period
     je 2
     cmp r0, ","
+    je 2
+    cmp r0, "]"
     je tdon
     add r8, 1
     sub r10, 1
@@ -519,6 +521,17 @@ read:           ; read number
     jne 4
     call reas
     mov r2, 1
+    jmp dore
+    cmp r7, "["
+    jne 10
+    add r8, 1
+    sub r10, 1
+    call reat
+    mov r3, 0
+    sub r3, r1
+    mov r1, r3
+    add r8, 1
+    sub r10, 1
     jmp dore
     call isal
     cmp r0, 1
@@ -878,17 +891,16 @@ sub r10, 1
 jmp -8
 REX.WB
 sub r14, 8
-jmp -14
+jmp main
 
 
 ; space/newline
 cmp r0, 0
-jne 6
-REX.W
+jne 5
 add r8, 1
 sub r10, 1
 sub r14, 8
-jmp -7
+jmp main
 
 
 ; label
@@ -910,7 +922,7 @@ jmp -15
 
 
 ; REX
-cmp r0, 0x584552
+cmp r0, "REX"
 je 2
 jne 55
 add r8, 1
@@ -1175,79 +1187,68 @@ jmp main
 
 
 
+push r0
+call read
+mov r1, r0
+pop r0
+
+add r8, 1
+sub r10, 1
 
 ; add/mov/movbrm
     cmp r0, "add"
     jne 3
-    mov r2, 3
+    mov r7, 3
     jmp 4
     cmp r0, "mov"
     jne 3
-    mov r2, 0x8B
+    mov r7, 0x8B
     jmp 4
     cmp r0, "movb"              ; movbrm
     jne 3
-    mov r2, 0x8A
+    mov r7, 0x8A
     jmp 4
     cmp r0, "movs"              ; movs
     jne 3
-    mov r2, 0x63
+    mov r7, 0x63
     jmp 2
     jne nrm
-    REX.WB
     mov r3, r8
-    REX.W
     add r3, 1
-    sub r1, r1
-    movb r1, [r3]
-    cmp r1, 0x72
+    sub r6, r6
+    REX.
+    movb r6, [r3]
+    cmp r6, "["
     jne nrm
-    add r3, 2
-    mov r1, [r3]
-    cmp r1, 0x725B202C
-    jne nrm
-    add r8, 2
-    REX.B
-    movb r0, [r0]
-    sub r0, 0x30
-    add r0, r0
-    add r0, r0
-    add r0, r0
-    add r8, 5
-    sub r1, r1
-    REX.B
-    movb r1, [r0]
-    REX.B
-    add r0, [r0]
-    sub r0, 0x30
-    sub r8, 10
-    REX.B
-    mov [r0], r2
-    add r8, 1
-    REX.B
-    mov [r0], r0
-    sub r8, 1
-    mov r2, 2
+
+    mov r0, r1
+    shl r0, 3
+    
+    push r0
+    call read
+    mov r1, r0
+    pop r0
+    add r0, r1
+
+    sub r4, 10
+    mov [r4], r7
+    add r4, 1
+    mov [r4], r0
+    sub r4, 1
+    
+    mov r7, 2
     ; source is r4
-    sub r1, 0x34
-    jne 8
-    REX.W
-    add r8, 2
+    cmp r1, 4
+    jne 6
+    add r4, 2
     mov r0, 0x24
-    REX.B
-    mov [r0], r0
-    sub r8, 2
-    mov r2, 3
-    REX.WB
-    mov r7, r9
-    REX.WB
-    mov r6, r8
-    mov r0, 1
-    syscall
-    REX.W
-    add r8, 12
-    REX.WB
-    sub r10, 9
+    mov [r4], r0
+    sub r4, 2
+    mov r7, 3
+
+    call prin
+
+    add r4, 10
     jmp main
 
     nrm:
@@ -1260,20 +1261,17 @@ jmp main
 ; r5 = opcode
 ; r6 = opcode 2
 
+
+
 push r0
-call read
-mov r1, r0
-
-add r8, 1
-sub r10, 1
-
-
 push r2
 call read
 mov rsi, rax
 mov rdi, rdx
 pop r2
+pop r0
 
+push r0
 call rex
 push r7
 push r0
@@ -1281,6 +1279,7 @@ mov r7, 1
 call prin                   ; print REX byte
 pop r0
 pop r7
+pop r0
 
 cmp rcx, 8                  ; normalize destination
 jl 2
@@ -1295,7 +1294,6 @@ sub rsi, 8
 
 cmp rdi, 1
 mov r2, rsi
-pop r0
 je nrr
 
 
