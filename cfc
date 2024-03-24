@@ -610,6 +610,156 @@ rex:            ; encoding calculation, returns REX in r0 and
     add rax, 0x01           ; REX.B
     ret
 
+evrm:
+    mov r0, rdi
+    mov r1, rsi
+    mov r2, rdx
+    cmp r0, "add"
+    jne 3
+    mov r7, 3
+    jmp 4
+    cmp r0, "mov"
+    jne 3
+    mov r7, 0x8B
+    jmp 4
+    cmp r0, "movb"              ; movbrm
+    jne 3
+    mov r7, 0x8A
+    jmp 4
+    cmp r0, "movs"              ; movs
+    jne 3
+    mov r7, 0x63
+    jmp 2
+    jne inva
+
+    mov r0, r1
+    shl r0, 3
+    add r0, r2
+
+    sub r4, 10
+    mov [r4], r7
+    add r4, 1
+    mov [r4], r0
+    sub r4, 1
+    
+    mov r7, 2
+    ; source is r4
+    cmp r2, 4
+    jne 6
+    add r4, 2
+    mov r0, 0x24
+    mov [r4], r0
+    sub r4, 2
+    mov r7, 3
+
+    call prin
+
+    add r4, 10
+    ret
+
+evrr:
+    mov r0, rdi
+    mov r1, rsi
+    mov r2, rdx
+    ; sub/add/movrr
+    cmp r0, "add"        ; add
+    jne 3
+    mov r5, 0x03
+    jmp 4
+    cmp r0, "sub"        ; sub
+    jne 3
+    mov r5, 0x2B
+    jmp 4
+    cmp r0, "mov"        ; mov
+    jne 3
+    mov r5, 0x8B
+    jmp 4
+    cmp r0, "cmp"        ; cmp
+    jne 3
+    mov r5, 0x3B
+    jmp 2
+    jne inva
+
+    shl r1, 3
+
+    add r1, r2
+    add r1, 0xC0
+
+    sub r4, 8
+    mov [r4], r5
+    add r4, 1
+    mov [r4], r1
+    sub r4, 1
+
+    mov r7, 2
+    call prin
+    add r4, 8
+    ret
+
+evri: ; evaluate ri
+    ; add/sub/mov/cmpri
+    mov r0, rdi
+    mov r1, rsi
+    mov r2, rdx
+    cmp r0, "add"
+    jne 5
+    mov r5, 4
+    mov r6, 0x81
+    mov r7, 0xC0
+    jmp 6
+    cmp r0, "sub"
+    jne 5
+    mov r5, 4
+    mov r6, 0x81
+    mov r7, 0xE8
+    jmp 6
+    cmp r0, "mov"
+    jne 5
+    mov r5, 4
+    mov r6, 0xC7
+    mov r7, 0xC0
+    jmp 6
+    cmp r0, "cmp"
+    jne 5
+    mov r5, 4
+    mov r6, 0x81
+    mov r7, 0xF8
+    jmp 6
+    cmp r0, "shl"
+    jne 5
+    mov r5, 1
+    mov r6, 0xC1
+    mov r7, 0xE0
+    jmp 6
+    cmp r0, "shr"
+    jne 5
+    mov r5, 1
+    mov r6, 0xC1
+    mov r7, 0xE8
+    jmp 2
+    jne inva
+
+    add r7, r1
+
+    sub r4, 8
+    mov [r4], r6
+    add r4, 1
+    mov [r4], r7
+    add r4, 1
+    mov [r4], r2                ; imm
+    sub r4, 2
+
+    add r5, 2
+    mov r7, r5
+    call prin
+
+    add r4, 8
+    ret
+expr:
+    ; pass mnemonic in r7
+    call evri
+    ret
+
 star:
 ; open input
 mov r6, 0x0             ; READ_ONLY
@@ -1227,34 +1377,12 @@ sub r10, 1
     cmp r6, "["
     jne nrm
 
-    mov r0, r1
-    shl r0, 3
-    
-    push r0
+    mov rdi, rax
+    mov rsi, rcx
     call read
-    mov r1, r0
-    pop r0
-    add r0, r1
+    mov rdx, rax
 
-    sub r4, 10
-    mov [r4], r7
-    add r4, 1
-    mov [r4], r0
-    sub r4, 1
-    
-    mov r7, 2
-    ; source is r4
-    cmp r1, 4
-    jne 6
-    add r4, 2
-    mov r0, 0x24
-    mov [r4], r0
-    sub r4, 2
-    mov r7, 3
-
-    call prin
-
-    add r4, 10
+    call evrm
     jmp main
 
     nrm:
@@ -1300,112 +1428,22 @@ sub rsi, 8
 
 cmp rdi, 1
 mov r2, rsi
-je nrr
+je dori
 
 
-; sub/add/movrr
-cmp r0, "add"        ; add
-jne 3
-mov r5, 0x03
-jmp 4
-cmp r0, "sub"        ; sub
-jne 3
-mov r5, 0x2B
-jmp 4
-cmp r0, "mov"        ; mov
-jne 3
-mov r5, 0x8B
-jmp 4
-cmp r0, "cmp"        ; cmp
-jne 3
-mov r5, 0x3B
-jmp 2
-jne nrr
+dorr:
+    mov rdi, rax
+    mov rsi, rcx
+    call evrr
+    jmp main
 
-shl r1, 3
+dori:
+    mov rdi, rax
+    mov rsi, rcx
+    call evri
+    jmp main
 
-add r1, r2
-add r1, 0xC0
-
-sub r4, 8
-mov [r4], r5
-add r4, 1
-mov [r4], r1
-sub r4, 1
-
-mov r7, 2
-call prin
-add r4, 8
-
-jmp main
-
-nrr:
-
-
-; add/sub/mov/cmpri
-cmp r0, "add"
-jne 5
-mov r5, 4
-mov r6, 0x81
-mov r7, 0xC0
-jmp 6
-cmp r0, "sub"
-jne 5
-mov r5, 4
-mov r6, 0x81
-mov r7, 0xE8
-jmp 6
-cmp r0, "mov"
-jne 5
-mov r5, 4
-mov r6, 0xC7
-mov r7, 0xC0
-jmp 6
-cmp r0, "cmp"
-jne 5
-mov r5, 4
-mov r6, 0x81
-mov r7, 0xF8
-jmp 6
-cmp r0, "shl"
-jne 5
-mov r5, 1
-mov r6, 0xC1
-mov r7, 0xE0
-jmp 6
-cmp r0, "shr"
-jne 5
-mov r5, 1
-mov r6, 0xC1
-mov r7, 0xE8
-jmp 2
-jne nri
-
-
-add r7, r1
-
-push r7
-
-pop r7
-
-
-sub r4, 8
-mov [r4], r6
-add r4, 1
-mov [r4], r7
-add r4, 1
-mov [r4], r2                ; imm
-sub r4, 2
-
-add r5, 2
-mov r7, r5
-call prin
-
-add r4, 8
-jmp main
-
-nri:
-
+inva:
 
 ; invalid
 sub r4, 4
