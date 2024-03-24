@@ -528,8 +528,8 @@ read:           ; read number
     sub r10, 1
     call reat
     mov r3, 0
-    sub r3, r1
-    mov r1, r3
+    sub r3, r2
+    mov r2, r3
     add r8, 1
     sub r10, 1
     jmp dore
@@ -759,6 +759,7 @@ expr:
     ; pass mnemonic in r7
     call evri
     ret
+
 
 star:
 ; open input
@@ -1351,42 +1352,6 @@ pop r0
 add r8, 1
 sub r10, 1
 
-; add/mov/movbrm
-    cmp r0, "add"
-    jne 3
-    mov r7, 3
-    jmp 4
-    cmp r0, "mov"
-    jne 3
-    mov r7, 0x8B
-    jmp 4
-    cmp r0, "movb"              ; movbrm
-    jne 3
-    mov r7, 0x8A
-    jmp 4
-    cmp r0, "movs"              ; movs
-    jne 3
-    mov r7, 0x63
-    jmp 2
-    jne nrm
-    mov r3, r8
-    add r3, 1
-    sub r6, r6
-    REX.
-    movb r6, [r3]
-    cmp r6, "["
-    jne nrm
-
-    mov rdi, rax
-    mov rsi, rcx
-    call read
-    mov rdx, rax
-
-    call evrm
-    jmp main
-
-    nrm:
-
 
 
 ; r1 = REX byte
@@ -1424,20 +1389,29 @@ je 4
 cmp rsi, 8
 jl 2
 sub rsi, 8
-; ptr will now be at space after the comma
+
 
 cmp rdi, 1
-mov r2, rsi
+jl dorm
 je dori
+jne dorr
 
+dorm:
+    mov rdx, rsi
+    mov rdi, rax
+    mov rsi, rcx
+    call evrm
+    jmp main
 
 dorr:
+    mov rdx, rsi
     mov rdi, rax
     mov rsi, rcx
     call evrr
     jmp main
 
 dori:
+    mov rdx, rsi
     mov rdi, rax
     mov rsi, rcx
     call evri
