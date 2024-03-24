@@ -590,24 +590,25 @@ rex:            ; encoding calculation, returns REX in r0 and
 ; source in rsi, rdi
 ; dest in rcx, rdx
 
-mov rax, 0x40            ; right now it is only registers allowed in dest
-cmp rdx, 64
-jne 2
-; 64 bit
-add r0, 0x08
-cmp rdi, 1 
-jne 5
-cmp rcx, 8              ; ri
-jl 2
-add rax, 0x01           ; REX.B
-ret
-cmp rcx, 8              ; rr 
-jl 2
-add rax, 0x04           ; REX.R
-cmp rsi, 8
-jl 2
-add rax, 0x01           ; REX.B
-ret
+    mov rax, 0x40            ; right now it is only registers allowed in dest
+    cmp rdx, 64
+    jne 2
+    ; 64 bit
+    add r0, 0x08
+    cmp rdi, 1 
+    jne 5
+    cmp rcx, 8              ; ri
+    jl 2
+    add rax, 0x01           ; REX.B
+    ret
+
+    cmp rcx, 8              ; rr 
+    jl 2
+    add rax, 0x04           ; REX.R
+    cmp rsi, 8
+    jl 2
+    add rax, 0x01           ; REX.B
+    ret
 
 star:
 ; open input
@@ -1061,6 +1062,11 @@ jmp 5
 cmp r0, 0x6C6A          ; jl
 jne 4
 mov r2, 0x8C0F
+mov r3, 2
+jmp 5
+cmp r0, "jg"          ; jg
+jne 4
+mov r2, 0x8F0F
 mov r3, 2
 jmp 5
 cmp r0, 0x6C6C6163          ; call
