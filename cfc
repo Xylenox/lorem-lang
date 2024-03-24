@@ -418,7 +418,7 @@ ret
 whit:
     sub r0, r0
     REX.B
-    movb r0, [r0]
+    movb al, [r8]
     cmp r0, " "
     je 2
     cmp r0, 10
@@ -439,7 +439,7 @@ reat:
     tloo:
     sub r0, r0
     REX.B
-    movb r0, [r0]
+    movb al, [r8]
     cmp r0, " "         ; space
     je 2
     cmp r0, 10          ; newline
@@ -483,7 +483,7 @@ reas:           ; read string
     sloo:
     sub r0, r0
     REX.B
-    movb r0, [r0]
+    movb al, [r8]
     cmp r0, 34        ; "
     je sdon
     add r8, 1
@@ -516,7 +516,7 @@ read:           ; read number
 
     sub r7, r7
     REX.B
-    movb r7, [r0]
+    movb dil, [r8]
     cmp r7, 34              ; "
     jne 4
     call reas
@@ -544,7 +544,7 @@ read:           ; read number
     mov r5, 1
     sub r3, r3
     REX.B
-    movb r3, [r0]
+    movb bl, [r8]
     cmp r3, " "
     je 2
     sub r3, 10              ; newline
@@ -796,7 +796,7 @@ mov r0, 5               ; fstat
 syscall
 add r4, 48
 REX.WR
-mov r2, [r4]            ; file size
+mov r10, [r4]            ; file size
 sub r4, 48
 
 ; mmap input
@@ -887,7 +887,7 @@ fixj:
     mov r0, r13
     REX.WB
     add r0, r15
-    mov r5, [r0]                ; get jump info
+    mov ebp, [r0]                ; get jump info
 
     ; read instruction stuffs
     REX.W
@@ -936,7 +936,7 @@ rel:
     REX.W
     shl r0, 3
     add r2, r0
-    mov r2, [r2]
+    mov edx, [r2]
 
 drel:
     REX.W
@@ -1034,7 +1034,7 @@ cmp r0, 0x3B
 jne 13
 sub r0, r0
 REX.B
-movb r0, [r0]
+movb al, [r8]
 cmp r0, 10
 je 6
 add r8, 1
@@ -1058,7 +1058,7 @@ jmp main
 ; label
 sub r1, r1
 REX.B
-movb r1, [r0]
+movb cl, [r8]
 cmp r1, 58
 jne 11
 sub r14, 8
@@ -1083,7 +1083,7 @@ sub r10, 1
 mov r0, 0x40
 sub r1, r1
 REX.B
-movb r1, [r0]
+movb cl, [r8]
 cmp r1, 0x57
 jne 5
 add r0, 8
@@ -1092,7 +1092,7 @@ REX.WB
 sub r10, 1
 sub r1, r1
 REX.B
-movb r1, [r0]
+movb cl, [r8]
 cmp r1, 0x52
 jne 5
 add r0, 4
@@ -1101,7 +1101,7 @@ REX.WB
 sub r10, 1
 sub r1, r1
 REX.B
-movb r1, [r0]
+movb cl, [r8]
 cmp r1, 0x58
 jne 5
 add r0, 2
@@ -1110,7 +1110,7 @@ REX.WB
 sub r10, 1
 sub r1, r1
 REX.B
-movb r1, [r0]
+movb cl, [r8]
 sub r1, 0x42
 jne 6
 add r0, 1
@@ -1161,7 +1161,7 @@ mov r7, r8
 REX.W
 add r7, 1
 sub r1, r1
-movb r1, [r7]
+movb cl, [r7]
 sub r1, 0x72
 je 3
 jne 27
@@ -1171,7 +1171,7 @@ REX.B
 mov [r0], r2
 add r8, 5
 REX.B
-mov r0, [r0]
+mov eax, [r8]
 sub r0, 0x30
 add r0, r3
 sub r8, 4
@@ -1283,20 +1283,20 @@ mov r3, r8
 REX.W
 add r3, 7
 sub r1, r1
-movb r1, [r3]
+movb cl, [r3]
 sub r1, 0x72
 je 2
 jne 7
 REX.W
 sub r3, 6
 sub r1, r1
-movb r1, [r3]
+movb cl, [r3]
 cmp r1, 0x5B
 je 2
 jne 17
 add r8, 8
 REX.B
-movb r0, [r0]
+movb al, [r8]
 sub r0, 0x30
 add r0, r0
 add r0, r0
@@ -1304,9 +1304,9 @@ add r0, r0
 sub r8, 5
 sub r1, r1
 REX.B
-movb r1, [r0]
+movb cl, [r8]
 REX.B
-add r0, [r0]
+add eax, [r8]
 sub r0, 0x30
 sub r8, 6
 jmp 3
