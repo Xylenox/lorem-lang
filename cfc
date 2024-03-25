@@ -591,64 +591,71 @@ rex:            ; encoding calculation, returns REX in r0 and
     add r0, 0x08
     cmp rdi, 1 
     jne 5
-    cmp rcx, 8              ; ri
-    jl 2
-    add rax, 0x01           ; REX.B
-    ret
+        cmp rcx, 8              ; ri
+        jl 2
+            add rax, 0x01           ; REX.B
+        ret
 
     cmp rcx, 8              ; rr 
     jl 2
-    add rax, 0x04           ; REX.R
+        add rax, 0x04           ; REX.R
     cmp rsi, 8
     jl 2
-    add rax, 0x01           ; REX.B
+        add rax, 0x01           ; REX.B
     ret
 
-evrm:
-    mov r0, rdi
-    mov r1, rsi
-    mov r2, rdx
-    cmp r0, "add"
-    jne 3
-    mov r7, 3
-    jmp 4
-    cmp r0, "mov"
-    jne 3
-    mov r7, 0x8B
-    jmp 4
-    cmp r0, "movb"              ; movbrm
-    jne 3
-    mov r7, 0x8A
-    jmp 4
-    cmp r0, "movs"              ; movs
-    jne 3
-    mov r7, 0x63
-    jmp 2
-    jne inva
-
-    mov r0, r1
+carm:
+    mov r0, rsi
     shl r0, 3
-    add r0, r2
+    add r0, rdi
 
-    sub r4, 10
-    mov [r4], r7
-    add r4, 1
+    sub r4, 8
     mov [r4], r0
-    sub r4, 1
     
-    mov r7, 2
+    mov r7, 1
     ; source is r4
     cmp r2, 4
     jne 6
-    add r4, 2
+    add r4, 1
     mov r0, 0x24
     mov [r4], r0
-    sub r4, 2
-    mov r7, 3
-
+    sub r4, 1
+    mov r7, 2
+    ; TODO: FIX r5
     call prin
 
-    add r4, 10
+    add r4, 8
+    ret
+
+evrm:
+    cmp rdi, "add"
+    jne 3
+    mov rdi, 0x03
+    jmp rmfo
+    cmp rdi, "mov"
+    jne 3
+    mov rdi, 0x8B
+    jmp rmfo
+    cmp rdi, "movb"              ; movbrm
+    jne 3
+    mov rdi, 0x8A
+    jmp rmfo
+    cmp rdi, "movs"              ; movs
+    jne 3
+    mov rdi, 0x63
+    jmp rmfo
+    jne inva
+    rmfo:
+
+    push r7
+    mov r7, 1
+    call prin
+    pop r7
+
+    mov rdi, rdx
+
+    call carm
+
     ret
 
 evrr:
@@ -760,7 +767,6 @@ star:
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
 add r4, 16
-REX.W
 mov r7, [r4]            ; argv[1]
 sub r4, 16
 mov r0, 2
@@ -771,7 +777,6 @@ mov r0, 2               ; READ_WRITE
 mov r2, 0xFFFF          ; all perms
 mov r6, 0x242           ; truncate/create/.??
 add r4, 24
-REX.W
 mov r7, [r4]            ; argv[2]
 sub r4, 24
 syscall
@@ -789,7 +794,6 @@ mov r6, r4              ; fstat buffer
 mov r0, 5               ; fstat
 syscall
 add r4, 48
-REX.WR
 mov r10, [r4]            ; file size
 sub r4, 48
 
@@ -996,7 +1000,6 @@ REX.W
 mul r1
 REX.W
 mul r1
-REX.W
 add r0, "sysc"
 mov r1, r0
 mov r0, r3
