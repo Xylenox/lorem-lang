@@ -585,6 +585,19 @@ rex:            ; encoding calculation, returns REX in r0 and
 ; dest in rcx, rdx
 
     mov rax, 0x40            ; right now it is only registers allowed in dest
+    cmp rdx, 0
+    jg 9
+    ; memory in dest, want to swap
+    push r1
+    push r2
+    push r6
+    push r7
+    pop r2
+    pop r1
+    pop r7
+    pop r6
+    ; TODO: immediate to memory operand size calculation
+    ; register in dest, memory in source
     cmp rdx, 64
     jne 2
     ; 64 bit
@@ -610,15 +623,15 @@ carm:
     add r0, rdi
 
     sub r4, 8
-    mov [r4], r0
+    mov [r4], eax
     
-    mov r7, 1
     ; source is r4
-    cmp r2, 4
+    cmp r7, 4
+    mov r7, 1
     jne 6
     add r4, 1
     mov r0, 0x24
-    mov [r4], r0
+    mov [r4], eax
     sub r4, 1
     mov r7, 2
     ; TODO: FIX r5
@@ -658,6 +671,30 @@ evrm:
 
     ret
 
+evmr:
+    cmp rdi, "mov"
+    jne 3
+    mov rdi, 0x89
+    jmp mrfo
+    jne inva
+    mrfo:
+
+    push r7
+    mov r7, 1
+    call prin
+    pop r7
+
+    mov rdi, rdx
+
+    push r6
+    push r7
+    pop r6
+    pop r7
+
+    call carm
+
+    ret
+
 evrr:
     mov r0, rdi
     mov r1, rsi
@@ -687,9 +724,9 @@ evrr:
     add r1, 0xC0
 
     sub r4, 8
-    mov [r4], r5
+    mov [r4], ebp
     add r4, 1
-    mov [r4], r1
+    mov [r4], ecx
     sub r4, 1
 
     mov r7, 2
@@ -743,11 +780,11 @@ evri: ; evaluate ri
     add r7, r1
 
     sub r4, 8
-    mov [r4], r6
+    mov [r4], esi
     add r4, 1
-    mov [r4], r7
+    mov [r4], edi
     add r4, 1
-    mov [r4], r2                ; imm
+    mov [r4], edx                ; imm
     sub r4, 2
 
     add r5, 2
@@ -941,7 +978,7 @@ drel:
     sub r2, r3
     sub r2, 4
     sub r2, r5
-    mov [r4], r2
+    mov [r4], edx
     ; lseek
     REX.WB
     mov r7, r9
@@ -975,7 +1012,7 @@ cont:
     mov r0, 8
     syscall                     ; lseek save current instruction position
     REX.WB
-    mov [r6], r0
+    mov [r14], r0
     add r14, 8
 
 
@@ -1100,7 +1137,7 @@ add r8, 1
 sub r10, 1
 sub r8, 4
 REX.B
-mov [r0], r0
+mov [r8], eax
 mov r7, r9
 mov r6, r8
 mov r2, 1
@@ -1142,14 +1179,14 @@ sub r1, 0x72
 jne nr
 sub r8, 3
 REX.B
-mov [r0], r2
+mov [r8], edx
 add r8, 5
 mov eax, [r8]
 sub r0, 0x30
 add r0, r3
 sub r8, 4
 REX.B
-mov [r0], r0
+mov [r8], eax
 sub r8, 1
 mov r7, r9
 mov r6, r8
@@ -1206,10 +1243,10 @@ pop r2
 
 sub r8, 7
 REX.B
-mov [r0], r2
+mov [r8], edx
 add r8, r3
 REX.B
-mov [r0], r0
+mov [r8], eax
 sub r8, r3
 mov r7, r9
 mov r6, r8
@@ -1234,67 +1271,7 @@ njum:
 
 ; two operands
 
-; movmr
-cmp r0, 0x766F6D
-je 2
-jne nmr
-mov r3, r8
-add r3, 7
-sub r1, r1
-movb cl, [r3]
-sub r1, 0x72
-je 2
-jne nmr
-sub r3, 6
-sub r1, r1
-movb cl, [r3]
-cmp r1, "["
-je 2
-jne nmr
-add r8, 8
-movb al, [r8]
-sub r0, 0x30
-shl r0, 3
-sub r8, 5
-sub r1, r1
-movb cl, [r8]
-add eax, [r8]
-sub r0, 0x30
-sub r8, 6
-mov r2, 0x89
-REX.B
-mov [r0], r2
-add r8, 1
-REX.B
-mov [r0], r0
-sub r8, 1
-mov r2, 2
-; source is r4
-sub r1, 0x34
-jne 8
-add r8, 2
-mov r0, 0x24
-REX.B
-mov [r0], r0
-sub r8, 2
-mov r2, 3
-mov r7, r9
-mov r6, r8
-mov r0, 1
-syscall
-add r8, 12
-sub r10, 9
-jmp main
 
-nmr:
-
-push r0
-call read
-mov r1, r0
-pop r0
-
-add r8, 1
-sub r10, 1
 
 
 
@@ -1307,21 +1284,40 @@ sub r10, 1
 
 
 push r0
+call read
+mov r1, r0
+pop r0
+
+add r8, 1
+sub r10, 1
+
+push r0
+push r1
 push r2
 call read
 mov rsi, rax
 mov rdi, rdx
 pop r2
+pop r1
 pop r0
 
 push r0
-call rex
+push r1
+push r2
+push r6
 push r7
+
+
+call rex
 push r0
 mov r7, 1
 call prin                   ; print REX byte
 pop r0
+
 pop r7
+pop r6
+pop r2
+pop r1
 pop r0
 
 cmp rcx, 8                  ; normalize destination
@@ -1334,12 +1330,19 @@ cmp rsi, 8
 jl 2
 sub rsi, 8
 
-
+cmp rdx, 1
+jl domr
 cmp rdi, 1
 jl dorm
 je dori
 jne dorr
 
+domr:
+    mov rdx, rsi
+    mov rdi, rax
+    mov rsi, rcx
+    call evmr
+    jmp main
 dorm:
     mov rdx, rsi
     mov rdi, rax
@@ -1366,22 +1369,22 @@ inva:
 ; invalid
 sub r4, 4
 mov r0, 10
-mov [r4], r0
+mov [r4], eax
 sub r4, 4
 mov r0, "ion"
-mov [r4], r0
+mov [r4], eax
 sub r4, 4
 mov r0, "ruct"
-mov [r4], r0
+mov [r4], eax
 sub r4, 4
 mov r0, "inst"
-mov [r4], r0
+mov [r4], eax
 sub r4, 4
 mov r0, "lid "
-mov [r4], r0
+mov [r4], eax
 sub r4, 4
 mov r0, "inva"
-mov [r4], r0
+mov [r4], eax
 
 mov r7, 21
 mov r9, 0
