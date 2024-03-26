@@ -436,7 +436,7 @@ reat:
     mov r1, 1           ; power of 256
     
     tloo:
-    sub r0, r0
+    sub eax, eax
     movb al, [r8]
     cmp r0, " "         ; space
     je 2
@@ -900,34 +900,24 @@ main:
     ; end of file
     ; fix jumps
 fixj:
-    REX.WB
     mov r0, r13
-    REX.WB
     sub r0, r14
     je exit
-    REX.WB
     mov r3, r13
-    REX.W
     mov r3, [r3]
     ; read opcode
     ; lseek
-    REX.WB
     mov r7, r9
-    REX.W
     mov r6, r3
     mov r2, 0
     mov r0, 8
     syscall
-    REX.WB
     mov r0, r13
-    REX.WB
     add r0, r15
     mov ebp, [r0]                ; get jump info
 
     ; read instruction stuffs
-    REX.W
     sub r4, 6
-    REX.W
     mov r6, r4
     mov r2, 6                   ; TODO: read amount based on instruction id length
     mov r0, 0
@@ -947,51 +937,40 @@ fixj:
     sub r4, 6
     add r1, r0
     add r4, r5
-    REX.W
     mov r7, [r4]
     sub r4, r5
-    REX.W
     mov r2, [r1]                ; get label at r0
     cmp edx, edi
     je 3
     add r1, 8
-    jmp -5
-    REX.W
+    jmp -4
     sub r1, r0
-    REX.W
     mov r2, [r1]
     jmp drel
 
 rel:
     add r4, r5
-    REX.W
     movs r0, [r4]
     sub r4, r5
     mov r2, r13
-    REX.W
     shl r0, 3
     add r2, r0
     mov edx, [r2]
 
 drel:
-    REX.W
     sub r2, r3
     sub r2, 4
     sub r2, r5
     mov [r4], edx
     ; lseek
-    REX.WB
     mov r7, r9
     mov r6, r5
-    REX.W
     sub r6, 6
     mov r2, 1
     mov r0, 8
     syscall
 
-    REX.WB
     mov r7, r9
-    REX.W
     mov r6, r4
     mov r2, 4
     mov r0, 1
@@ -1011,7 +990,6 @@ cont:
     mov r2, 1
     mov r0, 8
     syscall                     ; lseek save current instruction position
-    REX.WB
     mov [r14], r0
     add r14, 8
 
@@ -1091,7 +1069,6 @@ jne nlab
 sub r14, 8
 mov r3, r14
 add r3, [r4]
-REX.W
 mov [r3], r0
 add r8, 1
 sub r10, 1
@@ -1136,7 +1113,6 @@ add r0, 1
 add r8, 1
 sub r10, 1
 sub r8, 4
-REX.B
 mov [r8], eax
 mov r7, r9
 mov r6, r8
@@ -1178,14 +1154,12 @@ movb cl, [r7]
 sub r1, 0x72
 jne nr
 sub r8, 3
-REX.B
 mov [r8], edx
 add r8, 5
 mov eax, [r8]
 sub r0, 0x30
 add r0, r3
 sub r8, 4
-REX.B
 mov [r8], eax
 sub r8, 1
 mov r7, r9
@@ -1201,22 +1175,22 @@ nr:
 
 
 ; jumps
-cmp r0, 0x656E6A        ; jne
+cmp r0, "jne"        ; jne
 jne 4
 mov r2, 0x850F
 mov r3, 2
 jmp 5
-cmp r0, 0x706D6A        ; jmp
+cmp r0, "jmp"        ; jmp
 jne 4
 mov r2, 0xE9
 mov r3, 1
 jmp 5
-cmp r0, 0x656A          ; je
+cmp r0, "je"          ; je
 jne 4
 mov r2, 0x840F
 mov r3, 2
 jmp 5
-cmp r0, 0x6C6A          ; jl
+cmp r0, "jl"          ; jl
 jne 4
 mov r2, 0x8C0F
 mov r3, 2
@@ -1226,13 +1200,12 @@ jne 4
 mov r2, 0x8F0F
 mov r3, 2
 jmp 5
-cmp r0, 0x6C6C6163          ; call
+cmp r0, "call"          ; call
 jne 4
 mov r2, 0xE8
 mov r3, 1
 jmp 2
 jne njum
-REX.W
 add r8, 1
 push r2
 
@@ -1242,10 +1215,8 @@ mov r5, r2
 pop r2
 
 sub r8, 7
-REX.B
 mov [r8], edx
 add r8, r3
-REX.B
 mov [r8], eax
 sub r8, r3
 mov r7, r9
@@ -1263,7 +1234,6 @@ mov r0, 2
 cmp r5, 0
 jne 2
 add r3, 256
-REX.W
 mov [r2], r3            ; save jump information in instruction location array
 jmp main
 
@@ -1330,37 +1300,29 @@ cmp rsi, 8
 jl 2
 sub rsi, 8
 
-cmp rdx, 1
+
+mov rbx, rdx
+mov rbp, rdi
+mov rdx, rsi
+mov rdi, rax
+mov rsi, rcx
+cmp rbx, 1
 jl domr
-cmp rdi, 1
+cmp rbp, 1
 jl dorm
 je dori
 jne dorr
 
 domr:
-    mov rdx, rsi
-    mov rdi, rax
-    mov rsi, rcx
     call evmr
     jmp main
 dorm:
-    mov rdx, rsi
-    mov rdi, rax
-    mov rsi, rcx
     call evrm
     jmp main
-
 dorr:
-    mov rdx, rsi
-    mov rdi, rax
-    mov rsi, rcx
     call evrr
     jmp main
-
 dori:
-    mov rdx, rsi
-    mov rdi, rax
-    mov rsi, rcx
     call evri
     jmp main
 
