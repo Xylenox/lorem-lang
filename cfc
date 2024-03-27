@@ -421,16 +421,13 @@ whit:
     cmp r0, " "
     je 2
     cmp r0, 10
-    jne 4
+    jne 3
     add r8, 1
-    sub r10, 1
     jmp whit
     ret
 
 reat:
-    push r1
     push r5
-    push r7
     ; read token
     mov r5, 0           ; token output
     mov r1, 1           ; power of 256
@@ -439,19 +436,18 @@ reat:
     sub eax, eax
     movb al, [r8]
     cmp r0, " "         ; space
-    je 2
+    je tdon
     cmp r0, 10          ; newline
-    je 2
+    je tdon
     cmp r0, ":"         ; label
-    je 2
+    je tdon
     cmp r0, "."         ; period
-    je 2
+    je tdon
     cmp r0, ","
-    je 2
+    je tdon
     cmp r0, "]"
     je tdon
     add r8, 1
-    sub r10, 1
     REX.W
     mul r1
     add r5, r0
@@ -465,9 +461,7 @@ reat:
     tdon:
     mov r7, r5
     call tore
-    pop r7
     pop r5
-    pop r1
     ret
 
 reas:           ; read string
@@ -475,7 +469,6 @@ reas:           ; read string
     push r5
     ; read string
     add r8, 1
-    sub r10, 1
     mov r5, 0           ; token output
     mov r1, 1           ; power of 256
     sloo:
@@ -484,7 +477,6 @@ reas:           ; read string
     cmp r0, 34        ; "
     je sdon
     add r8, 1
-    sub r10, 1
     REX.W
     mul r1
     add r5, r0
@@ -497,7 +489,6 @@ reas:           ; read string
 
     sdon:
     add r8, 1
-    sub r10, 1
     mov r0, r5
     pop r5
     pop r1
@@ -519,15 +510,13 @@ read:           ; read number
     mov r2, 1
     jmp dore
     cmp r7, "["
-    jne 10
+    jne 8
     add r8, 1
-    sub r10, 1
     call reat
     mov r3, 0
     sub r3, r2
     mov r2, r3
     add r8, 1
-    sub r10, 1
     jmp dore
     call isal
     cmp r0, 1
@@ -546,7 +535,6 @@ read:           ; read number
     sub r3, 10              ; newline
     je dolo
     add r8, 1
-    sub r10, 1
     add r3, 10
     cmp r1, 256
     je 17
@@ -891,12 +879,12 @@ push r5
 REX.W
 push r0                 ; save label info array
 
-
+add r10, r8
 
 main:
     ; main loop
-    sub r10, 0
-    jne cont
+    cmp r8, r10
+    jl cont
     ; end of file
     ; fix jumps
 fixj:
@@ -1028,7 +1016,6 @@ mov r7, 2
 call prin
 pop r0
 add r8, 4
-sub r10, 0
 jmp main
 nsys:                   ; not sys
 
@@ -1043,9 +1030,8 @@ coml:
 sub r0, r0
 movb al, [r8]
 cmp r0, 10
-je 4
+je 3
 add r8, 1
-sub r10, 1
 jmp coml
 sub r14, 8
 jmp main
@@ -1054,9 +1040,8 @@ ncom:
 
 ; space/newline
 cmp r0, 0
-jne 5
+jne 4
 add r8, 1
-sub r10, 1
 sub r14, 8
 jmp main
 
@@ -1071,7 +1056,6 @@ mov r3, r14
 add r3, [r4]
 mov [r3], r0
 add r8, 1
-sub r10, 1
 jmp main
 
 nlab:
@@ -1082,36 +1066,31 @@ cmp r0, "REX"
 je 2
 jne nrex
 add r8, 1
-sub r10, 1
 mov r0, 0x40
 sub r1, r1
 movb cl, [r8]
 cmp r1, 0x57
-jne 4
+jne 3
 add r0, 8
 add r8, 1
-sub r10, 1
 sub r1, r1
 movb cl, [r8]
 cmp r1, 0x52
-jne 4
+jne 3
 add r0, 4
 add r8, 1
-sub r10, 1
 sub r1, r1
 movb cl, [r8]
 cmp r1, 0x58
-jne 4
+jne 3
 add r0, 2
 add r8, 1
-sub r10, 1
 sub r1, r1
 movb cl, [r8]
 sub r1, 0x42
-jne 4
+jne 3
 add r0, 1
 add r8, 1
-sub r10, 1
 sub r8, 4
 mov [r8], eax
 mov r7, r9
@@ -1124,55 +1103,7 @@ jmp main
 
 nrex:
 
-
-; read first operand
-
-
 ; 1-operands
-
-; mulr
-cmp r0, 0x6C756D        ; mul
-jne 4
-mov r2, 0xF7
-mov r3, 0xE0
-jmp 5
-cmp r0, 0x68737570        ; push
-jne 4
-mov r2, 0xFF
-mov r3, 0xF0
-jmp 5
-cmp r0, 0x706F70        ; pop
-jne 4
-mov r2, 0x8F
-mov r3, 0xC0
-jmp 2
-jne nr
-mov r7, r8
-add r7, 1
-sub r1, r1
-movb cl, [r7]
-sub r1, 0x72
-jne nr
-sub r8, 3
-mov [r8], edx
-add r8, 5
-mov eax, [r8]
-sub r0, 0x30
-add r0, r3
-sub r8, 4
-mov [r8], eax
-sub r8, 1
-mov r7, r9
-mov r6, r8
-mov r2, 2
-mov r0, 1
-syscall
-add r8, 6
-sub r10, 3
-jmp main
-
-nr:
-
 
 ; jumps
 cmp r0, "jne"        ; jne
@@ -1226,7 +1157,6 @@ add r2, 4
 mov r0, 1
 syscall
 add r8, 7
-sub r10, 1
 mov r2, r15
 add r2, r14
 sub r2, 8
@@ -1241,9 +1171,38 @@ njum:
 
 ; two operands
 
+; mulr
+cmp r0, "mul"        ; mul
+jne 4
+mov r6, 0xF7
+mov r7, 0xE0
+jmp 5
+cmp r0, "push"        ; push
+jne 4
+mov r6, 0xFF
+mov r7, 0xF0
+jmp 5
+cmp r0, "pop"        ; pop
+jne 4
+mov r6, 0x8F
+mov r7, 0xC0
+jmp 2
+jne nr
 
+call read
+add r0, r7
 
-
+sub r4, 8
+mov [r4], r6
+add r4, 1
+mov [r4], eax
+sub r4, 1
+mov r7, 2
+call prin
+syscall
+add r4, 8
+jmp main
+nr:
 
 ; r1 = REX byte
 ; r2 = reg
@@ -1258,25 +1217,22 @@ call read
 mov r1, r0
 pop r0
 
-add r8, 1
-sub r10, 1
 
-push r0
-push r1
-push r2
+add r8, 1
+push rax
+push rdx
 call read
 mov rsi, rax
 mov rdi, rdx
-pop r2
-pop r1
-pop r0
+pop rdx
+pop rax
+
 
 push r0
 push r1
 push r2
 push r6
 push r7
-
 
 call rex
 push r0
