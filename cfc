@@ -786,6 +786,77 @@ expr:
     call evri
     ret
 
+ops2:
+    push r0
+    call read
+    mov r1, r0
+    pop r0
+
+
+    add r8, 1
+    push rax
+    push rdx
+    call read
+    mov rsi, rax
+    mov rdi, rdx
+    pop rdx
+    pop rax
+
+
+    push r0
+    push r1
+    push r2
+    push r6
+    push r7
+
+    call rex
+    push r0
+    mov r7, 1
+    call prin                   ; print REX byte
+    pop r0
+
+    pop r7
+    pop r6
+    pop r2
+    pop r1
+    pop r0
+
+    cmp rcx, 8                  ; normalize destination
+    jl 2
+    sub rcx, 8
+
+    cmp rdi, 1                  ; normalize src
+    je 4
+    cmp rsi, 8
+    jl 2
+    sub rsi, 8
+
+
+    mov rbx, rdx
+    mov rbp, rdi
+    mov rdx, rsi
+    mov rdi, rax
+    mov rsi, rcx
+    cmp rbx, 1
+    jl domr
+    cmp rbp, 1
+    jl dorm
+    je dori
+    jne dorr
+
+    domr:
+        call evmr
+        ret
+    dorm:
+        call evrm
+        ret
+    dorr:
+        call evrr
+        ret
+    dori:
+        call evri
+        ret
+
 
 star:
 ; open input
@@ -1020,9 +1091,6 @@ jmp main
 nsys:                   ; not sys
 
 
-
-
-
 ; comments
 cmp r0, 0x3B
 jne ncom
@@ -1145,18 +1213,15 @@ call read
 mov r5, r2
 pop r2
 
-sub r8, 7
-mov [r8], edx
-add r8, r3
-mov [r8], eax
-sub r8, r3
-mov r7, r9
-mov r6, r8
-mov r2, r3
-add r2, 4
-mov r0, 1
-syscall
-add r8, 7
+sub r4, 8
+mov [r4], edx
+add r4, r3
+mov [r4], eax
+sub r4, r3
+mov r7, r3
+add r7, 4
+call prin
+add r4, 8
 mov r2, r15
 add r2, r14
 sub r2, 8
@@ -1211,76 +1276,8 @@ nr:
 ; r6 = opcode 2
 
 
-
-push r0
-call read
-mov r1, r0
-pop r0
-
-
-add r8, 1
-push rax
-push rdx
-call read
-mov rsi, rax
-mov rdi, rdx
-pop rdx
-pop rax
-
-
-push r0
-push r1
-push r2
-push r6
-push r7
-
-call rex
-push r0
-mov r7, 1
-call prin                   ; print REX byte
-pop r0
-
-pop r7
-pop r6
-pop r2
-pop r1
-pop r0
-
-cmp rcx, 8                  ; normalize destination
-jl 2
-sub rcx, 8
-
-cmp rdi, 1                  ; normalize src
-je 4
-cmp rsi, 8
-jl 2
-sub rsi, 8
-
-
-mov rbx, rdx
-mov rbp, rdi
-mov rdx, rsi
-mov rdi, rax
-mov rsi, rcx
-cmp rbx, 1
-jl domr
-cmp rbp, 1
-jl dorm
-je dori
-jne dorr
-
-domr:
-    call evmr
-    jmp main
-dorm:
-    call evrm
-    jmp main
-dorr:
-    call evrr
-    jmp main
-dori:
-    call evri
-    jmp main
+call ops2
+jmp main
 
 inva:
 
