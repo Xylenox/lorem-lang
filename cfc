@@ -574,6 +574,7 @@ rex:            ; encoding calculation, returns REX in r0 and
 
     mov rax, 0x40            ; right now it is only registers allowed in dest
     cmp rdx, 0
+
     jg 9
     ; memory in dest, want to swap
     push r1
@@ -788,11 +789,43 @@ evri: ; evaluate ri
     add r4, 8
     ret
 
+ops1:
+
+    ; mulr
+    cmp rdi, "mul"        ; mul
+    jne 4
+    mov rax, 0xF7
+    mov rcx, 0xE0
+    jmp 5
+    cmp rdi, "push"        ; push
+    jne 4
+    mov rax, 0xFF
+    mov rcx, 0xF0
+    jmp 5
+    cmp rdi, "pop"        ; pop
+    jne 4
+    mov rax, 0x8F
+    mov rcx, 0xC0
+    jmp 2
+    jne nr
+
+    add rcx, rsi
+
+    sub r4, 8
+    mov [r4], eax
+    add r4, 1
+    mov [r4], ecx
+    sub r4, 1
+    mov r7, 2
+    call prin
+    add r4, 8
+    ret
+    nr:
+    ret
 ops2:
     mov rax, rdi
     mov rcx, rsi
 
-    add r8, 1
     push rax
     push rdx
     call read
@@ -1031,42 +1064,20 @@ pars:
 
     ; two operands
 
-    ; mulr
-    cmp r0, "mul"        ; mul
-    jne 4
-    mov r6, 0xF7
-    mov r7, 0xE0
-    jmp 5
-    cmp r0, "push"        ; push
-    jne 4
-    mov r6, 0xFF
-    mov r7, 0xF0
-    jmp 5
-    cmp r0, "pop"        ; pop
-    jne 4
-    mov r6, 0x8F
-    mov r7, 0xC0
-    jmp 2
-    jne nr
-
-    call read
-    add r0, r7
-
-    sub r4, 8
-    mov [r4], r6
-    add r4, 1
-    mov [r4], eax
-    sub r4, 1
-    mov r7, 2
-    call prin
-    syscall
-    add r4, 8
-    ret
-    nr:
 
     mov rdi, rax
     call read
     mov rsi, rax
+
+    sub rax, rax
+    movb rax, [r8]
+    cmp rax, ","
+    je 3
+    call ops1
+    ret
+
+    add r8, 1
+
     call ops2
     ret
 
