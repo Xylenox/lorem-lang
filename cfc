@@ -595,7 +595,7 @@ rex:            ; encoding calculation, returns REX in r0 and
         cmp rcx, 8              ; ri
         jl 2
             add rax, 0x01           ; REX.B
-        ret
+        jmp rexf
 
     cmp rcx, 8              ; rr 
     jl 2
@@ -603,6 +603,12 @@ rex:            ; encoding calculation, returns REX in r0 and
     cmp rsi, 8
     jl 2
         add rax, 0x01           ; REX.B
+
+    rexf:
+    push rax
+    mov r7, 1
+    call prin
+    pop rax
     ret
 
 carm:
@@ -781,17 +787,10 @@ evri: ; evaluate ri
 
     add r4, 8
     ret
-expr:
-    ; pass mnemonic in r7
-    call evri
-    ret
 
 ops2:
-    push r0
-    call read
-    mov r1, r0
-    pop r0
-
+    mov rax, rdi
+    mov rcx, rsi
 
     add r8, 1
     push rax
@@ -802,7 +801,6 @@ ops2:
     pop rdx
     pop rax
 
-
     push r0
     push r1
     push r2
@@ -810,10 +808,6 @@ ops2:
     push r7
 
     call rex
-    push r0
-    mov r7, 1
-    call prin                   ; print REX byte
-    pop r0
 
     pop r7
     pop r6
@@ -830,7 +824,6 @@ ops2:
     cmp rsi, 8
     jl 2
     sub rsi, 8
-
 
     mov rbx, rdx
     mov rbp, rdi
@@ -895,7 +888,6 @@ pars:
     ret
     nsys:                   ; not sys
 
-
     ; comments
     cmp r0, 0x3B
     jne ncom
@@ -933,7 +925,6 @@ pars:
     add r8, 1
     ret
     nlab:
-
 
     ; REX
     cmp r0, "REX"
@@ -974,7 +965,6 @@ pars:
     syscall
     add r8, 4
     ret
-
     nrex:
 
     ; 1-operands
@@ -1037,7 +1027,6 @@ pars:
     add r3, 256
     mov [r2], r3            ; save jump information in instruction location array
     ret
-
     njum:
 
     ; two operands
@@ -1075,12 +1064,9 @@ pars:
     ret
     nr:
 
-    ; r1 = REX byte
-    ; r2 = reg
-    ; r3 = r/m/immediate
-    ; r5 = opcode
-    ; r6 = opcode 2
-
+    mov rdi, rax
+    call read
+    mov rsi, rax
     call ops2
     ret
 
@@ -1142,7 +1128,7 @@ pop r1                  ; restore r9
 
 ; make heap
 mov r7, 0               ; adress
-mov r6, r10              ; length
+mov r6, r10             ; length
 REX.WB
 push r2                 ; save length
 shl r6, 4
