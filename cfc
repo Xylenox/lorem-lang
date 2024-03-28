@@ -857,6 +857,232 @@ ops2:
         call evri
         ret
 
+pars:
+    call reat
+
+    ; ret
+    cmp r0, "ret"
+    jne nret
+    mov r0, 0xC3
+    push r0
+    mov r7, 1
+    call prin
+    pop r0
+    ret
+    nret:
+
+    ; syscall
+    mov r3, r0
+    mov r0, "all"
+    mov r1, 0x10000
+    REX.W
+    mul r1
+    REX.W
+    mul r1
+    add r0, "sysc"
+    mov r1, r0
+    mov r0, r3
+    cmp r0, r1
+    je 2
+    jne nsys
+    sub r8, 4
+    mov r0, 0x050F
+    push r0
+    mov r7, 2
+    call prin
+    pop r0
+    add r8, 4
+    ret
+    nsys:                   ; not sys
+
+
+    ; comments
+    cmp r0, 0x3B
+    jne ncom
+    coml:
+    sub r0, r0
+    movb al, [r8]
+    cmp r0, 10
+    je 3
+    add r8, 1
+    jmp coml
+    sub r14, 8
+    ret
+
+    ncom:
+
+    ; space/newline
+    cmp r0, 0
+    jne nspa
+    add r8, 1
+    sub r14, 8
+    ret
+    nspa:
+
+    ; label
+    sub r1, r1
+    movb cl, [r8]
+    cmp r1, 58
+    jne nlab
+    sub r14, 8
+    mov r3, r14
+    add r4, 8
+    add r3, [r4]            ; label info array
+    sub r4, 8
+    mov [r3], r0
+    add r8, 1
+    ret
+    nlab:
+
+
+    ; REX
+    cmp r0, "REX"
+    je 2
+    jne nrex
+    add r8, 1
+    mov r0, 0x40
+    sub r1, r1
+    movb cl, [r8]
+    cmp r1, 0x57
+    jne 3
+    add r0, 8
+    add r8, 1
+    sub r1, r1
+    movb cl, [r8]
+    cmp r1, 0x52
+    jne 3
+    add r0, 4
+    add r8, 1
+    sub r1, r1
+    movb cl, [r8]
+    cmp r1, 0x58
+    jne 3
+    add r0, 2
+    add r8, 1
+    sub r1, r1
+    movb cl, [r8]
+    sub r1, 0x42
+    jne 3
+    add r0, 1
+    add r8, 1
+    sub r8, 4
+    mov [r8], eax
+    mov r7, r9
+    mov r6, r8
+    mov r2, 1
+    mov r0, 1
+    syscall
+    add r8, 4
+    ret
+
+    nrex:
+
+    ; 1-operands
+
+    ; jumps
+    cmp r0, "jne"        ; jne
+    jne 4
+    mov r2, 0x850F
+    mov r3, 2
+    jmp 5
+    cmp r0, "jmp"        ; jmp
+    jne 4
+    mov r2, 0xE9
+    mov r3, 1
+    jmp 5
+    cmp r0, "je"          ; je
+    jne 4
+    mov r2, 0x840F
+    mov r3, 2
+    jmp 5
+    cmp r0, "jl"          ; jl
+    jne 4
+    mov r2, 0x8C0F
+    mov r3, 2
+    jmp 5
+    cmp r0, "jg"          ; jg
+    jne 4
+    mov r2, 0x8F0F
+    mov r3, 2
+    jmp 5
+    cmp r0, "call"          ; call
+    jne 4
+    mov r2, 0xE8
+    mov r3, 1
+    jmp 2
+    jne njum
+    add r8, 1
+    push r2
+
+    call read
+
+    mov r5, r2
+    pop r2
+
+    sub r4, 8
+    mov [r4], edx
+    add r4, r3
+    mov [r4], eax
+    sub r4, r3
+    mov r7, r3
+    add r7, 4
+    call prin
+    add r4, 8
+    mov r2, r15
+    add r2, r14
+    sub r2, 8
+    mov r0, 2
+    cmp r5, 0
+    jne 2
+    add r3, 256
+    mov [r2], r3            ; save jump information in instruction location array
+    ret
+
+    njum:
+
+    ; two operands
+
+    ; mulr
+    cmp r0, "mul"        ; mul
+    jne 4
+    mov r6, 0xF7
+    mov r7, 0xE0
+    jmp 5
+    cmp r0, "push"        ; push
+    jne 4
+    mov r6, 0xFF
+    mov r7, 0xF0
+    jmp 5
+    cmp r0, "pop"        ; pop
+    jne 4
+    mov r6, 0x8F
+    mov r7, 0xC0
+    jmp 2
+    jne nr
+
+    call read
+    add r0, r7
+
+    sub r4, 8
+    mov [r4], r6
+    add r4, 1
+    mov [r4], eax
+    sub r4, 1
+    mov r7, 2
+    call prin
+    syscall
+    add r4, 8
+    ret
+    nr:
+
+    ; r1 = REX byte
+    ; r2 = reg
+    ; r3 = r/m/immediate
+    ; r5 = opcode
+    ; r6 = opcode 2
+
+    call ops2
+    ret
 
 star:
 ; open input
@@ -1052,231 +1278,7 @@ cont:
     mov [r14], r0
     add r14, 8
 
-
-call reat
-
-; ret
-cmp r0, "ret"
-jne nret
-mov r0, 0xC3
-push r0
-mov r7, 1
-call prin
-pop r0
-jmp main
-nret:
-
-; syscall
-mov r3, r0
-mov r0, "all"
-mov r1, 0x10000
-REX.W
-mul r1
-REX.W
-mul r1
-add r0, "sysc"
-mov r1, r0
-mov r0, r3
-cmp r0, r1
-je 2
-jne nsys
-sub r8, 4
-mov r0, 0x050F
-push r0
-mov r7, 2
-call prin
-pop r0
-add r8, 4
-jmp main
-nsys:                   ; not sys
-
-
-; comments
-cmp r0, 0x3B
-jne ncom
-coml:
-sub r0, r0
-movb al, [r8]
-cmp r0, 10
-je 3
-add r8, 1
-jmp coml
-sub r14, 8
-jmp main
-
-ncom:
-
-; space/newline
-cmp r0, 0
-jne 4
-add r8, 1
-sub r14, 8
-jmp main
-
-
-; label
-sub r1, r1
-movb cl, [r8]
-cmp r1, 58
-jne nlab
-sub r14, 8
-mov r3, r14
-add r3, [r4]
-mov [r3], r0
-add r8, 1
-jmp main
-
-nlab:
-
-
-; REX
-cmp r0, "REX"
-je 2
-jne nrex
-add r8, 1
-mov r0, 0x40
-sub r1, r1
-movb cl, [r8]
-cmp r1, 0x57
-jne 3
-add r0, 8
-add r8, 1
-sub r1, r1
-movb cl, [r8]
-cmp r1, 0x52
-jne 3
-add r0, 4
-add r8, 1
-sub r1, r1
-movb cl, [r8]
-cmp r1, 0x58
-jne 3
-add r0, 2
-add r8, 1
-sub r1, r1
-movb cl, [r8]
-sub r1, 0x42
-jne 3
-add r0, 1
-add r8, 1
-sub r8, 4
-mov [r8], eax
-mov r7, r9
-mov r6, r8
-mov r2, 1
-mov r0, 1
-syscall
-add r8, 4
-jmp main
-
-nrex:
-
-; 1-operands
-
-; jumps
-cmp r0, "jne"        ; jne
-jne 4
-mov r2, 0x850F
-mov r3, 2
-jmp 5
-cmp r0, "jmp"        ; jmp
-jne 4
-mov r2, 0xE9
-mov r3, 1
-jmp 5
-cmp r0, "je"          ; je
-jne 4
-mov r2, 0x840F
-mov r3, 2
-jmp 5
-cmp r0, "jl"          ; jl
-jne 4
-mov r2, 0x8C0F
-mov r3, 2
-jmp 5
-cmp r0, "jg"          ; jg
-jne 4
-mov r2, 0x8F0F
-mov r3, 2
-jmp 5
-cmp r0, "call"          ; call
-jne 4
-mov r2, 0xE8
-mov r3, 1
-jmp 2
-jne njum
-add r8, 1
-push r2
-
-call read
-
-mov r5, r2
-pop r2
-
-sub r4, 8
-mov [r4], edx
-add r4, r3
-mov [r4], eax
-sub r4, r3
-mov r7, r3
-add r7, 4
-call prin
-add r4, 8
-mov r2, r15
-add r2, r14
-sub r2, 8
-mov r0, 2
-cmp r5, 0
-jne 2
-add r3, 256
-mov [r2], r3            ; save jump information in instruction location array
-jmp main
-
-njum:
-
-; two operands
-
-; mulr
-cmp r0, "mul"        ; mul
-jne 4
-mov r6, 0xF7
-mov r7, 0xE0
-jmp 5
-cmp r0, "push"        ; push
-jne 4
-mov r6, 0xFF
-mov r7, 0xF0
-jmp 5
-cmp r0, "pop"        ; pop
-jne 4
-mov r6, 0x8F
-mov r7, 0xC0
-jmp 2
-jne nr
-
-call read
-add r0, r7
-
-sub r4, 8
-mov [r4], r6
-add r4, 1
-mov [r4], eax
-sub r4, 1
-mov r7, 2
-call prin
-syscall
-add r4, 8
-jmp main
-nr:
-
-; r1 = REX byte
-; r2 = reg
-; r3 = r/m/immediate
-; r5 = opcode
-; r6 = opcode 2
-
-
-call ops2
+call pars
 jmp main
 
 inva:
