@@ -17,16 +17,14 @@ push r1
 push r2
 push r6
 push r7
-REX.WB
-push r3
+push r11
 mov r2, r7
 mov r7, r9
 mov r6, r4
 add r6, 56
 mov r0, 1
 syscall
-REX.WB
-pop r3
+pop r11
 pop r7
 pop r6
 pop r2
@@ -448,12 +446,10 @@ reat:
     cmp r0, "]"
     je tdon
     add r8, 1
-    REX.W
     mul r1
     add r5, r0
     mov r0, r1
     mov r1, 256
-    REX.W
     mul r1
     mov r1, r0
     jmp tloo
@@ -477,12 +473,10 @@ reas:           ; read string
     cmp r0, 34        ; "
     je sdon
     add r8, 1
-    REX.W
     mul r1
     add r5, r0
     mov r0, r1
     mov r1, 256
-    REX.W
     mul r1
     mov r1, r0
     jmp sloo
@@ -566,13 +560,40 @@ read:           ; read number
     pop r5
     pop r3
     pop r1
-ret
+    ret
 
 rex:            ; encoding calculation, returns REX in r0 and 
-; source in rsi, rdi
-; dest in rcx, rdx
+; dest in rdi, rsi
+; source in rdx, rcx
 
-    mov rax, 0x40            ; right now it is only registers allowed in dest
+    cmp rsi, 8
+    jl xnr
+    ; register destination
+        cmp rcx, 1
+        jne xnr
+        ; ri
+        mov rax, 0x40
+        cmp rsi, 64
+        jne 2
+        add rax, 0x08
+        cmp rdi, 8
+        jl 2
+        add rax, 0x01
+        ; jmp rexf
+        
+    xnr:
+    push r1
+    push r2
+    push r6
+    push r7
+    pop r2
+    pop r1
+    pop r7
+    pop r6
+    
+    mov rax, 0x40
+    
+
     cmp rdx, 0
 
     jg 9
@@ -809,7 +830,22 @@ ops1:
     jmp 2
     jne nr
 
+    mov rdi, 0x40
+    cmp rdx, 64
+    jne 2
+    add rdi, 0x08
+    cmp rsi, 8
+    jl 3
+    add rdi, 0x01
+    sub rsi, 8
+
+    push rdi
+    mov rdi, 1
+    call prin
+    pop rdi
+
     add rcx, rsi
+
 
     sub r4, 8
     mov [r4], eax
@@ -823,8 +859,10 @@ ops1:
     nr:
     ret
 ops2:
+    ; takes instruction mnem in rdi, operand name in rsi, and operand type in rdx
     mov rax, rdi
     mov rcx, rsi
+    ; moves opcode to rax, operand 1 name to rcx, and operand 1 type to rdx
 
     push rax
     push rdx
@@ -833,6 +871,7 @@ ops2:
     mov rdi, rdx
     pop rdx
     pop rax
+    ; reads operand 2 name into rsi, operand 2 type into rdi
 
     push r0
     push r1
@@ -840,7 +879,22 @@ ops2:
     push r6
     push r7
 
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    pop rdx
+    pop rcx
+    pop rdi
+    pop rsi
+    
+    ; rearranges into
+    ; rdx = operand 2 type
+    ; rcx = operand 2 name
+    ; rdi = operand 1 type
+    ; rdx = operand 1 name
     call rex
+    
 
     pop r7
     pop r6
@@ -901,9 +955,7 @@ pars:
     mov r3, r0
     mov r0, "all"
     mov r1, 0x10000
-    REX.W
     mul r1
-    REX.W
     mul r1
     add r0, "sysc"
     mov r1, r0
@@ -1005,49 +1057,48 @@ pars:
     ; jumps
     cmp r0, "jne"        ; jne
     jne 4
-    mov r2, 0x850F
-    mov r3, 2
+    mov rdx, 0x850F
+    mov rbx, 2
     jmp 5
     cmp r0, "jmp"        ; jmp
     jne 4
-    mov r2, 0xE9
-    mov r3, 1
+    mov rdx, 0xE9
+    mov rbx, 1
     jmp 5
     cmp r0, "je"          ; je
     jne 4
-    mov r2, 0x840F
-    mov r3, 2
+    mov rdx, 0x840F
+    mov rbx, 2
     jmp 5
     cmp r0, "jl"          ; jl
     jne 4
-    mov r2, 0x8C0F
-    mov r3, 2
+    mov rdx, 0x8C0F
+    mov rbx, 2
     jmp 5
     cmp r0, "jg"          ; jg
     jne 4
-    mov r2, 0x8F0F
-    mov r3, 2
+    mov rdx, 0x8F0F
+    mov rbx, 2
     jmp 5
     cmp r0, "call"          ; call
     jne 4
-    mov r2, 0xE8
-    mov r3, 1
+    mov rdx, 0xE8
+    mov rbx, 1
     jmp 2
     jne njum
     add r8, 1
-    push r2
 
+    push rdx
     call read
-
     mov r5, r2
-    pop r2
+    pop rdx
 
     sub r4, 8
     mov [r4], edx
-    add r4, r3
+    add r4, rbx
     mov [r4], eax
-    sub r4, r3
-    mov r7, r3
+    sub r4, rbx
+    mov r7, rbx
     add r7, 4
     call prin
     add r4, 8
@@ -1078,6 +1129,7 @@ pars:
 
     add r8, 1
 
+    ; passes instruction mnem in rdi, operand name in rsi, and operand type in rdx
     call ops2
     ret
 
@@ -1117,10 +1169,8 @@ mov r10, [r4]            ; file size
 sub r4, 48
 
 ; mmap input
-REX.WB
-push r1                 ; save r9
-REX.WB                  
-push r2                 ; save r10
+push r9                 ; save r9
+push r10                ; save r10
 
 mov r0, 9               ; mmap
 mov r7, 0               ; address
@@ -1131,46 +1181,34 @@ mov r9, 0               ; offset
 syscall
 
 mov r8, r0              ; save mmap address
-REX.WB
-pop r2                  ; restore r10
-REX.WB
-pop r1                  ; restore r9
+pop r10                 ; restore r10
+pop r9                  ; restore r9
 
 
 ; make heap
 mov r7, 0               ; adress
 mov r6, r10             ; length
-REX.WB
-push r2                 ; save length
+push r10                ; save length
 shl r6, 4
 
 mov r2, 3               ; PROT_READ | PROT_WRITE
 mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
-REX.WB
-push r0                 ; save r8
-REX.WB
-push r1                 ; save r9
+push r8                 ; save r8
+push r9                 ; save r9
 mov r8, -1              ; file descriptor empty, anonymous
 mov r9, 0               ; offset
 mov r0, 9               ; mmap
 syscall
-REX.WB
-pop r1                  ; restore r9
-REX.WB
-pop r0                  ; restore r8
-REX.WB
-pop r2                  ; restore r10
+pop r9                  ; restore r9
+pop r8                  ; restore r8
+pop r10                 ; restore r10
 mov r13, r0              ; save instruction location array
 mov r14, r0              ; save instruction location array end
 mov r15, r10              ; store max length of instruction location array
 add r15, r15
-REX.R
-push r7                 ; save jump info array
 mov r0, r15
 add r0, r15
-REX.WB
-push r5
-REX.W
+push r13
 push r0                 ; save label info array
 
 add r10, r8
@@ -1259,9 +1297,7 @@ drel:
     syscall                     ; write jump offset
 
 skip:
-    REX.W
     add r4, 6
-    REX.WB
     add r13, 8
     jmp fixj
 
