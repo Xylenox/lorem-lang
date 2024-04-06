@@ -1011,47 +1011,6 @@ pars:
     ret
     nlab:
 
-    ; REX
-    cmp r0, "REX"
-    je 2
-    jne nrex
-    add r8, 1
-    mov r0, 0x40
-    sub r1, r1
-    movb cl, [r8]
-    cmp r1, 0x57
-    jne 3
-    add r0, 8
-    add r8, 1
-    sub r1, r1
-    movb cl, [r8]
-    cmp r1, 0x52
-    jne 3
-    add r0, 4
-    add r8, 1
-    sub r1, r1
-    movb cl, [r8]
-    cmp r1, 0x58
-    jne 3
-    add r0, 2
-    add r8, 1
-    sub r1, r1
-    movb cl, [r8]
-    sub r1, 0x42
-    jne 3
-    add r0, 1
-    add r8, 1
-    sub r8, 4
-    mov [r8], eax
-    mov r7, r9
-    mov r6, r8
-    mov r2, 1
-    mov r0, 1
-    syscall
-    add r8, 4
-    ret
-    nrex:
-
     ; 1-operands
 
     ; jumps
