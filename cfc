@@ -445,6 +445,8 @@ reat:
     je tdon
     cmp r0, "]"
     je tdon
+    cmp r0, "+"
+    je tdon
     add r8, 1
     mul r1
     add r5, r0
@@ -790,6 +792,12 @@ evri: ; evaluate ri
     mov r5, 1
     mov r6, 0xC1
     mov r7, 0xE8
+    jmp 6
+    cmp r0, "test"
+    jne 5
+    mov r5, 4
+    mov r6, 0xF7
+    mov r7, 0x00
     jmp 2
     jne inva
 
