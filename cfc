@@ -50,362 +50,362 @@ tore:           ; to register
     cmp r7, "al"
     jne 4
     mov r0, 0
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "cl"
     jne 4
     mov r0, 1
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "dl"
     jne 4
     mov r0, 2
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "bl"
     jne 4
     mov r0, 3
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "spl"
     jne 4
     mov r0, 4
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "bpl"
     jne 4
     mov r0, 5
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "sil"
     jne 4
     mov r0, 6
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "dil"
     jne 4
     mov r0, 7
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r8b"
     jne 4
     mov r0, 8
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r9b"
     jne 4
     mov r0, 9
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r10b"
     jne 4
     mov r0, 10
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r11b"
     jne 4
     mov r0, 11
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r12b"
     jne 4
     mov r0, 12
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r13b"
     jne 4
     mov r0, 13
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r14b"
     jne 4
     mov r0, 14
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "r15b"
     jne 4
     mov r0, 15
-    mov r2, 8
+    mov r2, 0x14
     ret
     cmp r7, "ax"
     jne 4
     mov r0, 0
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "cx"
     jne 4
     mov r0, 1
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "dx"
     jne 4
     mov r0, 2
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "bx"
     jne 4
     mov r0, 3
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "sp"
     jne 4
     mov r0, 4
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "bp"
     jne 4
     mov r0, 5
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "si"
     jne 4
     mov r0, 6
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "di"
     jne 4
     mov r0, 7
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r8w"
     jne 4
     mov r0, 8
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r9w"
     jne 4
     mov r0, 9
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r10w"
     jne 4
     mov r0, 10
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r11w"
     jne 4
     mov r0, 11
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r12w"
     jne 4
     mov r0, 12
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r13w"
     jne 4
     mov r0, 13
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r14w"
     jne 4
     mov r0, 14
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "r15w"
     jne 4
     mov r0, 15
-    mov r2, 16
+    mov r2, 0x24
     ret
     cmp r7, "eax"
     jne 4
     mov r0, 0
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "ecx"
     jne 4
     mov r0, 1
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "edx"
     jne 4
     mov r0, 2
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "ebx"
     jne 4
     mov r0, 3
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "esp"
     jne 4
     mov r0, 4
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "ebp"
     jne 4
     mov r0, 5
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "esi"
     jne 4
     mov r0, 6
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "edi"
     jne 4
     mov r0, 7
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r8d"
     jne 4
     mov r0, 8
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r9d"
     jne 4
     mov r0, 9
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r10d"
     jne 4
     mov r0, 10
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r11d"
     jne 4
     mov r0, 11
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r12d"
     jne 4
     mov r0, 12
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r13d"
     jne 4
     mov r0, 13
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r14d"
     jne 4
     mov r0, 14
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "r15d"
     jne 4
     mov r0, 15
-    mov r2, 32
+    mov r2, 0x44
     ret
     cmp r7, "rax"
     jne 4
     mov r0, 0
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "rcx"
     jne 4
     mov r0, 1
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "rdx"
     jne 4
     mov r0, 2
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "rbx"
     jne 4
     mov r0, 3
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "rsp"
     jne 4
     mov r0, 4
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "rbp"
     jne 4
     mov r0, 5
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "rsi"
     jne 4
     mov r0, 6
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "rdi"
     jne 4
     mov r0, 7
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r8"
     jne 4
     mov r0, 8
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r9"
     jne 4
     mov r0, 9
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r10"
     jne 4
     mov r0, 10
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r11"
     jne 4
     mov r0, 11
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r12"
     jne 4
     mov r0, 12
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r13"
     jne 4
     mov r0, 13
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r14"
     jne 4
     mov r0, 14
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r15"
     jne 4
     mov r0, 15
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r0"
     jne 4
     mov r0, 0
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r1"
     jne 4
     mov r0, 1
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r2"
     jne 4
     mov r0, 2
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r3"
     jne 4
     mov r0, 3
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r4"
     jne 4
     mov r0, 4
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r5"
     jne 4
     mov r0, 5
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r6"
     jne 4
     mov r0, 6
-    mov r2, 64
+    mov r2, 0x84
     ret
     cmp r7, "r7"
     jne 4
     mov r0, 7
-    mov r2, 64
+    mov r2, 0x84
     ret
 
 mov r0, r7
@@ -506,14 +506,13 @@ read:           ; read number
     mov r2, 1
     jmp dore
     cmp r7, "["
-    jne 8
+    jne nome
     add r8, 1
     call reat
-    mov r3, 0
-    sub r3, r2
-    mov r2, r3
+    add r2, 0x04
     add r8, 1
     jmp dore
+    nome:
     call isal
     cmp r0, 1
     jne 4
@@ -585,8 +584,8 @@ ops1:
     jne nr
 
     mov rdi, 0x40
-    cmp rdx, 64
-    jne 2
+    test rdx, 0x80
+    je 2
     add rdi, 0x08
     cmp rsi, 8
     jl 3
@@ -628,14 +627,14 @@ ops2:
     ; reads source name into rsi, source type into rdi
 
 ; ri
-    cmp rdx, 8
-    jl nri
-    cmp rdi, 1
-    jne nri
+    test rdx, 0x04
+    je nri
+    test rdi, 0x01
+    je nri
 
     mov rbx, 0x40
-    cmp rdx, 64
-    jne 2
+    test rdx, 0x80
+    je 2
     add rbx, 0x08
     cmp rcx, 8
     jl 3
@@ -690,14 +689,14 @@ ops2:
     ret
 nri:
 ; rr
-    cmp rdx, 8
-    jl nrr
-    cmp rdi, 8
-    jl nrr
+    test rdx, 0x04
+    je nrr
+    test rdi, 0x04
+    je nrr
 
     mov rbx, 0x40
-    cmp rdx, 64
-    jne 2
+    test rdx, 0x80
+    je 2
     add rbx, 0x08
     cmp rcx, 8
     jl 3
@@ -740,14 +739,14 @@ nri:
     ret
 nrr:
 ; rm
-    cmp rdx, 8
-    jl nrm
-    cmp rdi, 0
-    jg nrm
+    test rdx, 0x04
+    je nrm
+    test rdi, 0x08
+    je nrm
 
     mov rbx, 0x40
-    cmp rdx, 64
-    jne 2
+    test rdx, 0x80
+    je 2
     add rbx, 0x08
     cmp rcx, 8
     jl 3
@@ -804,14 +803,14 @@ nrr:
     ret
 nrm:
 ; mr
-    cmp rdx, 0
-    jg nmr
-    cmp rdi, 8
-    jl nmr
+    test rdx, 0x08
+    je nmr
+    test rdi, 0x04
+    je nmr
 
     mov rbx, 0x40
-    cmp rdi, 64
-    jne 2
+    test rdi, 0x80
+    je 2
     add rbx, 0x08
     cmp rcx, 8
     jl 3
