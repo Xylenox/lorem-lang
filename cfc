@@ -565,8 +565,8 @@ read:           ; read number
     ret
 
 rex:            ; encoding calculation, returns REX in r0 and 
-; dest in rdi, rsi
-; source in rdx, rcx
+    ; dest in rdi, rsi
+    ; source in rdx, rcx
 
     cmp rsi, 8
     jl xnr
@@ -711,49 +711,7 @@ evmr:
 
     call carm
 
-    ret
-
-evrr:
-    mov r0, rdi
-    mov r1, rsi
-    mov r2, rdx
-    ; sub/add/movrr
-    cmp r0, "add"        ; add
-    jne 3
-    mov r5, 0x03
-    jmp 4
-    cmp r0, "sub"        ; sub
-    jne 3
-    mov r5, 0x2B
-    jmp 4
-    cmp r0, "mov"        ; mov
-    jne 3
-    mov r5, 0x8B
-    jmp 4
-    cmp r0, "cmp"        ; cmp
-    jne 3
-    mov r5, 0x3B
-    jmp 2
-    jne inva
-
-    shl r1, 3
-
-    add r1, r2
-    add r1, 0xC0
-
-    sub r4, 8
-    mov [r4], ebp
-    add r4, 1
-    mov [r4], ecx
-    sub r4, 1
-
-    mov r7, 2
-    call prin
-    add r4, 8
-    ret
-
-evri:
-    ret
+ret
 
 ops1:
 
@@ -823,7 +781,7 @@ ops2:
     jl nri
     cmp rdi, 1
     jne nri
-    
+
     mov rbx, 0x40
     cmp rdx, 64
     jne 2
@@ -880,7 +838,56 @@ ops2:
     add rsp, 8
     ret
 nri:
+; rr
+    cmp rdx, 8
+    jl nrr
+    cmp rdi, 8
+    jl nrr
 
+    mov rbx, 0x40
+    cmp rdx, 64
+    jne 2
+    add rbx, 0x08
+    cmp rcx, 8
+    jl 3
+    sub rcx, 8
+    add rbx, 0x04
+    cmp rsi, 8
+    jl 3
+    sub rsi, 8
+    add rbx, 0x01
+
+    push rbx
+    mov rdi, 1
+    call prin
+    pop rbx
+
+    ; sub/add/movrr
+    cmp rax, "add"        ; add
+    jne 2
+    mov rbx, 0xC003
+    cmp rax, "sub"        ; sub
+    jne 2
+    mov rbx, 0xC02B
+    cmp rax, "mov"        ; mov
+    jne 2
+    mov rbx, 0xC08B
+    cmp rax, "cmp"        ; cmp
+    jne 2
+    mov rbx, 0xC03B
+
+    shl rcx, 11
+    add rbx, rcx
+    shl rsi, 8
+    add rbx, rsi
+
+    sub rsp, 8
+    mov rdi, 2
+    mov [rsp], rbx
+    call prin
+    add rsp, 8
+    ret
+nrr:
 
     push r0
     push r1
@@ -930,20 +937,12 @@ nri:
     jl domr
     cmp rbp, 1
     jl dorm
-    je dori
-    jne dorr
 
     domr:
         call evmr
         ret
     dorm:
         call evrm
-        ret
-    dorr:
-        call evrr
-        ret
-    dori:
-        call evri
         ret
 
 pars:
