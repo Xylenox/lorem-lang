@@ -564,122 +564,6 @@ read:           ; read number
     pop r1
     ret
 
-rex:            ; encoding calculation, returns REX in r0 and 
-    ; dest in rdi, rsi
-    ; source in rdx, rcx
-
-    cmp rsi, 8
-    jl xnr
-    ; register destination
-        cmp rcx, 1
-        jne xnr
-        ; ri
-        mov rax, 0x40
-        cmp rsi, 64
-        jne 2
-        add rax, 0x08
-        cmp rdi, 8
-        jl 2
-        add rax, 0x01
-        ; jmp rexf
-        
-    xnr:
-    push r1
-    push r2
-    push r6
-    push r7
-    pop r2
-    pop r1
-    pop r7
-    pop r6
-    
-    mov rax, 0x40
-    
-
-    cmp rdx, 0
-
-    jg 9
-    ; memory in dest, want to swap
-    push r1
-    push r2
-    push r6
-    push r7
-    pop r2
-    pop r1
-    pop r7
-    pop r6
-    ; TODO: immediate to memory operand size calculation
-    ; register in dest, memory in source
-    cmp rdx, 64
-    jne 2
-    ; 64 bit
-    add r0, 0x08
-    cmp rdi, 1 
-    jne 5
-        cmp rcx, 8              ; ri
-        jl 2
-            add rax, 0x01           ; REX.B
-        jmp rexf
-
-    cmp rcx, 8              ; rr 
-    jl 2
-        add rax, 0x04           ; REX.R
-    cmp rsi, 8
-    jl 2
-        add rax, 0x01           ; REX.B
-
-    rexf:
-    push rax
-    mov r7, 1
-    call prin
-    pop rax
-    ret
-
-carm:
-    mov r0, rsi
-    shl r0, 3
-    add r0, rdi
-
-    sub r4, 8
-    mov [r4], eax
-    
-    ; source is r4
-    cmp r7, 4
-    mov r7, 1
-    jne 6
-    add r4, 1
-    mov r0, 0x24
-    mov [r4], eax
-    sub r4, 1
-    mov r7, 2
-    ; TODO: FIX r5
-    call prin
-
-    add r4, 8
-    ret
-
-
-evmr:
-    cmp rdi, "mov"
-    jne 3
-    mov rdi, 0x89
-
-    push rdi
-    mov rdi, 1
-    call prin
-    pop rdi
-
-    mov rdi, rdx
-
-    push r6
-    push r7
-    pop r6
-    pop r7
-
-    call carm
-
-ret
-
 ops1:
 
     ; mulr
@@ -919,57 +803,62 @@ nrr:
     add rsp, 8
     ret
 nrm:
+; mr
+    cmp rdx, 0
+    jg nmr
+    cmp rdi, 8
+    jl nmr
 
-    push r0
-    push r1
-    push r2
-    push r6
-    push r7
-
-    push rcx
-    push rdx
-    push rsi
-    push rdi
-    pop rdx
-    pop rcx
-    pop rdi
-    pop rsi
-    
-    ; rearranges into
-    ; rdx = operand 2 type
-    ; rcx = operand 2 name
-    ; rdi = operand 1 type
-    ; rdx = operand 1 name
-    call rex
-    
-
-    pop r7
-    pop r6
-    pop r2
-    pop r1
-    pop r0
-
-    cmp rcx, 8                  ; normalize destination
-    jl 2
+    mov rbx, 0x40
+    cmp rdi, 64
+    jne 2
+    add rbx, 0x08
+    cmp rcx, 8
+    jl 3
     sub rcx, 8
-
-    cmp rdi, 1                  ; normalize src
-    je 4
+    add rbx, 0x01
     cmp rsi, 8
-    jl 2
+    jl 3
     sub rsi, 8
+    add rbx, 0x04
 
-    mov rbx, rdx
-    mov rbp, rdi
-    mov rdx, rsi
-    mov rdi, rax
-    mov rsi, rcx
-    cmp rbx, 1
-    jl domr
+    push rbx
+    mov rdi, 1
+    call prin
+    pop rbx
+    
+    cmp rax, "mov"
+    jne 2
+    mov rdi, 0x89
 
-    domr:
-        call evmr
-        ret
+    push rdi
+    mov rdi, 1
+    call prin
+    pop rdi
+    
+    mov rax, rsi
+    shl rax, 3
+    add rax, rcx
+
+    sub rsp, 8
+    mov [rsp], eax
+    
+    ; source is rsp
+    mov rdi, 1
+    cmp rcx, 4
+    jne 6
+    add rsp, 1
+    mov rax, 0x24
+    mov [rsp], eax
+    sub rsp, 1
+    ; TODO: FIX r5
+    mov rdi, 2
+    call prin
+
+    add rsp, 8
+    ret
+nmr:
+    jmp inva
 
 pars:
     call reat
