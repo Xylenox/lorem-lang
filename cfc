@@ -752,50 +752,7 @@ evrr:
     add r4, 8
     ret
 
-evri: ; evaluate ri
-    ; add/sub/mov/cmpri
-    mov r0, rdi
-    mov r1, rsi
-    mov r2, rdx
-    cmp r0, "add"
-    jne 3
-    mov rdi, 6
-    mov rsi, 0xC081
-    cmp r0, "sub"
-    jne 3
-    mov rdi, 6
-    mov rsi, 0xE881
-    cmp r0, "mov"
-    jne 3
-    mov rdi, 6
-    mov rsi, 0xC0C7
-    cmp r0, "cmp"
-    jne 3
-    mov rdi, 6
-    mov rsi, 0xF881
-    cmp r0, "shl"
-    jne 3
-    mov rdi, 3
-    mov rsi, 0xE0C1
-    cmp r0, "shr"
-    jne 3
-    mov rdi, 3
-    mov rsi, 0xE8C1
-    cmp r0, "test"
-    jne 3
-    mov rdi, 6
-    mov rsi, 0x00F7
-
-    sub rsp, 8
-
-    shl rcx, 8
-    add rsi, rcx
-    shl rdx, 16
-    add rsi, rdx
-    mov [rsp], rsi
-    call prin
-    
-    add rsp, 8
+evri:
     ret
 
 ops1:
@@ -861,12 +818,68 @@ ops2:
     pop rax
     ; reads source name into rsi, source type into rdi
 
+; ri
     cmp rdx, 8
     jl nri
     cmp rdi, 1
     jne nri
-    ; ret
-    nri:
+    
+    mov rbx, 0x40
+    cmp rdx, 64
+    jne 2
+    add rbx, 0x08
+    cmp rcx, 8
+    jl 3
+    sub rcx, 8
+    add rbx, 0x01
+
+    push rbx
+    mov rdi, 1
+    call prin
+    pop rbx
+
+    ; add/sub/mov/cmpri
+    cmp rax, "add"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0xC081
+    cmp rax, "sub"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0xE881
+    cmp rax, "mov"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0xC0C7
+    cmp rax, "cmp"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0xF881
+    cmp rax, "shl"
+    jne 3
+    mov rdi, 3
+    mov rbx, 0xE0C1
+    cmp rax, "shr"
+    jne 3
+    mov rdi, 3
+    mov rbx, 0xE8C1
+    cmp rax, "test"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0x00F7
+
+    sub rsp, 8
+
+    shl rcx, 8
+    add rbx, rcx
+    shl rsi, 16
+    add rbx, rsi
+    mov [rsp], rbx
+    call prin
+    
+    add rsp, 8
+    ret
+nri:
 
 
     push r0
