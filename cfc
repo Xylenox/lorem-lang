@@ -675,7 +675,7 @@ ops2:
     cmp rax, "test"
     jne 3
     mov rdi, 6
-    mov rbx, 0x00F7
+    mov rbx, 0xC0F7
 
     sub rsp, 8
 
@@ -908,7 +908,6 @@ pars:
     jmp coml
     sub r14, 8
     ret
-
     ncom:
 
     ; space/newline
