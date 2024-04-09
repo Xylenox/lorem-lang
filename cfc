@@ -758,64 +758,44 @@ evri: ; evaluate ri
     mov r1, rsi
     mov r2, rdx
     cmp r0, "add"
-    jne 5
-    mov r5, 4
-    mov r6, 0x81
-    mov r7, 0xC0
-    jmp 6
+    jne 3
+    mov rdi, 6
+    mov rsi, 0xC081
     cmp r0, "sub"
-    jne 5
-    mov r5, 4
-    mov r6, 0x81
-    mov r7, 0xE8
-    jmp 6
+    jne 3
+    mov rdi, 6
+    mov rsi, 0xE881
     cmp r0, "mov"
-    jne 5
-    mov r5, 4
-    mov r6, 0xC7
-    mov r7, 0xC0
-    jmp 6
+    jne 3
+    mov rdi, 6
+    mov rsi, 0xC0C7
     cmp r0, "cmp"
-    jne 5
-    mov r5, 4
-    mov r6, 0x81
-    mov r7, 0xF8
-    jmp 6
+    jne 3
+    mov rdi, 6
+    mov rsi, 0xF881
     cmp r0, "shl"
-    jne 5
-    mov r5, 1
-    mov r6, 0xC1
-    mov r7, 0xE0
-    jmp 6
+    jne 3
+    mov rdi, 3
+    mov rsi, 0xE0C1
     cmp r0, "shr"
-    jne 5
-    mov r5, 1
-    mov r6, 0xC1
-    mov r7, 0xE8
-    jmp 6
+    jne 3
+    mov rdi, 3
+    mov rsi, 0xE8C1
     cmp r0, "test"
-    jne 5
-    mov r5, 4
-    mov r6, 0xF7
-    mov r7, 0x00
-    jmp 2
-    jne inva
+    jne 3
+    mov rdi, 6
+    mov rsi, 0x00F7
 
-    add r7, r1
+    sub rsp, 8
 
-    sub r4, 8
-    mov [r4], esi
-    add r4, 1
-    mov [r4], edi
-    add r4, 1
-    mov [r4], edx                ; imm
-    sub r4, 2
-
-    add r5, 2
-    mov r7, r5
+    shl rcx, 8
+    add rsi, rcx
+    shl rdx, 16
+    add rsi, rdx
+    mov [rsp], rsi
     call prin
-
-    add r4, 8
+    
+    add rsp, 8
     ret
 
 ops1:
@@ -870,7 +850,7 @@ ops2:
     ; takes instruction mnem in rdi, operand name in rsi, and operand type in rdx
     mov rax, rdi
     mov rcx, rsi
-    ; moves opcode to rax, operand 1 name to rcx, and operand 1 type to rdx
+    ; moves opcode to rax, dest name to rcx, and dest type to rdx
 
     push rax
     push rdx
@@ -879,7 +859,15 @@ ops2:
     mov rdi, rdx
     pop rdx
     pop rax
-    ; reads operand 2 name into rsi, operand 2 type into rdi
+    ; reads source name into rsi, source type into rdi
+
+    cmp rdx, 8
+    jl nri
+    cmp rdi, 1
+    jne nri
+    ; ret
+    nri:
+
 
     push r0
     push r1
