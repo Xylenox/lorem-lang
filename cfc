@@ -658,49 +658,16 @@ carm:
     add r4, 8
     ret
 
-evrm:
-    cmp rdi, "add"
-    jne 3
-    mov rdi, 0x03
-    jmp rmfo
-    cmp rdi, "mov"
-    jne 3
-    mov rdi, 0x8B
-    jmp rmfo
-    cmp rdi, "movb"              ; movbrm
-    jne 3
-    mov rdi, 0x8A
-    jmp rmfo
-    cmp rdi, "movs"              ; movs
-    jne 3
-    mov rdi, 0x63
-    jmp rmfo
-    jne inva
-    rmfo:
-
-    push r7
-    mov r7, 1
-    call prin
-    pop r7
-
-    mov rdi, rdx
-
-    call carm
-
-    ret
 
 evmr:
     cmp rdi, "mov"
     jne 3
     mov rdi, 0x89
-    jmp mrfo
-    jne inva
-    mrfo:
 
-    push r7
-    mov r7, 1
+    push rdi
+    mov rdi, 1
     call prin
-    pop r7
+    pop rdi
 
     mov rdi, rdx
 
@@ -888,6 +855,70 @@ nri:
     add rsp, 8
     ret
 nrr:
+; rm
+    cmp rdx, 8
+    jl nrm
+    cmp rdi, 0
+    jg nrm
+
+    mov rbx, 0x40
+    cmp rdx, 64
+    jne 2
+    add rbx, 0x08
+    cmp rcx, 8
+    jl 3
+    sub rcx, 8
+    add rbx, 0x04
+    cmp rsi, 8
+    jl 3
+    sub rsi, 8
+    add rbx, 0x01
+
+    push rbx
+    mov rdi, 1
+    call prin
+    pop rbx
+    
+    cmp rax, "add"
+    jne 2
+    mov rdi, 0x03
+    cmp rax, "mov"
+    jne 2
+    mov rdi, 0x8B
+    cmp rax, "movb"              ; movbrm
+    jne 2
+    mov rdi, 0x8A
+    cmp rax, "movs"              ; movs
+    jne 2
+    mov rdi, 0x63
+
+    push rdi
+    mov rdi, 1
+    call prin
+    pop rdi
+    
+    mov rax, rcx
+    shl rax, 3
+    add rax, rsi
+
+    sub rsp, 8
+    mov [rsp], eax
+    
+    ; source is rsp
+    mov rdi, 1
+    cmp rsi, 4
+    jne 6
+    add rsp, 1
+    mov rax, 0x24
+    mov [rsp], eax
+    sub rsp, 1
+    ; TODO: FIX r5
+    mov rdi, 2
+    call prin
+
+    add rsp, 8
+    ret
+nrm:
 
     push r0
     push r1
@@ -935,14 +966,9 @@ nrr:
     mov rsi, rcx
     cmp rbx, 1
     jl domr
-    cmp rbp, 1
-    jl dorm
 
     domr:
         call evmr
-        ret
-    dorm:
-        call evrm
         ret
 
 pars:
