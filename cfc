@@ -675,6 +675,14 @@ ops2:
     jne 3
     mov rdi, 6
     mov rbx, 0xC0F7
+    cmp rax, "and"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0xE081
+    cmp rax, "or"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0xC881
 
     sub rsp, 8
 
