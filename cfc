@@ -493,12 +493,20 @@ reas:           ; read string
 ream:
     add r8, 1
     call reat
+
+    ; TODO: add support for offset
+    ; push r0
+    ; call whit
+    ; pop r0
+
     add r8, 1
+
+    ; TODO: add support for index / scaled index
 
     xor rdx, 0x0C
     add rdx, 0x004000
     add rdx, 0x010000
-    cmp rax, 8
+    cmp rax, 8          ; rex byte
     jl 3
     add rdx, 0x0100
     sub rax, 8
@@ -882,6 +890,53 @@ nrm:
     pop rax
     ret
 nmr:
+; mi
+    test rdx, 0x08
+    je nmi
+    test rdi, 0x01
+    je nmi
+
+    mov rbx, 0x40
+    test rdi, 0x80
+    je 2
+    add rbx, 0x08
+
+    push rdx
+
+    shr rdx, 8
+    and rdx, 0xFF
+    or rbx, rdx
+
+    push rbx
+    mov rdi, 1
+    call prin
+    pop rbx
+    
+
+    cmp rax, "cmpb"
+    jne 3
+    mov rdx, 1
+    mov rbx, 0x3880
+
+    pop rdi
+    shr rdi, 16
+    and rdi, 0xFF
+    add rdi, 1
+    shl rcx, 8
+    add rbx, rcx
+
+    push rbx
+    call prin
+    pop rbx
+
+    push rsi
+    mov rdi, rdx
+    call prin
+    pop rsi
+
+    ret
+nmi:
+
     jmp inva
 
 pars:
