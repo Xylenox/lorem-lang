@@ -494,6 +494,10 @@ ream:
     add r8, 1
     call reat
     xor r2, 0x0C
+    add r2, 0x4000
+    cmp r0, 8
+    jl 2
+    add r2, 0x0100
     add r8, 1
     ret
 
@@ -741,6 +745,9 @@ nri:
     cmp rax, "cmp"        ; cmp
     jne 2
     mov rbx, 0xC03B
+    cmp rax, "or"        ; cmp
+    jne 2
+    mov rbx, 0xC00B
 
     shl rcx, 11
     add rbx, rcx
@@ -772,6 +779,9 @@ nrr:
     jl 3
     sub rsi, 8
     add rbx, 0x01
+
+    shr rdi, 8
+    and rdi, 0xFF
 
     push rbx
     mov rdi, 1
@@ -986,26 +996,27 @@ pars:
 
     push rdx
     call read
-    mov r5, r2
+    mov rbp, rdx
     pop rdx
 
-    sub r4, 8
-    mov [r4], edx
-    add r4, rbx
-    mov [r4], eax
-    sub r4, rbx
+    sub rsp, 8
+    mov [rsp], edx
+    add rsp, rbx
+    mov [rsp], eax
+    sub rsp, rbx
     mov r7, rbx
     add r7, 4
     call prin
-    add r4, 8
-    mov r2, r15
-    add r2, r14
-    sub r2, 8
-    mov r0, 2
-    cmp r5, 0
+    add rsp, 8
+    
+    mov rdx, r15
+    add rdx, r14
+    sub rdx, 8
+    mov rax, 2
+    cmp rbp, 0
     jne 2
-    add r3, 256
-    mov [r2], r3            ; save jump information in instruction location array
+    add rbx, 256
+    mov [rdx], rbx            ; save jump information in instruction location array
     ret
     njum:
 
