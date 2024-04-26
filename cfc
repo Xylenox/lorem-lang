@@ -508,6 +508,11 @@ ream:
     add rax, 0x2400
     add rdx, 0x010000
 
+    cmp rax, 5
+    jne 3
+    add rax, 0x40
+    add rdx, 0x010000
+
     ret
 
 read:           ; read number
