@@ -414,11 +414,9 @@ ret
 
 
 whit:
-    sub r0, r0
-    movb al, [r8]
-    cmp r0, " "
+    cmpb [r8], " "
     je 2
-    cmp r0, 10
+    cmpb [r8], 10
     jne 3
     add r8, 1
     jmp whit
@@ -494,12 +492,7 @@ ream:
     add r8, 1
     call reat
 
-    ; TODO: add support for offset
-    ; push r0
-    ; call whit
-    ; pop r0
 
-    add r8, 1
 
     ; TODO: add support for index / scaled index
 
@@ -515,6 +508,35 @@ ream:
     jne 3
     add rax, 0x2400
     add rdx, 0x010000
+
+    ; TODO: add support for offset
+    call whit
+
+    cmpb [r8], "+"
+    jne noff
+
+    add r8, 1
+    push rax
+    push rdx
+    call read
+    mov rdi, rax
+    pop rdx
+    pop rax
+    shl rdi, 8
+    mov rcx, rax
+    and rcx, 0x07
+    cmp rcx, 4
+    jne 2
+    shl rdi, 8
+    add rax, rdi
+    add rax, 0x80
+    add rdx, 0x040000
+    add r8, 1
+    ret
+
+    noff:
+
+    add r8, 1
 
     cmp rax, 5
     jne 3
@@ -556,6 +578,8 @@ read:           ; read number
     sub r3, r3
     movb bl, [r8]
     cmp r3, " "
+    je 2
+    cmp r3, "]"
     je 2
     sub r3, 10              ; newline
     je dolo
