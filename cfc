@@ -493,11 +493,12 @@ reas:           ; read string
 ream:
     add r8, 1
     call reat
-    xor r2, 0x0C
-    add r2, 0x4000
-    cmp r0, 8
-    jl 2
-    add r2, 0x0100
+    xor rdx, 0x0C
+    add rdx, 0x4000
+    cmp rax, 8
+    jl 3
+    add rdx, 0x0100
+    sub rax, 8
     add r8, 1
     ret
 
@@ -775,13 +776,10 @@ nrr:
     jl 3
     sub rcx, 8
     add rbx, 0x04
-    cmp rsi, 8
-    jl 3
-    sub rsi, 8
-    add rbx, 0x01
 
     shr rdi, 8
     and rdi, 0xFF
+    or rbx, rdi
 
     push rbx
     mov rdi, 1
@@ -838,14 +836,14 @@ nrm:
     test rdi, 0x80
     je 2
     add rbx, 0x08
-    cmp rcx, 8
-    jl 3
-    sub rcx, 8
-    add rbx, 0x01
     cmp rsi, 8
     jl 3
     sub rsi, 8
     add rbx, 0x04
+
+    shr rdx, 8
+    and rdx, 0xFF
+    or rbx, rdx
 
     push rbx
     mov rdi, 1
