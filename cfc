@@ -493,13 +493,21 @@ reas:           ; read string
 ream:
     add r8, 1
     call reat
+    add r8, 1
+
     xor rdx, 0x0C
-    add rdx, 0x4000
+    add rdx, 0x004000
+    add rdx, 0x010000
     cmp rax, 8
     jl 3
     add rdx, 0x0100
     sub rax, 8
-    add r8, 1
+
+    cmp rax, 4
+    jne 3
+    add rax, 0x2400
+    add rdx, 0x010000
+
     ret
 
 read:           ; read number
@@ -777,14 +785,18 @@ nrr:
     sub rcx, 8
     add rbx, 0x04
 
+    push rdi
+
     shr rdi, 8
     and rdi, 0xFF
     or rbx, rdi
+    
 
     push rbx
     mov rdi, 1
     call prin
     pop rbx
+    
     
     cmp rax, "add"
     jne 2
@@ -808,22 +820,13 @@ nrr:
     shl rax, 3
     add rax, rsi
 
-    sub rsp, 8
-    mov [rsp], eax
-    
-    ; source is rsp
-    mov rdi, 1
-    cmp rsi, 4
-    jne 6
-    add rsp, 1
-    mov rax, 0x24
-    mov [rsp], eax
-    sub rsp, 1
-    ; TODO: FIX r5
-    mov rdi, 2
-    call prin
+    pop rdi
+    shr rdi, 16
+    and rdi, 0xFF
 
-    add rsp, 8
+    push rax
+    call prin
+    pop rax
     ret
 nrm:
 ; mr
@@ -840,6 +843,8 @@ nrm:
     jl 3
     sub rsi, 8
     add rbx, 0x04
+
+    push rdx
 
     shr rdx, 8
     and rdx, 0xFF
@@ -863,22 +868,13 @@ nrm:
     shl rax, 3
     add rax, rcx
 
-    sub rsp, 8
-    mov [rsp], eax
-    
-    ; source is rsp
-    mov rdi, 1
-    cmp rcx, 4
-    jne 6
-    add rsp, 1
-    mov rax, 0x24
-    mov [rsp], eax
-    sub rsp, 1
-    ; TODO: FIX r5
-    mov rdi, 2
-    call prin
+    pop rdi
+    shr rdi, 16
+    and rdi, 0xFF
 
-    add rsp, 8
+    push rax
+    call prin
+    pop rax
     ret
 nmr:
     jmp inva
