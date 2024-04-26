@@ -490,6 +490,13 @@ reas:           ; read string
     pop r1
     ret
 
+ream:
+    add r8, 1
+    call reat
+    xor r2, 0x0C
+    add r8, 1
+    ret
+
 read:           ; read number
     push r1
     push r3
@@ -507,10 +514,7 @@ read:           ; read number
     jmp dore
     cmp r7, "["
     jne nome
-    add r8, 1
-    call reat
-    add r2, 0x04
-    add r8, 1
+    call ream
     jmp dore
     nome:
     call isal
@@ -683,6 +687,10 @@ ops2:
     jne 3
     mov rdi, 6
     mov rbx, 0xC881
+    cmp rax, "xor"
+    jne 3
+    mov rdi, 6
+    mov rbx, 0xF081
 
     sub rsp, 8
 
