@@ -941,6 +941,10 @@ nmr:
     jne 3
     mov rdx, 1
     mov rbx, 0x3880
+    cmp rax, "mov"
+    jne 3
+    mov rdx, 4
+    mov rbx, 0x00C7
 
     pop rdi
     shr rdi, 16
@@ -1122,9 +1126,7 @@ star:
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
-add r4, 16
-mov r7, [r4]            ; argv[1]
-sub r4, 16
+mov r7, [rsp+16]            ; argv[1]
 mov r0, 2
 syscall
 mov r8, r0              ; save input file descriptor
@@ -1132,9 +1134,7 @@ mov r8, r0              ; save input file descriptor
 mov r0, 2               ; READ_WRITE
 mov r2, 0xFFFF          ; all perms
 mov r6, 0x242           ; truncate/create/.??
-add r4, 24
-mov r7, [r4]            ; argv[2]
-sub r4, 24
+mov r7, [rsp+24]            ; argv[2]
 syscall
 mov r9, r0              ; save output file descriptor
 ; write header
@@ -1144,14 +1144,12 @@ mov r2, 0x78            ; program header length
 mov r0, 1               ; write
 syscall
 ; get input size
-sub r4, 0xC0            ; fstat size
+sub rsp, 0xC0            ; fstat size
 mov r7, r8              ; input file descriptor
-mov r6, r4              ; fstat buffer
+mov r6, rsp              ; fstat buffer
 mov r0, 5               ; fstat
 syscall
-add r4, 48
-mov r10, [r4]            ; file size
-sub r4, 48
+mov r10, [rsp+48]            ; file size
 
 ; mmap input
 push r9                 ; save r9
@@ -1302,24 +1300,13 @@ jmp main
 inva:
 
 ; invalid
-sub r4, 4
-mov r0, 10
-mov [r4], eax
-sub r4, 4
-mov r0, "ion"
-mov [r4], eax
-sub r4, 4
-mov r0, "ruct"
-mov [r4], eax
-sub r4, 4
-mov r0, "inst"
-mov [r4], eax
-sub r4, 4
-mov r0, "lid "
-mov [r4], eax
-sub r4, 4
-mov r0, "inva"
-mov [r4], eax
+sub r4, 24
+mov [r4], "inva"
+mov [r4+4], "lid "
+mov [r4+8], "inst"
+mov [r4+12], "ruct"
+mov [r4+16], "ion"
+mov [r4+20], 10
 
 mov r7, 21
 mov r9, 0
