@@ -9,3 +9,4 @@
 0x80 = 8 byte
 
 0xFF00 = REX byte
+0xFF0000 = length of r/m
