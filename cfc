@@ -513,15 +513,17 @@ ream:
     call whit
 
     cmpb [r8], "+"
-    jne noff
+    jne onba
 
     add r8, 1
     push rax
     push rdx
     call read
     mov rdi, rax
+    test rdx, 0x04
     pop rdx
     pop rax
+    jne onba
     shl rdi, 8
     mov rcx, rax
     and rcx, 0x07
@@ -534,7 +536,7 @@ ream:
     add r8, 1
     ret
 
-    noff:
+    onba:
 
     add r8, 1
 
@@ -1043,37 +1045,43 @@ pars:
     ; 1-operands
 
     ; jumps
-    cmp r0, "jne"        ; jne
-    jne 4
+    mov rbx, -1
+    
+    cmp r0, "jne"
+    jne 3
     mov rdx, 0x850F
     mov rbx, 2
-    jmp 5
-    cmp r0, "jmp"        ; jmp
-    jne 4
+    cmp r0, "jnz"
+    jne 3
+    mov rdx, 0x850F
+    mov rbx, 2
+    cmp r0, "jmp"
+    jne 3
     mov rdx, 0xE9
     mov rbx, 1
-    jmp 5
-    cmp r0, "je"          ; je
-    jne 4
+    cmp r0, "je"
+    jne 3
     mov rdx, 0x840F
     mov rbx, 2
-    jmp 5
+    cmp r0, "jz"
+    jne 3
+    mov rdx, 0x840F
+    mov rbx, 2
     cmp r0, "jl"          ; jl
-    jne 4
+    jne 3
     mov rdx, 0x8C0F
     mov rbx, 2
-    jmp 5
     cmp r0, "jg"          ; jg
-    jne 4
+    jne 3
     mov rdx, 0x8F0F
     mov rbx, 2
-    jmp 5
     cmp r0, "call"          ; call
-    jne 4
+    jne 3
     mov rdx, 0xE8
     mov rbx, 1
-    jmp 2
-    jne njum
+
+    cmp rbx, -1
+    je njum
     add r8, 1
 
     push rdx
