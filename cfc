@@ -431,19 +431,19 @@ reat:
     tloo:
     sub eax, eax
     movb al, [r8]
-    cmp r0, " "         ; space
+    cmp eax, " "         ; space
     je tdon
-    cmp r0, 10          ; newline
+    cmp eax, 10          ; newline
     je tdon
-    cmp r0, ":"         ; label
+    cmp eax, ":"         ; label
     je tdon
-    cmp r0, "."         ; period
+    cmp eax, "."         ; period
     je tdon
-    cmp r0, ","
+    cmp eax, ","
     je tdon
-    cmp r0, "]"
+    cmp eax, "]"
     je tdon
-    cmp r0, "+"
+    cmp eax, "+"
     je tdon
     add r8, 1
     mul r1
@@ -490,13 +490,42 @@ reas:           ; read string
 
 ream:
     add r8, 1
-    call reat
+    ; call reat
 
+    ; base in rdi
+    ; scale in rsi
+    ; index in rbp
+    ; offset in rbx
+    mov rdi, -1
+    mov rbx, 0
+    mloo:
+    call whit
+    cmpb [r8], "]"
+    je mldo
 
+    cmpb [r8], "+"
+    jne 3
+    add r8, 1
+    jmp mloo
 
+    call read
+    test rdx, 0x01
+    jnz mnum
+    mreg:
+    mov rdi, rax
+    jmp mloo
+
+    mnum:
+    mov rbx, rax
+    jmp mloo
+
+    mldo:
+    add r8, 1
+
+    mov rax, rdi
     ; TODO: add support for index / scaled index
 
-    xor rdx, 0x0C
+    mov rdx, 0x88
     add rdx, 0x004000
     add rdx, 0x010000
     cmp rax, 8          ; rex byte
@@ -510,20 +539,11 @@ ream:
     add rdx, 0x010000
 
     ; TODO: add support for offset
-    call whit
+    
+    cmp rbx, 0
+    je onba
 
-    cmpb [r8], "+"
-    jne onba
-
-    add r8, 1
-    push rax
-    push rdx
-    call read
-    mov rdi, rax
-    test rdx, 0x04
-    pop rdx
-    pop rax
-    jne onba
+    mov rdi, rbx
     shl rdi, 8
     mov rcx, rax
     and rcx, 0x07
@@ -533,12 +553,9 @@ ream:
     add rax, rdi
     add rax, 0x80
     add rdx, 0x040000
-    add r8, 1
     ret
 
     onba:
-
-    add r8, 1
 
     cmp rax, 5
     jne 3
@@ -582,6 +599,10 @@ read:           ; read number
     cmp r3, " "
     je 2
     cmp r3, "]"
+    je 2
+    cmp r3, "+"
+    je 2
+    cmp r3, "*"
     je 2
     sub r3, 10              ; newline
     je dolo
