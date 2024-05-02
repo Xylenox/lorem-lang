@@ -550,45 +550,23 @@ ream:
     mldo:
     add r8, 1
 
-    mov rax, rdi
     ; TODO: add support for index / scaled index
 
     mov rdx, 0x88
     add rdx, 0x004000
-    add rdx, 0x010000
-    cmp rax, 8          ; rex byte
+    add rdx, 0x060000
+    cmp rdi, 8          ; rex byte
     jl 3
     add rdx, 0x0100
-    sub rax, 8
+    sub rdi, 8
 
-    cmp rax, 4
-    jne 3
-    add rax, 0x2400
-    add rdx, 0x010000
-
-    ; TODO: add support for offset
-    
-    cmp rbx, 0
-    je onba
-
-    mov rdi, rbx
-    shl rdi, 8
-    mov rcx, rax
-    and rcx, 0x07
-    cmp rcx, 4
-    jne 2
+    mov rax, 0x84       ; mod 10, rm 100
+    add rax, 0x2000
     shl rdi, 8
     add rax, rdi
-    add rax, 0x80
-    add rdx, 0x040000
-    ret
 
-    onba:
-
-    cmp rax, 5
-    jne 3
-    add rax, 0x40
-    add rdx, 0x010000
+    shl rbx, 16
+    add rax, rbx
 
     ret
 
