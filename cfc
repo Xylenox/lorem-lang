@@ -555,18 +555,41 @@ ream:
     mov rdx, 0x88
     add rdx, 0x004000
     add rdx, 0x060000
+
     cmp rdi, 8          ; rex byte
     jl 3
     add rdx, 0x0100
     sub rdi, 8
 
+    cmp rbp, 8
+    jl 3
+    add rdx, 0x0200
+    sub rbp, 8
+
     mov rax, 0x84       ; mod 10, rm 100
-    add rax, 0x2000
     shl rdi, 8
     add rax, rdi
 
-    shl rbx, 16
+    shl rbx, 16         ; base
     add rax, rbx
+
+    cmp rbp, -1         ; index
+    je 4
+    shl rbp, 11
+    add rax, rbp
+    jmp 2
+    add rax, 0x2000
+
+    cmp rsi, 2
+    jne 2
+    add rax, 0x4000
+    cmp rsi, 4
+    jne 2
+    add rax, 0x8000
+    cmp rsi, 8
+    jne 2
+    add rax, 0xC000
+
 
     ret
 
