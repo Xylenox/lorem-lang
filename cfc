@@ -445,6 +445,8 @@ reat:
     je tdon
     cmp eax, "+"
     je tdon
+    cmp eax, "*"
+    je tdon
     add r8, 1
     mul r1
     add r5, r0
@@ -497,6 +499,8 @@ ream:
     ; index in rbp
     ; offset in rbx
     mov rdi, -1
+    mov rsi, 1
+    mov rbp, -1
     mov rbx, 0
     mloo:
     call whit
@@ -508,16 +512,40 @@ ream:
     add r8, 1
     jmp mloo
 
+    mov rcx, 0
+    cmpb [r8], "*"
+    jne 3
+    add r8, 1
+    mov rcx, 1
+
     call read
+    call whit
+
+    cmpb [r8], "*"
+    jne 2
+    mov rcx, 1
+
     test rdx, 0x01
     jnz mnum
     mreg:
-    mov rdi, rax
-    jmp mloo
+    cmp rcx, 1
+    je mind
+    cmp rdi, -1
+    jne mind
+        mov rdi, rax
+        jmp mloo
+        mind:
+        mov rbp, rax
+        jmp mloo
 
     mnum:
-    mov rbx, rax
-    jmp mloo
+    cmp rcx, 1
+    je msca
+        mov rbx, rax
+        jmp mloo
+        msca:
+        mov rsi, rax
+        jmp mloo
 
     mldo:
     add r8, 1
