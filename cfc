@@ -567,6 +567,10 @@ ream:
     sub rbp, 8
 
     mov rax, 0x84       ; mod 10, rm 100
+    cmp rdi, -1
+    jne 3
+    mov rdi, 5
+    sub rax, 0x80
     shl rdi, 8
     add rax, rdi
 
@@ -1261,27 +1265,24 @@ main:
     ; end of file
     ; fix jumps
 fixj:
-    mov r0, r13
-    sub r0, r14
+    mov rax, r13
+    sub rax, r14
     je exit
-    mov r3, r13
-    mov r3, [r3]
+    mov rbx, [r13]
     ; read opcode
     ; lseek
     mov r7, r9
-    mov r6, r3
+    mov r6, rbx
     mov r2, 0
-    mov r0, 8
+    mov rax, 8
     syscall
-    mov r0, r13
-    add r0, r15
-    mov ebp, [r0]                ; get jump info
+    mov ebp, [r13+r15]                ; get jump info
 
     ; read instruction stuffs
     sub r4, 6
     mov r6, r4
     mov r2, 6                   ; TODO: read amount based on instruction id length
-    mov r0, 0
+    mov rax, 0
     syscall                     ; read instruction
 
     cmp r5, 0
@@ -1297,10 +1298,8 @@ fixj:
     push r0
     sub r4, 6
     add r1, r0
-    add r4, r5
-    mov r7, [r4]
-    sub r4, r5
-    mov r2, [r1]                ; get label at r0
+    mov r7, [rsp+rbp]
+    mov r2, [rcx]                ; get label at r0
     cmp edx, edi
     je 3
     add r1, 8
@@ -1310,30 +1309,28 @@ fixj:
     jmp drel
 
 rel:
-    add r4, r5
-    movs r0, [r4]
-    sub r4, r5
-    mov r2, r13
-    shl r0, 3
-    add r2, r0
-    mov edx, [r2]
+    movs rax, [rsp+rbp]
+    mov rdx, r13
+    shl rax, 3
+    add rdx, rax
+    mov edx, [rdx]
 
 drel:
-    sub r2, r3
-    sub r2, 4
-    sub r2, r5
+    sub rdx, r3
+    sub rdx, 4
+    sub rdx, r5
     mov [r4], edx
     ; lseek
     mov r7, r9
     mov r6, r5
     sub r6, 6
-    mov r2, 1
+    mov rdx, 1
     mov r0, 8
     syscall
 
     mov r7, r9
     mov r6, r4
-    mov r2, 4
+    mov rdx, 4
     mov r0, 1
     syscall                     ; write jump offset
 
