@@ -1053,9 +1053,7 @@ pars:
     ; syscall
     mov r3, r0
     mov r0, "all"
-    mov r1, 0x10000
-    mul r1
-    mul r1
+    shl r0, 32
     add r0, "sysc"
     mov r1, r0
     mov r0, r3
@@ -1102,8 +1100,11 @@ pars:
     add rbx, [rsp+8]            ; label info array
     mov [rbx], rax
     add r8, 1
+    push rsi
     mov rsi, rax
     call look
+    pop rsi
+    mov [rax], rsi
     ret
 nlab:
 
@@ -1198,23 +1199,23 @@ nlab:
 look:
     mov rcx, [rdi]
     mov rdx, [rdi+8]
-lolo:
-    cmp rcx, rdx
-    je lonf
-    cmp [rcx], rsi
-    je loof
-    add rcx, 16
-    jmp lolo
-loof:
-    add rcx, 8
-    mov rax, rcx
-    ret
-lonf:
-    mov [rcx], rsi
-    add [rdi+8], 16
-    add rcx, 8
-    mov rax, rcx
-    ret
+    lolo:
+        cmp rcx, rdx
+        je lonf
+        cmp [rcx], rsi
+        je loof
+        add rcx, 16
+        jmp lolo
+    loof:
+        add rcx, 8
+        mov rax, rcx
+        ret
+    lonf:
+        mov [rcx], rsi
+        add [rdi+8], 16
+        add rcx, 8
+        mov rax, rcx
+        ret
 
 star:
 ; open input
@@ -1327,27 +1328,16 @@ fixj:
     mov rax, 0
     syscall                     ; read instruction
 
-    cmp r5, 0
+    cmp rbp, 0
     je skip
 
-    cmp r5, 256
+    cmp rbp, 256
     jl rel
-    sub r5, 256
-    add r4, 6
-    pop r0                      ; label info offset
-    pop r1                      ; array location
-    push r1
-    push r0
-    sub r4, 6
-    add r1, r0
-    mov r7, [rsp+rbp]
-    mov r2, [rcx]                ; get label at r0
-    cmp edx, edi
-    je 3
-    add r1, 8
-    jmp -4
-    sub r1, r0
-    mov r2, [r1]
+    sub rbp, 256
+    mov esi, [rsp+rbp]
+    lea rdi, [rsp+22]
+    call look
+    mov r2, [rax]
     jmp drel
 
 rel:
@@ -1381,16 +1371,16 @@ skip:
     add r13, 8
     jmp fixj
 
-    
 cont:
     mov r7, r9
     mov r6, 0
     mov r2, 1
-    mov r0, 8
+    mov rax, 8
     syscall                     ; lseek save current instruction position
-    mov [r14], r0
+    mov [r14], rax
     add r14, 8
 
+mov rsi, rax
 lea rdi, [rsp+16]
 call pars
 jmp main
