@@ -1095,18 +1095,14 @@ pars:
     nspa:
 
 ; label
-    sub r1, r1
-    movb cl, [r8]
-    cmp r1, 58
+    cmpb [r8], 58
     jne nlab
     sub r14, 8
-    mov r3, r14
-    add r4, 8
-    add r3, [r4]            ; label info array
-    sub r4, 8
-    mov [r3], r0
+    mov rbx, r14
+    add rbx, [rsp+8]            ; label info array
+    mov [rbx], rax
     add r8, 1
-    mov rsi, r0
+    mov rsi, rax
     call look
     ret
 nlab:
@@ -1202,23 +1198,22 @@ nlab:
 look:
     mov rcx, [rdi]
     mov rdx, [rdi+8]
-    ; mov [rcx], 1
-; lolo:
-;     cmp rcx, rdx
-;     je lonf
-;     cmp [rcx], rsi
-;     je loof
-;     add rcx, 16
-;     jmp lolo
-; loof:
-;     add rcx, 8
-;     mov rax, rcx
-;     ret
-; lonf:
-;     mov [rcx], rsi
-;     ; add [rdi+8], 16
-;     add rcx, 8
-;     mov rax, rcx
+lolo:
+    cmp rcx, rdx
+    je lonf
+    cmp [rcx], rsi
+    je loof
+    add rcx, 16
+    jmp lolo
+loof:
+    add rcx, 8
+    mov rax, rcx
+    ret
+lonf:
+    mov [rcx], rsi
+    add [rdi+8], 16
+    add rcx, 8
+    mov rax, rcx
     ret
 
 star:
@@ -1292,6 +1287,7 @@ shl r15, 4              ; 16 * file size
 
 mov rax, r10
 shl rax, 6
+add rax, r13
 push rax
 push rax
 
@@ -1395,9 +1391,7 @@ cont:
     mov [r14], r0
     add r14, 8
 
-mov [rsp+16], 4
-mov rdi, rsp
-add rdi, 16
+lea rdi, [rsp+16]
 call pars
 jmp main
 
