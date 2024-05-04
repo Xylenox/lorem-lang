@@ -677,7 +677,7 @@ read:           ; read number
 
 ops1:
 
-    ; mulr
+    ; mulrm
     cmp rdi, "mul"        ; mul
     jne 4
     mov rax, 0xF7
@@ -1051,13 +1051,10 @@ pars:
     nret:
 
     ; syscall
-    mov r3, r0
-    mov r0, "all"
-    shl r0, 32
-    add r0, "sysc"
-    mov r1, r0
-    mov r0, r3
-    cmp r0, r1
+    mov rcx, "all"
+    shl rcx, 32
+    add rcx, "sysc"
+    cmp rax, rcx
     je 2
     jne nsys
     sub r8, 4
@@ -1095,10 +1092,7 @@ pars:
 ; label
     cmpb [r8], 58
     jne nlab
-    sub r14, 8
-    mov rbx, r14
-    add rbx, [rsp+8]            ; label info array
-    mov [rbx], rax
+    sub r14, 8          ; instruction loc array
     add r8, 1
     push rsi
     mov rsi, rax
@@ -1292,12 +1286,8 @@ add rax, r13
 push rax
 push rax
 
-
 mov rax, r10
 shl rax, 5
-
-push r13
-push rax                 ; save label info array
 
 add r10, r8
 
@@ -1331,11 +1321,11 @@ fixj:
     cmp rbp, 0
     je skip
 
-    cmp rbp, 256
+    cmp rbp, 256                ; relative vs. label
     jl rel
     sub rbp, 256
     mov esi, [rsp+rbp]
-    lea rdi, [rsp+22]
+    lea rdi, [rsp+6]
     call look
     mov r2, [rax]
     jmp drel
@@ -1381,12 +1371,11 @@ cont:
     add r14, 8
 
 mov rsi, rax
-lea rdi, [rsp+16]
+lea rdi, [rsp]
 call pars
 jmp main
 
 inva:
-
 ; invalid
 sub r4, 24
 mov [r4], "inva"
