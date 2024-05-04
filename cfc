@@ -423,9 +423,10 @@ whit:
     ret
 
 reat:
-    push r5
+    push rdi
+    push rbp
     ; read token
-    mov r5, 0           ; token output
+    mov rbp, 0           ; token output
     mov r1, 1           ; power of 256
     
     tloo:
@@ -449,7 +450,7 @@ reat:
     je tdon
     add r8, 1
     mul r1
-    add r5, r0
+    add rbp, r0
     mov r0, r1
     mov r1, 256
     mul r1
@@ -457,9 +458,10 @@ reat:
     jmp tloo
 
     tdon:
-    mov r7, r5
+    mov r7, rbp
     call tore
-    pop r5
+    pop rbp
+    pop rdi
     ret
 
 reas:           ; read string
@@ -951,6 +953,9 @@ nrm:
     cmp rax, "mov"
     jne 2
     mov rdi, 0x89
+    cmp rax, "cmp"
+    jne 2
+    mov rdi, 0x39
 
     push rdi
     mov rdi, 1
@@ -1001,6 +1006,10 @@ nmr:
     jne 3
     mov rdx, 4
     mov rbx, 0x00C7
+    cmp rax, "add"
+    jne 3
+    mov rdx, 4
+    mov rbx, 0x0081
 
     pop rdi
     shr rdi, 16
@@ -1020,11 +1029,12 @@ nmr:
 
     ret
 nmi:
-
     jmp inva
 
 pars:
+    push rdi
     call reat
+    pop rdi
 
     ; ret
     cmp r0, "ret"
@@ -1081,7 +1091,7 @@ pars:
     ret
     nspa:
 
-    ; label
+; label
     sub r1, r1
     movb cl, [r8]
     cmp r1, 58
@@ -1093,8 +1103,10 @@ pars:
     sub r4, 8
     mov [r3], r0
     add r8, 1
+    mov rsi, r0
+    call look
     ret
-    nlab:
+nlab:
 
     ; 1-operands
 
@@ -1184,6 +1196,23 @@ pars:
     call ops2
     ret
 
+look:
+    mov rcx, [rdi]
+    mov rdx, [rdi+8]
+lolo:
+    cmp rcx, rdx
+    je lonf
+    cmp [rcx], rsi
+    je loof
+    add rcx, 16
+    jmp lolo
+loof:
+    add rcx, 8
+    mov rax, rcx
+    ret
+lonf:
+    ret
+
 star:
 ; open input
 mov r6, 0x0             ; READ_ONLY
@@ -1234,7 +1263,7 @@ pop r9                  ; restore r9
 mov r7, 0               ; adress
 mov r6, r10             ; length
 push r10                ; save length
-shl r6, 4
+shl r6, 6               ; 64 * file size, should be good
 
 mov r2, 3               ; PROT_READ | PROT_WRITE
 mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
@@ -1247,14 +1276,22 @@ syscall
 pop r9                  ; restore r9
 pop r8                  ; restore r8
 pop r10                 ; restore r10
-mov r13, r0              ; save instruction location array
-mov r14, r0              ; save instruction location array end
-mov r15, r10              ; store max length of instruction location array
-add r15, r15
-mov r0, r15
-add r0, r15
+mov r13, r0             ; save instruction location array
+mov r14, r0             ; save instruction location array end
+mov r15, r10            ; store max length of instruction location array
+shl r15, 4              ; 16 * file size
+
+
+mov rax, r10
+shl rax, 6
+push rax
+push rax
+
+mov rax, r10
+shl rax, 5
+
 push r13
-push r0                 ; save label info array
+push rax                 ; save label info array
 
 add r10, r8
 
@@ -1349,6 +1386,8 @@ cont:
     mov [r14], r0
     add r14, 8
 
+mov rdi, rsp
+add rdi, 16
 call pars
 jmp main
 
