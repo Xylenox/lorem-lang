@@ -905,6 +905,9 @@ nrr:
     cmp rax, "movs"              ; movs
     jne 2
     mov rdi, 0x63
+    cmp rax, "lea"              ; movs
+    jne 2
+    mov rdi, 0x8D
 
     push rdi
     mov rdi, 1
@@ -1199,18 +1202,23 @@ nlab:
 look:
     mov rcx, [rdi]
     mov rdx, [rdi+8]
-lolo:
-    cmp rcx, rdx
-    je lonf
-    cmp [rcx], rsi
-    je loof
-    add rcx, 16
-    jmp lolo
-loof:
-    add rcx, 8
-    mov rax, rcx
-    ret
-lonf:
+    ; mov [rcx], 1
+; lolo:
+;     cmp rcx, rdx
+;     je lonf
+;     cmp [rcx], rsi
+;     je loof
+;     add rcx, 16
+;     jmp lolo
+; loof:
+;     add rcx, 8
+;     mov rax, rcx
+;     ret
+; lonf:
+;     mov [rcx], rsi
+;     ; add [rdi+8], 16
+;     add rcx, 8
+;     mov rax, rcx
     ret
 
 star:
@@ -1286,6 +1294,7 @@ mov rax, r10
 shl rax, 6
 push rax
 push rax
+
 
 mov rax, r10
 shl rax, 5
@@ -1386,6 +1395,7 @@ cont:
     mov [r14], r0
     add r14, 8
 
+mov [rsp+16], 4
 mov rdi, rsp
 add rdi, 16
 call pars
