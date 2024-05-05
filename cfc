@@ -1017,6 +1017,10 @@ nmr:
     jne 3
     mov rdx, 4
     mov rbx, 0x2881
+    cmp rax, "cmp"
+    jne 3
+    mov rdx, 4
+    mov rbx, 0x3881
 
     pop rdi
     shr rdi, 16
@@ -1283,7 +1287,7 @@ mov r14, r0             ; save instruction location array end
 mov r15, r10            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
-mov rax, 2
+mov rax, 1
 push rax
 
 mov rax, r10
@@ -1299,6 +1303,8 @@ add r10, r8
 
 ; need to reset r8, instruction location array, output file
 
+resl:
+    sub [rsp+16], 1
 
 main:
     ; main loop
