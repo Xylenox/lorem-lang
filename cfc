@@ -5,7 +5,7 @@
 ; r10 = characters remaining in input
 ;
 jmp star
-
+jmp orig
 exit:
     mov r0, 60
     mov r7, 0
@@ -409,7 +409,7 @@ tore:           ; to register
     ret
 
 mov r0, r7
-mov r2, 0
+mov r2, 2
 ret
 
 
@@ -609,19 +609,19 @@ read:           ; read number
 
     sub r7, r7
     movb dil, [r8]
-    cmp r7, 34              ; "
+    cmp rdi, 34              ; "
     jne 4
     call reas
-    mov r2, 1
+    mov rdx, 1
     jmp dore
-    cmp r7, "["
+    cmp rdi, "["
     jne nome
     call ream
     jmp dore
     nome:
     call isal
-    cmp r0, 1
-    jne 4
+    cmp rax, 1
+    jne 3
     call reat
     jmp dore
 
@@ -1043,9 +1043,14 @@ nmi:
     jmp inva
 
 pars:
+    ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
+    push rdx
+    push rsi
     push rdi
     call reat
     pop rdi
+    pop rsi
+    pop rdx
 
     ; ret
     cmp r0, "ret"
@@ -1065,13 +1070,11 @@ pars:
     cmp rax, rcx
     je 2
     jne nsys
-    sub r8, 4
     mov r0, 0x050F
     push r0
     mov r7, 2
     call prin
     pop r0
-    add r8, 4
     ret
     nsys:                   ; not sys
 
@@ -1114,6 +1117,7 @@ nlab:
 
     ; jumps
     mov rbx, -1
+    mov rcx, rdx
     
     cmp r0, "jne"
     jne 3
@@ -1152,18 +1156,51 @@ nlab:
     je njum
     add r8, 1
 
+    push rcx
     push rdx
+    push rsi
+    push rdi
     call read
     mov rbp, rdx
+    pop rdi
+    pop rsi
     pop rdx
+    pop rcx
+
+    test rbp, 0x02
+    jz jnla
+
+    push rcx
+    push rdx
+    push rsi
+    mov rsi, rax
+    call look
+    pop rsi
+    pop rdx
+    pop rcx
+
+    mov rax, [rax]
+    sub rax, rsi
+    sub rax, rbx
+    sub rax, 4
 
     sub rsp, 8
     mov [rsp], edx
-    add rsp, rbx
-    mov [rsp], eax
-    sub rsp, rbx
-    mov r7, rbx
-    add r7, 4
+    mov [rsp+rbx], eax
+    mov r7, 4
+    add r7, rbx
+    call prin
+    add rsp, 8
+    
+    ret
+
+jnla:
+
+    sub rsp, 8
+    mov [rsp], edx
+    mov [rsp+rbx], eax
+    mov r7, 4
+    add r7, rbx
     call prin
     add rsp, 8
     
@@ -1171,12 +1208,13 @@ nlab:
     add rdx, r14
     sub rdx, 8
     mov rax, 2
-    cmp rbp, 0
-    jne 2
+    test rbp, 0x01
+    jnz jlab
     add rbx, 256
+    jlab:
     mov [rdx], rbx            ; save jump information in instruction location array
-    ret
-    njum:
+    ret           ; save jump information in instruction location array
+njum:
 
     ; two operands
 
@@ -1287,10 +1325,10 @@ mov r14, r0             ; save instruction location array end
 mov r15, r10            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
-mov rax, 1
-push r8
-push r13
+mov rax, 2
 push r14
+push r13
+push r8
 push rax
 
 mov rax, r10
@@ -1307,12 +1345,12 @@ add r10, r8
 ; need to reset r8, instruction location array, output file
 
 resl:
-    sub [rsp+16], 0
+    cmp [rsp+16], 0
     je exit
     sub [rsp+16], 1
-    mov r8, [rsp+40]
+    mov r8, [rsp+24]
     mov r13, [rsp+32]
-    mov r14, [rsp+24]
+    mov r14, [rsp+40]
 
     ; truncate
     mov rdi, r9
@@ -1400,6 +1438,7 @@ cont:
     push r14
     add r14, 8
 
+mov rdi, r14
 mov rsi, rax
 lea rdi, [rsp+16]
 call pars
