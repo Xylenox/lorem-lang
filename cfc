@@ -1287,7 +1287,10 @@ mov r14, r0             ; save instruction location array end
 mov r15, r10            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
-mov rax, 1
+mov rax, 2
+push r8
+push r13
+push r14
 push rax
 
 mov rax, r10
@@ -1304,8 +1307,23 @@ add r10, r8
 ; need to reset r8, instruction location array, output file
 
 resl:
+    sub [rsp+16], 0
+    je exit
     sub [rsp+16], 1
+    mov r8, [rsp+40]
+    mov r13, [rsp+32]
+    mov r14, [rsp+24]
 
+    ; truncate
+    mov rdi, r9
+    mov rsi, 0x78
+    mov rax, 77
+    syscall
+    ; fix lseek
+    mov rsi, 0
+    mov rdx, 2      ; SEEK_END
+    mov rax, 8
+    syscall
 main:
     ; main loop
     cmp r8, r10
@@ -1314,7 +1332,7 @@ main:
     ; fix jumps
 fixj:
     cmp r13, r14
-    je exit
+    je resl
     mov rbx, [r13]
     ; read opcode
     ; lseek
