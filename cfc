@@ -1287,7 +1287,7 @@ mov r14, r0             ; save instruction location array end
 mov r15, r10            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
-mov rax, 2
+mov rax, 1
 push r8
 push r13
 push r14
@@ -1396,12 +1396,20 @@ cont:
     mov r2, 1
     mov rax, 8
     syscall                     ; lseek save current instruction position
-    mov [r14], rax
+    push rax
+    push r14
     add r14, 8
 
 mov rsi, rax
-lea rdi, [rsp]
+lea rdi, [rsp+16]
 call pars
+cmp [rsp], r14
+pop r14
+pop rax
+je 3
+mov [r14], rax
+add r14, 8
+
 jmp main
 
 inva:
