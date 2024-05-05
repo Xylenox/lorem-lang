@@ -1013,6 +1013,10 @@ nmr:
     jne 3
     mov rdx, 4
     mov rbx, 0x0081
+    cmp rax, "sub"
+    jne 3
+    mov rdx, 4
+    mov rbx, 0x2881
 
     pop rdi
     shr rdi, 16
@@ -1279,6 +1283,8 @@ mov r14, r0             ; save instruction location array end
 mov r15, r10            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
+mov rax, 2
+push rax
 
 mov rax, r10
 shl rax, 6
@@ -1291,6 +1297,9 @@ shl rax, 5
 
 add r10, r8
 
+; need to reset r8, instruction location array, output file
+
+
 main:
     ; main loop
     cmp r8, r10
@@ -1298,8 +1307,7 @@ main:
     ; end of file
     ; fix jumps
 fixj:
-    mov rax, r13
-    sub rax, r14
+    cmp r13, r14
     je exit
     mov rbx, [r13]
     ; read opcode
@@ -1351,10 +1359,7 @@ drel:
     syscall
 
     mov r7, r9
-    mov r6, r4
-    mov rdx, 4
-    mov r0, 1
-    syscall                     ; write jump offset
+    call prin                   ; write jump offset
 
 skip:
     add r4, 6
