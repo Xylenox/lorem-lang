@@ -1342,58 +1342,7 @@ main:
     ; main loop
     cmp r8, r10
     jl cont
-    ; end of file
-    ; fix jumps
-fixj:
-    cmp r13, r14
-    je resl
-    mov rbx, [r13]
-    ; read opcode
-    ; lseek
-    mov r7, r9
-    mov r6, rbx
-    mov r2, 0
-    mov rax, 8
-    syscall
-    mov ebp, [r13+r15]                ; get jump info
-
-    ; read instruction stuffs
-    sub r4, 6
-    mov r6, r4
-    mov r2, 6                   ; TODO: read amount based on instruction id length
-    mov rax, 0
-    syscall                     ; read instruction
-
-    cmp rbp, 0
-    je skip
-
-rel:
-    movs rax, [rsp+rbp]
-    mov rdx, r13
-    shl rax, 3
-    add rdx, rax
-    mov edx, [rdx]
-
-drel:
-    sub rdx, r3
-    sub rdx, 4
-    sub rdx, r5
-    mov [r4], edx
-    ; lseek
-    mov r7, r9
-    mov r6, r5
-    sub r6, 6
-    mov rdx, 1
-    mov r0, 8
-    syscall
-
-    mov r7, r9
-    call prin                   ; write jump offset
-
-skip:
-    add r4, 6
-    add r13, 8
-    jmp fixj
+    jmp resl
 
 cont:
     mov r7, r9
@@ -1439,3 +1388,4 @@ pop r0
 call exit
 jmp 0
 mov r0, r0
+
