@@ -5,7 +5,7 @@
 ; r10 = characters remaining in input
 ;
 jmp star
-jmp orig
+jmp 0
 exit:
     mov r0, 60
     mov r7, 0
@@ -1113,11 +1113,10 @@ pars:
     ret
 nlab:
 
-    ; 1-operands
+    ; 1-operandsdsddddddd
 
     ; jumps
     mov rbx, -1
-    mov rcx, rdx
     
     cmp r0, "jne"
     jne 3
@@ -1156,7 +1155,6 @@ nlab:
     je njum
     add r8, 1
 
-    push rcx
     push rdx
     push rsi
     push rdi
@@ -1165,21 +1163,21 @@ nlab:
     pop rdi
     pop rsi
     pop rdx
-    pop rcx
 
     test rbp, 0x02
     jz jnla
-
-    push rcx
     push rdx
     push rsi
     mov rsi, rax
     call look
     pop rsi
     pop rdx
-    pop rcx
-
     mov rax, [rax]
+    jmp jfad
+
+jnla:
+    mov rax, [r14 + 8*rax + -8]
+jfad:
     sub rax, rsi
     sub rax, rbx
     sub rax, 4
@@ -1191,29 +1189,7 @@ nlab:
     add r7, rbx
     call prin
     add rsp, 8
-    
     ret
-
-jnla:
-
-    sub rsp, 8
-    mov [rsp], edx
-    mov [rsp+rbx], eax
-    mov r7, 4
-    add r7, rbx
-    call prin
-    add rsp, 8
-    
-    mov rdx, r15
-    add rdx, r14
-    sub rdx, 8
-    mov rax, 2
-    test rbp, 0x01
-    jnz jlab
-    add rbx, 256
-    jlab:
-    mov [rdx], rbx            ; save jump information in instruction location array
-    ret           ; save jump information in instruction location array
 njum:
 
     ; two operands
@@ -1390,15 +1366,6 @@ fixj:
 
     cmp rbp, 0
     je skip
-
-    cmp rbp, 256                ; relative vs. label
-    jl rel
-    sub rbp, 256
-    mov esi, [rsp+rbp]
-    lea rdi, [rsp+6]
-    call look
-    mov r2, [rax]
-    jmp drel
 
 rel:
     movs rax, [rsp+rbp]
