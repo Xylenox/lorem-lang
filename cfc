@@ -696,7 +696,31 @@ reli: ; read and convert label to immediate, takes lookup table in rdi
     xor rdx, 0x03
     ret
 ops1:
-    ; mulrm
+    test rdx, 0x01
+    jz ni
+    cmp rdi, "db"
+    jne 2
+    mov rax, 1
+    cmp rdi, "dw"
+    jne 2
+    mov rax, 2
+    cmp rdi, "dd"
+    jne 2
+    mov rax, 4
+    cmp rdi, "dq"
+    jne 2
+    mov rax, 8
+
+    push rsi
+    mov rdi, rax
+    call prin
+    pop rsi
+    ret
+
+
+    ni:
+
+    ; mulr
     cmp rdi, "mul"        ; mul
     jne 4
     mov rax, 0xF7
@@ -751,7 +775,7 @@ ops2:
 
     push rax
     push rdx
-    call read
+    call read           ; TODO: implement using memory operand as immediate
     mov rsi, rax
     mov rdi, rdx
     pop rdx
