@@ -1242,9 +1242,9 @@ mov r0, 2
 syscall
 mov r8, r0              ; save input file descriptor
 ; open output
-mov r0, 2               ; READ_WRITE
+mov r0, 2               ; fopen
+mov r6, 0x242           ; truncate/create/READ_WRITE
 mov r2, 0xFFFF          ; all perms
-mov r6, 0x242           ; truncate/create/.??
 mov r7, [rsp+24]            ; argv[2]
 syscall
 mov r9, r0              ; save output file descriptor
@@ -1283,7 +1283,7 @@ pop r9                  ; restore r9
 mov r7, 0               ; adress
 mov r6, r10             ; length
 push r10                ; save length
-shl r6, 6               ; 64 * file size, should be good
+shl r6, 8               ; 64 * file size, should be good
 
 mov r2, 3               ; PROT_READ | PROT_WRITE
 mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
@@ -1389,3 +1389,11 @@ call exit
 jmp 0
 mov r0, r0
 
+
+; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
+; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
+; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
+; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
+; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
+; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
+; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
