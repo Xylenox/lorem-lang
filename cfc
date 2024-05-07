@@ -500,6 +500,7 @@ ream:
     ; scale in rsi
     ; index in rbp
     ; offset in rbx
+    push rdi
     mov rdi, -1
     mov rsi, 1
     mov rbp, -1
@@ -520,7 +521,10 @@ ream:
     add r8, 1
     mov rcx, 1
 
-    call read
+    push rdi
+    mov rdi, [rsp+8]
+    call reli
+    pop rdi
     call whit
 
     cmpb [r8], "*"
@@ -551,6 +555,7 @@ ream:
 
     mldo:
     add r8, 1
+    add rsp, 8
 
     ; TODO: add support for index / scaled index
 
@@ -616,6 +621,7 @@ read:           ; read number
     jmp dore
     cmp rdi, "["
     jne nome
+    mov rdi, [rsp]
     call ream
     jmp dore
     nome:
@@ -675,8 +681,21 @@ read:           ; read number
     pop r1
     ret
 
+reli: ; read and convert label to immediate, takes lookup table in rdi
+    call read
+    test rdx, 0x02
+    jnz 2
+    ret
+    push rax
+    push rdx
+    mov rsi, rax
+    call look
+    mov rax, [rax]
+    pop rdx
+    pop rcx
+    xor rdx, 0x03
+    ret
 ops1:
-
     ; mulrm
     cmp rdi, "mul"        ; mul
     jne 4
@@ -726,6 +745,7 @@ ops1:
 ops2:
     ; takes instruction mnem in rdi, operand name in rsi, and operand type in rdx
     mov rax, rdi
+    mov rdi, rcx
     mov rcx, rsi
     ; moves opcode to rax, dest name to rcx, and dest type to rdx
 
@@ -1195,8 +1215,11 @@ njum:
     ; two operands
 
 
-    mov rdi, rax
-    call read
+    push rax
+    push rdi
+    call reli
+    pop rcx
+    pop rdi
     mov rsi, rax
 
     sub rax, rax
@@ -1355,7 +1378,6 @@ cont:
     push r14
     add r14, 8
 
-mov rdi, r14
 mov rsi, rax
 lea rdi, [rsp+16]
 call pars
