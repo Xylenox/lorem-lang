@@ -1350,6 +1350,7 @@ cont:
     mov r2, 1
     mov rax, 8
     syscall                     ; lseek save current instruction position
+    add rax, 0x400000
     push rax
     push r14
     add r14, 8
@@ -1388,12 +1389,3 @@ pop r0
 call exit
 jmp 0
 mov r0, r0
-
-
-; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
-; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
-; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
-; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
-; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
-; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
-; asfaw wg reag e agfaf asgf fshg fsdrhg tdfj 
