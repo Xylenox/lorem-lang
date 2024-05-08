@@ -6,11 +6,10 @@
 ;
 jmp star
 
-inp:
-dq 0
-outp:
-dq 0
-jmp 0
+inpf: dq 0
+outf: dq 0
+flen: dq 0
+
 exit:
     mov r0, 60
     mov r7, 0
@@ -19,20 +18,20 @@ exit:
 prin:                   ; printst
 push r0
 push r1
-push r2
+push rdx
 push r6
-push r7
+push rdi
 push r11
-mov r2, r7
-mov r7, r9
+mov rdx, rdi
+mov rdi, [outf]
 mov r6, r4
 add r6, 56
 mov r0, 1
 syscall
 pop r11
-pop r7
+pop rdi
 pop r6
-pop r2
+pop rdx
 pop r1
 pop r0
 ret
@@ -948,15 +947,18 @@ nrr:
     cmp rax, "mov"
     jne 2
     mov rdi, 0x8B
-    cmp rax, "movb"              ; movbrm
+    cmp rax, "movb"
     jne 2
     mov rdi, 0x8A
-    cmp rax, "movs"              ; movs
+    cmp rax, "movs"
     jne 2
     mov rdi, 0x63
-    cmp rax, "lea"              ; movs
+    cmp rax, "lea"
     jne 2
     mov rdi, 0x8D
+    cmp rax, "cmp"
+    jne 2
+    mov rdi, 0x3B
 
     push rdi
     mov rdi, 1
@@ -1303,9 +1305,9 @@ mov r6, 0x242           ; truncate/create/READ_WRITE
 mov r2, 0xFFFF          ; all perms
 mov r7, [rsp+24]            ; argv[2]
 syscall
-mov r9, r0              ; save output file descriptor
+mov [outf], r0
 ; write header
-mov r7, r9              ; output file descriptor
+mov r7, [outf]              ; output file descriptor
 mov r6, 0x400000        ; program header location
 mov r2, 0x78            ; program header length
 mov r0, 1               ; write
@@ -1317,14 +1319,14 @@ mov r6, rsp              ; fstat buffer
 mov r0, 5               ; fstat
 syscall
 mov r10, [rsp+48]            ; file size
+mov [flen], r10
 
 ; mmap input
-push r9                 ; save r9
 push r10                ; save r10
 
 mov r0, 9               ; mmap
 mov r7, 0               ; address
-mov r6, r10              ; length
+mov r6, [flen]              ; length
 mov r2, 3               ; PROT_READ | PROT_WRITE
 mov r10, 2              ; MAP_PRIVATE
 mov r9, 0               ; offset
@@ -1332,8 +1334,6 @@ syscall
 
 mov r8, r0              ; save mmap address
 pop r10                 ; restore r10
-pop r9                  ; restore r9
-
 
 ; make heap
 mov r7, 0               ; adress
@@ -1344,17 +1344,15 @@ shl r6, 8               ; 64 * file size, should be good
 mov r2, 3               ; PROT_READ | PROT_WRITE
 mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
 push r8                 ; save r8
-push r9                 ; save r9
 mov r8, -1              ; file descriptor empty, anonymous
 mov r9, 0               ; offset
 mov r0, 9               ; mmap
 syscall
-pop r9                  ; restore r9
 pop r8                  ; restore r8
 pop r10                 ; restore r10
 mov r13, r0             ; save instruction location array
 mov r14, r0             ; save instruction location array end
-mov r15, r10            ; store max length of instruction location array
+mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
 mov rax, 2
@@ -1363,7 +1361,7 @@ push r13
 push r8
 push rax
 
-mov rax, r10
+mov rax, [flen]
 shl rax, 6
 add rax, r13
 push rax
@@ -1371,10 +1369,11 @@ push rax
 
 mov [tabl], rsp
 
-mov rax, r10
+mov rax, [flen]
 shl rax, 5
 
 add r10, r8
+add [flen], r8
 
 ; need to reset r8, instruction location array, output file
 
@@ -1387,7 +1386,7 @@ resl:
     mov r14, [rsp+40]
 
     ; truncate
-    mov rdi, r9
+    mov rdi, [outf]
     mov rsi, 0x78
     mov rax, 77
     syscall
@@ -1398,12 +1397,12 @@ resl:
     syscall
 main:
     ; main loop
-    cmp r8, r10
+    cmp r8, [flen]
     jl cont
     jmp resl
 
 cont:
-    mov r7, r9
+    mov r7, [outf]
     mov r6, 0
     mov r2, 1
     mov rax, 8
@@ -1436,7 +1435,7 @@ mov [r4+16], "ion"
 mov [r4+20], 10
 
 mov r7, 21
-mov r9, 0
+mov [outf], 0
 call prin
 
 pop r0
