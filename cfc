@@ -5,6 +5,11 @@
 ; r10 = characters remaining in input
 ;
 jmp star
+
+inp:
+dq 0
+outp:
+dq 0
 jmp 0
 exit:
     mov r0, 60
@@ -547,7 +552,7 @@ ream:
     mnum:
     cmp rcx, 1
     je msca
-        mov rbx, rax
+        add rbx, rax
         jmp mloo
         msca:
         mov rsi, rax
@@ -1259,7 +1264,11 @@ njum:
     call ops2
     ret
 
+tabl:
+    dq 0
+
 look:
+    mov rdi, [tabl]
     mov rcx, [rdi]
     mov rdx, [rdi+8]
     lolo:
@@ -1359,6 +1368,8 @@ shl rax, 6
 add rax, r13
 push rax
 push rax
+
+mov [tabl], rsp
 
 mov rax, r10
 shl rax, 5
