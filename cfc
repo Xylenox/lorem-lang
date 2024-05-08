@@ -1322,8 +1322,6 @@ mov r10, [rsp+48]            ; file size
 mov [flen], r10
 
 ; mmap input
-push r10                ; save r10
-
 mov r0, 9               ; mmap
 mov r7, 0               ; address
 mov r6, [flen]              ; length
@@ -1333,12 +1331,10 @@ mov r9, 0               ; offset
 syscall
 
 mov r8, r0              ; save mmap address
-pop r10                 ; restore r10
 
 ; make heap
 mov r7, 0               ; adress
-mov r6, r10             ; length
-push r10                ; save length
+mov r6, [flen]             ; length
 shl r6, 8               ; 64 * file size, should be good
 
 mov r2, 3               ; PROT_READ | PROT_WRITE
@@ -1349,7 +1345,6 @@ mov r9, 0               ; offset
 mov r0, 9               ; mmap
 syscall
 pop r8                  ; restore r8
-pop r10                 ; restore r10
 mov r13, r0             ; save instruction location array
 mov r14, r0             ; save instruction location array end
 mov r15, [flen]            ; store max length of instruction location array
@@ -1372,7 +1367,6 @@ mov [tabl], rsp
 mov rax, [flen]
 shl rax, 5
 
-add r10, r8
 add [flen], r8
 
 ; need to reset r8, instruction location array, output file
@@ -1438,9 +1432,7 @@ mov r7, 21
 mov [outf], 0
 call prin
 
-pop r0
-pop r0
-pop r0
+add r4, 24
 
 call exit
 jmp 0
