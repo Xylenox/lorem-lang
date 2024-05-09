@@ -642,6 +642,13 @@ read:           ; read number
     mov r0, 0
     mov r1, 10
     mov r5, 1
+
+    cmpb [r8], "-"
+    jne dloo
+    mov r5, -1
+    add r8, 1
+    call whit
+
     dloo:
     sub r3, r3
     movb bl, [r8]
@@ -1260,10 +1267,10 @@ nlab:
 
 jnla:
     mov r14, [ofar]
-    mov rax, [r14 + 8*rax + -8]
+    mov rax, [r14 + 8*rax - 8]
 jfad:
     mov rsi, [ofar]
-    sub rax, [rsi + -8]
+    sub rax, [rsi - 8]
     sub rax, rbx
     sub rax, 4
 
@@ -1437,7 +1444,6 @@ cont:
     mov [r14], rax
     add [ofar], 8
 
-mov rsi, rax
 call pars
 
 jmp main
