@@ -9,6 +9,8 @@ jmp star
 inpf: dq 0
 outf: dq 0
 flen: dq 0
+iter: dq 0
+ofar: dq 0  ; offset array
 
 exit:
     mov r0, 60
@@ -721,26 +723,51 @@ ops1:
     pop rsi
     ret
 
-
     ni:
 
-    ; mulr
+    test rdx, 0x08
+    jz nm
     cmp rdi, "mul"        ; mul
-    jne 4
-    mov rax, 0xF7
-    mov rcx, 0xE0
-    jmp 5
+    jne 2
+    mov rax, 0x20F7
     cmp rdi, "push"        ; push
-    jne 4
-    mov rax, 0xFF
-    mov rcx, 0xF0
-    jmp 5
+    jne 2
+    mov rax, 0x30FF
     cmp rdi, "pop"        ; pop
-    jne 4
-    mov rax, 0x8F
-    mov rcx, 0xC0
-    jmp 2
-    jne nr
+    jne 2
+    mov rax, 0x008F
+
+    mov rdi, rdx
+    shr rdi, 8
+    and rdi, 0xFF
+    shl rax, 8
+    add rax, rdi
+    shl rsi, 16
+    add rax, rsi
+    shr rdx, 16
+    and rdx, 0xFF
+    
+    push rax
+    mov rdi, rdx
+    add rdi, 2
+    call prin
+    pop rax
+    ret
+
+    nm:
+
+    ; mulr
+    test rdx, 0x04
+    jz nr
+    cmp rdi, "mul"        ; mul
+    jne 2
+    mov rax, 0xE0F7
+    cmp rdi, "push"        ; push
+    jne 2
+    mov rax, 0xF0FF
+    cmp rdi, "pop"        ; pop
+    jne 2
+    mov rax, 0xC08F
 
     mov rdi, 0x40
     test rdx, 0x80
@@ -756,19 +783,18 @@ ops1:
     call prin
     pop rdi
 
-    add rcx, rsi
+    shl rsi, 8
+    add rax, rsi
 
 
     sub r4, 8
-    mov [r4], eax
-    add r4, 1
-    mov [r4], ecx
-    sub r4, 1
+    mov [r4], rax
     mov r7, 2
     call prin
     add r4, 8
     ret
     nr:
+    call inva
     ret
 ops2:
     ; takes instruction mnem in rdi, operand name in rsi, and operand type in rdx
@@ -1140,6 +1166,7 @@ pars:
     add r8, 1
     jmp coml
     sub r14, 8
+    sub [ofar], 8
     ret
     ncom:
 
@@ -1268,11 +1295,11 @@ njum:
 
 tabl:
     dq 0
+    dq 0
 
 look:
-    mov rdi, [tabl]
-    mov rcx, [rdi]
-    mov rdx, [rdi+8]
+    mov rcx, [tabl]
+    mov rdx, [tabl+8]
     lolo:
         cmp rcx, rdx
         je lonf
@@ -1286,7 +1313,7 @@ look:
         ret
     lonf:
         mov [rcx], rsi
-        add [rdi+8], 16
+        add [tabl+8], 16
         add rcx, 8
         mov rax, rcx
         ret
@@ -1345,24 +1372,21 @@ mov r9, 0               ; offset
 mov r0, 9               ; mmap
 syscall
 pop r8                  ; restore r8
-mov r13, r0             ; save instruction location array
 mov r14, r0             ; save instruction location array end
+mov [ofar], rax
 mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
-mov rax, 2
+mov [iter], 2
 push r14
-push r13
 push r8
-push rax
 
 mov rax, [flen]
 shl rax, 6
-add rax, r13
-push rax
-push rax
+add rax, [ofar]
 
-mov [tabl], rsp
+mov [tabl], rax
+mov [tabl+8], rax
 
 mov rax, [flen]
 shl rax, 5
@@ -1372,12 +1396,12 @@ add [flen], r8
 ; need to reset r8, instruction location array, output file
 
 resl:
-    cmp [rsp+16], 0
+    cmp [iter], 0
     je exit
-    sub [rsp+16], 1
-    mov r8, [rsp+24]
-    mov r13, [rsp+32]
-    mov r14, [rsp+40]
+    sub [iter], 1
+    mov r8, [rsp]
+    mov r14, [rsp+8]
+    mov [ofar], r14
 
     ; truncate
     mov rdi, [outf]
@@ -1405,6 +1429,7 @@ cont:
     push rax
     push r14
     add r14, 8
+    add [ofar], 8
 
 mov rsi, rax
 lea rdi, [rsp+16]

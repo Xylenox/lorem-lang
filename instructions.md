@@ -3,3 +3,5 @@
 | add      | y  |    | y  |    |    |   |   |
 | cmp      | y  | y  | y  | y  | y  |   |   |
 | mov      | y  | y  | y  | y  | y  |   |   |
+| pop      |    |    |    |    |    | y | y |
+| push     |    |    |    |    |    | y | y |
