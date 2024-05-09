@@ -452,6 +452,8 @@ reat:
     je tdon
     cmp eax, "+"
     je tdon
+    cmp eax, "-"
+    je tdon
     cmp eax, "*"
     je tdon
     add r8, 1
@@ -1260,7 +1262,8 @@ jnla:
     mov r14, [ofar]
     mov rax, [r14 + 8*rax + -8]
 jfad:
-    sub rax, rsi
+    mov rsi, [ofar]
+    sub rax, [rsi + -8]
     sub rax, rbx
     sub rax, 4
 
