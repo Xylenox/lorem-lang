@@ -418,6 +418,39 @@ mov r0, r7
 mov r2, 2
 ret
 
+scmp:
+    cmp rdi, rsi
+    je send
+    cmp rdx, rcx
+    je send
+
+    sub rax, rax
+    movb al, [rdi]
+    push rbx
+    sub rbx, rbx
+    movb bl, [rdx]
+    sub rax, rbx
+    pop rbx
+    add rdi, 1
+    add rdx, 1
+    cmp rax, 0
+    je scmp
+    jl 3
+    mov rax, 1
+    ret
+    mov rax, -1
+    ret
+    
+
+send:
+    mov rax, 0
+    cmp rdi, rsi
+    jne 2
+    add rax, -1
+    cmp rdx, rcx
+    jne 2
+    add rax, 1
+    ret
 
 whit:
     cmpb [r8], " "
@@ -500,6 +533,48 @@ reas:           ; read string
     pop r1
     ret
 
+reai: ; read identifier and return start and end pointers
+    ; call whit
+    mov rax, r8
+    iloo:
+    sub rcx, rcx
+    movb cl, [r8]
+    cmp rcx, " "         ; space
+    je idon
+    cmp rcx, 10          ; newline
+    je idon
+    cmp rcx, ":"         ; label
+    je idon
+    cmp rcx, "."         ; period
+    je idon
+    cmp rcx, ","
+    je idon
+    cmp rcx, "]"
+    je idon
+    cmp rcx, "+"
+    je idon
+    cmp rcx, "-"
+    je idon
+    cmp rcx, "*"
+    je idon
+    add r8, 1
+    jmp iloo
+    idon:
+    mov rdx, r8
+    ret
+idti:  ; identifier to number
+    mov rax, 0
+    dtlo:
+    cmp rdi, rsi
+    je dtdo
+    shl rax, 8
+    sub rsi, 1
+    sub rdx, rdx
+    movb rdx, [rsi]
+    add rax, rdx
+    jmp dtlo
+    dtdo:
+    ret
 ream:
     add r8, 1
     ; call reat
@@ -697,10 +772,17 @@ read:           ; read number
     ret
 
 reli: ; read and convert label to immediate, takes lookup table in rdi
+    push r8
     call read
     test rdx, 0x02
-    jnz 2
+    jnz 3
+    add rsp, 8
     ret
+    pop r8
+    call reai
+    mov rdi, rax
+    mov rsi, rdx
+    call idti
     push rax
     push rdx
     mov rsi, rax
@@ -708,7 +790,7 @@ reli: ; read and convert label to immediate, takes lookup table in rdi
     mov rax, [rax]
     pop rdx
     pop rcx
-    xor rdx, 0x03
+    mov rdx, 0x01
     ret
 ops1:
     test rdx, 0x01
@@ -1133,13 +1215,26 @@ nmi:
 
 pars:
     ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
-    push rdx
-    push rsi
-    push rdi
-    call reat
-    pop rdi
+    call reai
+    mov rdi, rax
+    mov rsi, rdx
+    ; mov r8, rax
+    call idti
+    ; call reat
+
+; label
+    cmpb [r8], 58
+    jne nlab
+    sub [ofar], 8          ; instruction loc array
+    add r8, 1
+    mov rsi, [ofar]
+    push [rsi]
+    mov rsi, rax
+    call look
     pop rsi
-    pop rdx
+    mov [rax], rsi
+    ret
+nlab:
 
     ; ret
     cmp r0, "ret"
@@ -1189,20 +1284,6 @@ pars:
     ret
     nspa:
 
-; label
-    cmpb [r8], 58
-    jne nlab
-    sub [ofar], 8          ; instruction loc array
-    add r8, 1
-    mov rsi, [ofar]
-    push [rsi]
-    mov rsi, rax
-    call look
-    pop rsi
-    mov [rax], rsi
-    ret
-nlab:
-
     ; 1-operandsdsddddddd
 
     ; jumps
@@ -1243,8 +1324,9 @@ nlab:
 
     cmp rbx, -1
     je njum
-    add r8, 1
+    call whit
 
+    push r8
     push rdx
     push rsi
     push rdi
@@ -1256,6 +1338,18 @@ nlab:
 
     test rbp, 0x02
     jz jnla
+    pop r8
+    push rdx
+    push rsi
+    push rdi
+    call reai
+    mov rdi, rax
+    mov rsi, rdx
+    call idti
+    pop rdi
+    pop rsi
+    pop rdx
+
     push rdx
     push rsi
     mov rsi, rax
@@ -1266,6 +1360,7 @@ nlab:
     jmp jfad
 
 jnla:
+    add rsp, 8
     mov r14, [ofar]
     mov rax, [r14 + 8*rax - 8]
 jfad:
@@ -1313,23 +1408,35 @@ tabl:
 
 look:
     mov rcx, [tabl]
-    mov rdx, [tabl+8]
+    mov rax, [tabl+8]
+    mov rdi, rsi
+    mov rsi, rdx
     lolo:
-        cmp rcx, rdx
+        cmp rcx, rax
         je lonf
-        cmp [rcx], rsi
+        push rax
+        push rcx
+        push rdx
+        push rsi
+        push rdi
+
+        cmp [rcx], rdi
+        pop rdi
+        pop rsi
+        pop rdx
+        pop rcx
+        pop rax
+        
         je loof
         add rcx, 16
         jmp lolo
     loof:
-        add rcx, 8
-        mov rax, rcx
+        lea rax, [rcx+8]
         ret
     lonf:
-        mov [rcx], rsi
+        mov [rcx], rdi
         add [tabl+8], 16
-        add rcx, 8
-        mov rax, rcx
+        lea rax, [rcx+8]
         ret
 
 star:
@@ -1445,7 +1552,6 @@ cont:
     add [ofar], 8
 
 call pars
-
 jmp main
 
 inva:
