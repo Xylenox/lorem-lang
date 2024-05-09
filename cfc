@@ -1165,7 +1165,6 @@ pars:
     je 3
     add r8, 1
     jmp coml
-    sub r14, 8
     sub [ofar], 8
     ret
     ncom:
@@ -1174,14 +1173,14 @@ pars:
     cmp r0, 0
     jne nspa
     add r8, 1
-    sub r14, 8
+    sub [ofar], 8
     ret
     nspa:
 
 ; label
     cmpb [r8], 58
     jne nlab
-    sub r14, 8          ; instruction loc array
+    sub [ofar], 8          ; instruction loc array
     add r8, 1
     push rsi
     mov rsi, rax
@@ -1254,6 +1253,7 @@ nlab:
     jmp jfad
 
 jnla:
+    mov r14, [ofar]
     mov rax, [r14 + 8*rax + -8]
 jfad:
     sub rax, rsi
@@ -1426,20 +1426,13 @@ cont:
     mov rax, 8
     syscall                     ; lseek save current instruction position
     add rax, 0x400000
-    push rax
-    push r14
-    add r14, 8
+    mov r14, [ofar]
+    mov [r14], rax
     add [ofar], 8
 
 mov rsi, rax
 lea rdi, [rsp+16]
 call pars
-cmp [rsp], r14
-pop r14
-pop rax
-je 3
-mov [r14], rax
-add r14, 8
 
 jmp main
 
