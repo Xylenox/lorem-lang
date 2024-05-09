@@ -780,12 +780,11 @@ reli: ; read and convert label to immediate, takes lookup table in rdi
     ret
     pop r8
     call reai
-    mov rdi, rax
-    mov rsi, rdx
-    call idti
+
     push rax
     push rdx
-    mov rsi, rax
+    mov rdi, rax
+    mov rsi, rdx
     call look
     mov rax, [rax]
     pop rdx
@@ -1218,9 +1217,6 @@ pars:
     call reai
     mov rdi, rax
     mov rsi, rdx
-    ; mov r8, rax
-    call idti
-    ; call reat
 
 ; label
     cmpb [r8], 58
@@ -1229,12 +1225,14 @@ pars:
     add r8, 1
     mov rsi, [ofar]
     push [rsi]
-    mov rsi, rax
+    mov rdi, rax
+    mov rsi, rdx
     call look
     pop rsi
     mov [rax], rsi
     ret
 nlab:
+    call idti
 
     ; ret
     cmp r0, "ret"
@@ -1343,16 +1341,12 @@ nlab:
     push rsi
     push rdi
     call reai
-    mov rdi, rax
-    mov rsi, rdx
-    call idti
     pop rdi
     pop rsi
-    pop rdx
 
-    push rdx
     push rsi
-    mov rsi, rax
+    mov rdi, rax
+    mov rsi, rdx
     call look
     pop rsi
     pop rdx
@@ -1407,10 +1401,10 @@ tabl:
     dq 0
 
 look:
+    ; call idti
+    ; mov rdi, rax
     mov rcx, [tabl]
     mov rax, [tabl+8]
-    mov rdi, rsi
-    mov rsi, rdx
     lolo:
         cmp rcx, rax
         je lonf
@@ -1419,8 +1413,11 @@ look:
         push rdx
         push rsi
         push rdi
-
-        cmp [rcx], rdi
+        mov rdx, [rcx]
+        mov rcx, [rcx+8]
+        call scmp
+        cmp rax, 0
+        ; cmp [rcx], rdi
         pop rdi
         pop rsi
         pop rdx
@@ -1428,15 +1425,16 @@ look:
         pop rax
         
         je loof
-        add rcx, 16
+        add rcx, 24
         jmp lolo
     loof:
-        lea rax, [rcx+8]
+        lea rax, [rcx+16]
         ret
     lonf:
         mov [rcx], rdi
-        add [tabl+8], 16
-        lea rax, [rcx+8]
+        mov [rcx+8], rsi
+        add [tabl+8], 24
+        lea rax, [rcx+16]
         ret
 
 star:
