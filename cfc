@@ -970,6 +970,9 @@ nrr:
     cmp rax, "add"
     jne 2
     mov rdi, 0x03
+    cmp rax, "sub"
+    jne 2
+    mov rdi, 0x2B
     cmp rax, "mov"
     jne 2
     mov rdi, 0x8B
@@ -1182,7 +1185,8 @@ pars:
     jne nlab
     sub [ofar], 8          ; instruction loc array
     add r8, 1
-    push rsi
+    mov rsi, [ofar]
+    push [rsi]
     mov rsi, rax
     call look
     pop rsi
@@ -1431,7 +1435,6 @@ cont:
     add [ofar], 8
 
 mov rsi, rax
-lea rdi, [rsp+16]
 call pars
 
 jmp main
