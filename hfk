@@ -4,7 +4,7 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-jmp star
+jmp start
 
 inpf: dq 0
 outf: dq 0
@@ -1437,7 +1437,7 @@ look:
         lea rax, [rcx+16]
         ret
 
-star:
+start:
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
@@ -1452,12 +1452,6 @@ mov r2, 0xFFFF          ; all perms
 mov r7, [rsp+24]            ; argv[2]
 syscall
 mov [outf], r0
-; write header
-mov r7, [outf]              ; output file descriptor
-mov r6, 0x400000        ; program header location
-mov r2, 0x78            ; program header length
-mov r0, 1               ; write
-syscall
 ; get input size
 sub rsp, 0xC0            ; fstat size
 mov r7, r8              ; input file descriptor
@@ -1512,41 +1506,16 @@ shl rax, 5
 
 add [flen], r8
 
-; need to reset r8, instruction location array, output file
-
-resl:
-    cmp [iter], 0
-    je exit
-    sub [iter], 1
-    mov r8, [rsp]
-    mov r14, [rsp+8]
-    mov [ofar], r14
-
-    ; truncate
-    mov rdi, [outf]
-    mov rsi, 0x78
-    mov rax, 77
-    syscall
-    ; fix lseek
-    mov rsi, 0
-    mov rdx, 2      ; SEEK_END
-    mov rax, 8
-    syscall
 main:
     ; main loop
     cmp r8, [flen]
-    je resl
-    mov r7, [outf]
-    mov r6, 0
-    mov r2, 1
-    mov rax, 8
-    syscall                     ; lseek save current instruction position
-    add rax, 0x400000
-    mov r14, [ofar]
-    mov [r14], rax
-    add [ofar], 8
-    call parse_instruction
-    jmp main
+    je exit
+    push [r8]
+    mov rdi, 1
+    call prin
+    pop rax
+    add r8, 1
+    jmp main    
 
 inva:
 ; invalid
