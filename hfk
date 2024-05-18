@@ -4,7 +4,7 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-jmp start
+(start)
 
 inpf: dq 0
 outf: dq 0
@@ -1510,6 +1510,51 @@ main:
     ; main loop
     cmp r8, [flen]
     je exit
+    cmpb [r8], "\("
+    jne not_function
+    add r8, 1
+
+    jmp jmp_string_end
+    jmp_string:
+    dq "jmp "
+    jmp_string_end:
+    
+    push [jmp_string]
+    mov r7, 4
+    call prin
+    pop rax
+
+    function_loop:
+    cmpb [r8], "\)"
+    je function_loop_done
+    movb rax, [r8]
+    push rax
+    mov r7, 1
+    call prin
+    add r8, 1
+    jmp function_loop
+
+    function_loop_done:
+    jmp newline_string_end
+
+    newline_string:
+    dq 10
+    newline_string_end:
+
+    push [newline_string]
+    mov r7, 1
+    call prin
+    pop rax
+    add r8, 1
+    jmp main
+    
+    not_function:
+    
+    cmpb [r8], "\\"
+    jne not_escape
+    add r8, 1
+    not_escape:
+    
     push [r8]
     mov rdi, 1
     call prin
