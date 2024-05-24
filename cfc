@@ -10,7 +10,7 @@ inpf: dq 0
 outf: dq 0
 flen: dq 0
 iter: dq 0
-ofar: dq 0  ; offset array
+instruction_location_array: dq 0  ; offset array
 
 exit:
     mov r0, 60
@@ -38,7 +38,7 @@ pop r1
 pop r0
 ret
 
-isal:           ; is alpha
+is_alpha:           ; is alpha
 cmp r7, 97      ; a
 jl nalp
 cmp r7, 123     ; z
@@ -53,6 +53,18 @@ ret
 
 tore:           ; to register
     ; 8-bit registers
+
+    jmp registers_end
+    registers:
+    dq "al"
+    dq 0
+    dq 0x14
+    dq "cl"
+    dq 1
+    dq 0x14
+    registers_end:
+    mov r0, [registers]
+    
     cmp r7, "al"
     jne 4
     mov r0, 0
@@ -606,7 +618,7 @@ read_memory_operand:
 
     push rdi
     mov rdi, [rsp+8]
-    call reli
+    call read_operand_2
     pop rdi
     call whit
 
@@ -687,7 +699,7 @@ read_memory_operand:
 
     ret
 
-read:           ; read number
+read_operand:           ; read number
     push r1
     push r3
     push r5
@@ -708,7 +720,7 @@ read:           ; read number
     call read_memory_operand
     jmp dore
     nome:
-    call isal
+    call is_alpha
     cmp rax, 1
     jne 3
     call reat
@@ -771,21 +783,22 @@ read:           ; read number
     pop r1
     ret
 
-reli: ; read and convert label to immediate, takes lookup table in rdi
+read_operand_2: ; read and convert label to immediate, takes lookup table in rdi
     push r8
-    call read
+    call read_operand
     test rdx, 0x02
     jnz 3
     add rsp, 8
     ret
     pop r8
+    call whit
     call read_identifier
 
     push rax
     push rdx
     mov rdi, rax
     mov rsi, rdx
-    call look
+    call lookup_label
     mov rax, [rax]
     pop rdx
     pop rcx
@@ -894,11 +907,13 @@ ops2:
     ; moves opcode to rax, dest name to rcx, and dest type to rdx
 
     push rax
+    push rcx
     push rdx
-    call read           ; TODO: implement using memory operand as immediate
+    call read_operand_2           ; TODO: implement using memory operand as immediate
     mov rsi, rax
     mov rdi, rdx
     pop rdx
+    pop rcx
     pop rax
     ; reads source name into rsi, source type into rdi
 
@@ -1212,26 +1227,41 @@ nmr:
 nmi:
     jmp inva
 
-parse_instruction:
-    ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
+parse_label:
+    push r8
     call read_identifier
     mov rdi, rax
     mov rsi, rdx
 
-; label
     cmpb [r8], 58
-    jne nlab
-    sub [ofar], 8          ; instruction loc array
+    jne parse_label_ret
+    add rsp, 8
+    sub [instruction_location_array], 8          ; instruction loc array
     add r8, 1
-    mov rsi, [ofar]
+    mov rsi, [instruction_location_array]
     push [rsi]
     mov rdi, rax
     mov rsi, rdx
-    call look
+    call lookup_label
     pop rsi
     mov [rax], rsi
+    mov rax, 1
     ret
-nlab:
+parse_label_ret:
+    mov rax, 0
+    pop r8
+    ret
+
+parse_instruction:
+    ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
+    call parse_label
+    cmp rax, 0
+    je not_label
+    ret
+    not_label:
+    call read_identifier
+    mov rdi, rax
+    mov rsi, rdx
     call idti
 
     ; ret
@@ -1270,7 +1300,7 @@ nlab:
     je 3
     add r8, 1
     jmp coml
-    sub [ofar], 8
+    sub [instruction_location_array], 8
     ret
     ncom:
 
@@ -1278,7 +1308,7 @@ nlab:
     cmp r0, 0
     jne nspa
     add r8, 1
-    sub [ofar], 8
+    sub [instruction_location_array], 8
     ret
     nspa:
 
@@ -1328,7 +1358,7 @@ nlab:
     push rdx
     push rsi
     push rdi
-    call read
+    call read_operand
     mov rbp, rdx
     pop rdi
     pop rsi
@@ -1347,7 +1377,7 @@ nlab:
     push rsi
     mov rdi, rax
     mov rsi, rdx
-    call look
+    call lookup_label
     pop rsi
     pop rdx
     mov rax, [rax]
@@ -1355,10 +1385,10 @@ nlab:
 
 jnla:
     add rsp, 8
-    mov r14, [ofar]
+    mov r14, [instruction_location_array]
     mov rax, [r14 + 8*rax - 8]
 jfad:
-    mov rsi, [ofar]
+    mov rsi, [instruction_location_array]
     sub rax, [rsi - 8]
     sub rax, rbx
     sub rax, 4
@@ -1378,7 +1408,7 @@ njum:
 
     push rax
     push rdi
-    call reli
+    call read_operand_2
     pop rcx
     pop rdi
     mov rsi, rax
@@ -1396,15 +1426,15 @@ njum:
     call ops2
     ret
 
-tabl:
+label_table:
     dq 0
     dq 0
 
-look:
+lookup_label:
     ; call idti
     ; mov rdi, rax
-    mov rcx, [tabl]
-    mov rax, [tabl+8]
+    mov rcx, [label_table]
+    mov rax, [label_table+8]
     lolo:
         cmp rcx, rax
         je lonf
@@ -1433,7 +1463,7 @@ look:
     lonf:
         mov [rcx], rdi
         mov [rcx+8], rsi
-        add [tabl+8], 24
+        add [label_table+8], 24
         lea rax, [rcx+16]
         ret
 
@@ -1492,7 +1522,7 @@ mov r0, 9               ; mmap
 syscall
 pop r8                  ; restore r8
 mov r14, r0             ; save instruction location array end
-mov [ofar], rax
+mov [instruction_location_array], rax
 mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
@@ -1502,10 +1532,10 @@ push r8
 
 mov rax, [flen]
 shl rax, 6
-add rax, [ofar]
+add rax, [instruction_location_array]
 
-mov [tabl], rax
-mov [tabl+8], rax
+mov [label_table], rax
+mov [label_table+8], rax
 
 mov rax, [flen]
 shl rax, 5
@@ -1520,7 +1550,7 @@ resl:
     sub [iter], 1
     mov r8, [rsp]
     mov r14, [rsp+8]
-    mov [ofar], r14
+    mov [instruction_location_array], r14
 
     ; truncate
     mov rdi, [outf]
@@ -1542,9 +1572,9 @@ main:
     mov rax, 8
     syscall                     ; lseek save current instruction position
     add rax, 0x400000
-    mov r14, [ofar]
+    mov r14, [instruction_location_array]
     mov [r14], rax
-    add [ofar], 8
+    add [instruction_location_array], 8
     call parse_instruction
     jmp main
 
