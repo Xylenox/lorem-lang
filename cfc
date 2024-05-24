@@ -62,369 +62,233 @@ tore:           ; to register
     dq "cl"
     dq 1
     dq 0x14
+    dq "dl"
+    dq 2
+    dq 0x14
+    dq "bl"
+    dq 3
+    dq 0x14
+    dq "spl"
+    dq 4
+    dq 0x14
+    dq "bpl"
+    dq 5
+    dq 0x14
+    dq "sil"
+    dq 6
+    dq 0x14
+    dq "dil"
+    dq 7
+    dq 0x14
+    dq "r8b"
+    dq 8
+    dq 0x14
+    dq "r9b"
+    dq 9
+    dq 0x14
+    dq "r10b"
+    dq 10
+    dq 0x14
+    dq "r11b"
+    dq 11
+    dq 0x14
+    dq "r12b"
+    dq 12
+    dq 0x14
+    dq "r13b"
+    dq 13
+    dq 0x14
+    dq "r14b"
+    dq 14
+    dq 0x14
+    dq "r15b"
+    dq 15
+    dq 0x14
+    dq "ax"
+    dq 0
+    dq 0x24
+    dq "cx"
+    dq 1
+    dq 0x24
+    dq "dx"
+    dq 2
+    dq 0x24
+    dq "bx"
+    dq 3
+    dq 0x24
+    dq "sp"
+    dq 4
+    dq 0x24
+    dq "bp"
+    dq 5
+    dq 0x24
+    dq "si"
+    dq 6
+    dq 0x24
+    dq "di"
+    dq 7
+    dq 0x24
+    dq "r8w"
+    dq 8
+    dq 0x24
+    dq "r9w"
+    dq 9
+    dq 0x24
+    dq "r10w"
+    dq 10
+    dq 0x24
+    dq "r11w"
+    dq 11
+    dq 0x24
+    dq "r12w"
+    dq 12
+    dq 0x24
+    dq "r13w"
+    dq 13
+    dq 0x24
+    dq "r14w"
+    dq 14
+    dq 0x24
+    dq "r15w"
+    dq 15
+    dq 0x24
+    dq "eax"
+    dq 0
+    dq 0x44
+    dq "ecx"
+    dq 1
+    dq 0x44
+    dq "edx"
+    dq 2
+    dq 0x44
+    dq "ebx"
+    dq 3
+    dq 0x44
+    dq "esp"
+    dq 4
+    dq 0x44
+    dq "ebp"
+    dq 5
+    dq 0x44
+    dq "esi"
+    dq 6
+    dq 0x44
+    dq "edi"
+    dq 7
+    dq 0x44
+    dq "r8d"
+    dq 8
+    dq 0x44
+    dq "r9d"
+    dq 9
+    dq 0x44
+    dq "r10d"
+    dq 10
+    dq 0x44
+    dq "r11d"
+    dq 11
+    dq 0x44
+    dq "r12d"
+    dq 12
+    dq 0x44
+    dq "r13d"
+    dq 13
+    dq 0x44
+    dq "r14d"
+    dq 14
+    dq 0x44
+    dq "r15d"
+    dq 15
+    dq 0x44
+    dq "rax"
+    dq 0
+    dq 0x84
+    dq "rcx"
+    dq 1
+    dq 0x84
+    dq "rdx"
+    dq 2
+    dq 0x84
+    dq "rbx"
+    dq 3
+    dq 0x84
+    dq "rsp"
+    dq 4
+    dq 0x84
+    dq "rbp"
+    dq 5
+    dq 0x84
+    dq "rsi"
+    dq 6
+    dq 0x84
+    dq "rdi"
+    dq 7
+    dq 0x84
+    dq "r8"
+    dq 8
+    dq 0x84
+    dq "r9"
+    dq 9
+    dq 0x84
+    dq "r10"
+    dq 10
+    dq 0x84
+    dq "r11"
+    dq 11
+    dq 0x84
+    dq "r12"
+    dq 12
+    dq 0x84
+    dq "r13"
+    dq 13
+    dq 0x84
+    dq "r14"
+    dq 14
+    dq 0x84
+    dq "r15"
+    dq 15
+    dq 0x84
+    dq "r0"
+    dq 0
+    dq 0x84
+    dq "r1"
+    dq 1
+    dq 0x84
+    dq "r2"
+    dq 2
+    dq 0x84
+    dq "r3"
+    dq 3
+    dq 0x84
+    dq "r4"
+    dq 4
+    dq 0x84
+    dq "r5"
+    dq 5
+    dq 0x84
+    dq "r6"
+    dq 6
+    dq 0x84
+    dq "r7"
+    dq 7
+    dq 0x84
     registers_end:
-    mov r0, [registers]
+
+    mov r0, registers
+    to_register_loop:
+    cmp r0, registers_end
+    jg to_register_not_found
     
-    cmp r7, "al"
-    jne 4
-    mov r0, 0
-    mov r2, 0x14
-    ret
-    cmp r7, "cl"
-    jne 4
-    mov r0, 1
-    mov r2, 0x14
-    ret
-    cmp r7, "dl"
-    jne 4
-    mov r0, 2
-    mov r2, 0x14
-    ret
-    cmp r7, "bl"
-    jne 4
-    mov r0, 3
-    mov r2, 0x14
-    ret
-    cmp r7, "spl"
-    jne 4
-    mov r0, 4
-    mov r2, 0x14
-    ret
-    cmp r7, "bpl"
-    jne 4
-    mov r0, 5
-    mov r2, 0x14
-    ret
-    cmp r7, "sil"
-    jne 4
-    mov r0, 6
-    mov r2, 0x14
-    ret
-    cmp r7, "dil"
-    jne 4
-    mov r0, 7
-    mov r2, 0x14
-    ret
-    cmp r7, "r8b"
-    jne 4
-    mov r0, 8
-    mov r2, 0x14
-    ret
-    cmp r7, "r9b"
-    jne 4
-    mov r0, 9
-    mov r2, 0x14
-    ret
-    cmp r7, "r10b"
-    jne 4
-    mov r0, 10
-    mov r2, 0x14
-    ret
-    cmp r7, "r11b"
-    jne 4
-    mov r0, 11
-    mov r2, 0x14
-    ret
-    cmp r7, "r12b"
-    jne 4
-    mov r0, 12
-    mov r2, 0x14
-    ret
-    cmp r7, "r13b"
-    jne 4
-    mov r0, 13
-    mov r2, 0x14
-    ret
-    cmp r7, "r14b"
-    jne 4
-    mov r0, 14
-    mov r2, 0x14
-    ret
-    cmp r7, "r15b"
-    jne 4
-    mov r0, 15
-    mov r2, 0x14
-    ret
-    cmp r7, "ax"
-    jne 4
-    mov r0, 0
-    mov r2, 0x24
-    ret
-    cmp r7, "cx"
-    jne 4
-    mov r0, 1
-    mov r2, 0x24
-    ret
-    cmp r7, "dx"
-    jne 4
-    mov r0, 2
-    mov r2, 0x24
-    ret
-    cmp r7, "bx"
-    jne 4
-    mov r0, 3
-    mov r2, 0x24
-    ret
-    cmp r7, "sp"
-    jne 4
-    mov r0, 4
-    mov r2, 0x24
-    ret
-    cmp r7, "bp"
-    jne 4
-    mov r0, 5
-    mov r2, 0x24
-    ret
-    cmp r7, "si"
-    jne 4
-    mov r0, 6
-    mov r2, 0x24
-    ret
-    cmp r7, "di"
-    jne 4
-    mov r0, 7
-    mov r2, 0x24
-    ret
-    cmp r7, "r8w"
-    jne 4
-    mov r0, 8
-    mov r2, 0x24
-    ret
-    cmp r7, "r9w"
-    jne 4
-    mov r0, 9
-    mov r2, 0x24
-    ret
-    cmp r7, "r10w"
-    jne 4
-    mov r0, 10
-    mov r2, 0x24
-    ret
-    cmp r7, "r11w"
-    jne 4
-    mov r0, 11
-    mov r2, 0x24
-    ret
-    cmp r7, "r12w"
-    jne 4
-    mov r0, 12
-    mov r2, 0x24
-    ret
-    cmp r7, "r13w"
-    jne 4
-    mov r0, 13
-    mov r2, 0x24
-    ret
-    cmp r7, "r14w"
-    jne 4
-    mov r0, 14
-    mov r2, 0x24
-    ret
-    cmp r7, "r15w"
-    jne 4
-    mov r0, 15
-    mov r2, 0x24
-    ret
-    cmp r7, "eax"
-    jne 4
-    mov r0, 0
-    mov r2, 0x44
-    ret
-    cmp r7, "ecx"
-    jne 4
-    mov r0, 1
-    mov r2, 0x44
-    ret
-    cmp r7, "edx"
-    jne 4
-    mov r0, 2
-    mov r2, 0x44
-    ret
-    cmp r7, "ebx"
-    jne 4
-    mov r0, 3
-    mov r2, 0x44
-    ret
-    cmp r7, "esp"
-    jne 4
-    mov r0, 4
-    mov r2, 0x44
-    ret
-    cmp r7, "ebp"
-    jne 4
-    mov r0, 5
-    mov r2, 0x44
-    ret
-    cmp r7, "esi"
-    jne 4
-    mov r0, 6
-    mov r2, 0x44
-    ret
-    cmp r7, "edi"
-    jne 4
-    mov r0, 7
-    mov r2, 0x44
-    ret
-    cmp r7, "r8d"
-    jne 4
-    mov r0, 8
-    mov r2, 0x44
-    ret
-    cmp r7, "r9d"
-    jne 4
-    mov r0, 9
-    mov r2, 0x44
-    ret
-    cmp r7, "r10d"
-    jne 4
-    mov r0, 10
-    mov r2, 0x44
-    ret
-    cmp r7, "r11d"
-    jne 4
-    mov r0, 11
-    mov r2, 0x44
-    ret
-    cmp r7, "r12d"
-    jne 4
-    mov r0, 12
-    mov r2, 0x44
-    ret
-    cmp r7, "r13d"
-    jne 4
-    mov r0, 13
-    mov r2, 0x44
-    ret
-    cmp r7, "r14d"
-    jne 4
-    mov r0, 14
-    mov r2, 0x44
-    ret
-    cmp r7, "r15d"
-    jne 4
-    mov r0, 15
-    mov r2, 0x44
-    ret
-    cmp r7, "rax"
-    jne 4
-    mov r0, 0
-    mov r2, 0x84
-    ret
-    cmp r7, "rcx"
-    jne 4
-    mov r0, 1
-    mov r2, 0x84
-    ret
-    cmp r7, "rdx"
-    jne 4
-    mov r0, 2
-    mov r2, 0x84
-    ret
-    cmp r7, "rbx"
-    jne 4
-    mov r0, 3
-    mov r2, 0x84
-    ret
-    cmp r7, "rsp"
-    jne 4
-    mov r0, 4
-    mov r2, 0x84
-    ret
-    cmp r7, "rbp"
-    jne 4
-    mov r0, 5
-    mov r2, 0x84
-    ret
-    cmp r7, "rsi"
-    jne 4
-    mov r0, 6
-    mov r2, 0x84
-    ret
-    cmp r7, "rdi"
-    jne 4
-    mov r0, 7
-    mov r2, 0x84
-    ret
-    cmp r7, "r8"
-    jne 4
-    mov r0, 8
-    mov r2, 0x84
-    ret
-    cmp r7, "r9"
-    jne 4
-    mov r0, 9
-    mov r2, 0x84
-    ret
-    cmp r7, "r10"
-    jne 4
-    mov r0, 10
-    mov r2, 0x84
-    ret
-    cmp r7, "r11"
-    jne 4
-    mov r0, 11
-    mov r2, 0x84
-    ret
-    cmp r7, "r12"
-    jne 4
-    mov r0, 12
-    mov r2, 0x84
-    ret
-    cmp r7, "r13"
-    jne 4
-    mov r0, 13
-    mov r2, 0x84
-    ret
-    cmp r7, "r14"
-    jne 4
-    mov r0, 14
-    mov r2, 0x84
-    ret
-    cmp r7, "r15"
-    jne 4
-    mov r0, 15
-    mov r2, 0x84
-    ret
-    cmp r7, "r0"
-    jne 4
-    mov r0, 0
-    mov r2, 0x84
-    ret
-    cmp r7, "r1"
-    jne 4
-    mov r0, 1
-    mov r2, 0x84
-    ret
-    cmp r7, "r2"
-    jne 4
-    mov r0, 2
-    mov r2, 0x84
-    ret
-    cmp r7, "r3"
-    jne 4
-    mov r0, 3
-    mov r2, 0x84
-    ret
-    cmp r7, "r4"
-    jne 4
-    mov r0, 4
-    mov r2, 0x84
-    ret
-    cmp r7, "r5"
-    jne 4
-    mov r0, 5
-    mov r2, 0x84
-    ret
-    cmp r7, "r6"
-    jne 4
-    mov r0, 6
-    mov r2, 0x84
-    ret
-    cmp r7, "r7"
-    jne 4
-    mov r0, 7
-    mov r2, 0x84
-    ret
+    cmp r7, [r0]
+    je to_register_found
+    add r0, 24
+    jmp to_register_loop
+    to_register_found:
+    mov rdx, [rax+16]
+    mov rax, [rax+8]
+    ret
+    to_register_not_found:
+
 
 mov r0, r7
 mov r2, 2
