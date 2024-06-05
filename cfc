@@ -671,6 +671,7 @@ read_operand_2: ; read and convert label to immediate, takes lookup table in rdi
 ops1:
     test rdx, 0x01
     jz ni
+    mov rcx, 0
     cmp rdi, "db"
     jne 2
     mov rax, 1
@@ -683,6 +684,18 @@ ops1:
     cmp rdi, "dq"
     jne 2
     mov rax, 8
+    cmp rdi, "push"
+    jne immediate_only_found
+    mov rax, 4
+    mov rcx, 1
+    mov rdx, 0x68
+
+    immediate_only_found:
+
+    push rdx
+    mov rdi, rcx
+    call prin
+    pop rdx
 
     push rsi
     mov rdi, rax
