@@ -296,9 +296,9 @@ ret
 
 scmp:
     cmp rdi, rsi
-    je send
+    je end_of_string
     cmp rdx, rcx
-    je send
+    je end_of_string
 
     sub rax, rax
     movb al, [rdi]
@@ -311,31 +311,34 @@ scmp:
     add rdx, 1
     cmp rax, 0
     je scmp
-    jl 3
+    jl less
     mov rax, 1
     ret
+    less:
     mov rax, -1
     ret
-    
 
-send:
+end_of_string:
     mov rax, 0
     cmp rdi, rsi
-    jne 2
+    jne not_first_shorter
     add rax, -1
+    not_first_shorter:
     cmp rdx, rcx
-    jne 2
+    jne not_second_shorter
     add rax, 1
+    not_second_shorter:
     ret
 
-whit:
+parse_whitespace:
     cmpb [r8], " "
-    je 2
+    je not_done_whitespace
     cmpb [r8], 10
-    jne 3
-    add r8, 1
-    jmp whit
+    je not_done_whitespace
     ret
+    not_done_whitespace:
+    add r8, 1
+    jmp parse_whitespace
 
 reat:
     push rdi
@@ -410,7 +413,7 @@ reas:           ; read string
     ret
 
 read_identifier: ; read identifier and return start and end pointers
-    ; call whit
+    ; call parse_whitespace
     mov rax, r8
     iloo:
     sub rcx, rcx
@@ -465,30 +468,34 @@ read_memory_operand:
     mov rbp, -1
     mov rbx, 0
     mloo:
-    call whit
+    call parse_whitespace
     cmpb [r8], "]"
     je mldo
 
     cmpb [r8], "+"
-    jne 3
+    jne not_plus
     add r8, 1
     jmp mloo
 
+    not_plus:
+
     mov rcx, 0
     cmpb [r8], "*"
-    jne 3
+    jne not_times
     add r8, 1
     mov rcx, 1
+    not_times:
 
     push rdi
     mov rdi, [rsp+8]
     call read_operand_2
     pop rdi
-    call whit
+    call parse_whitespace
 
     cmpb [r8], "*"
-    jne 2
+    jne not_times_two
     mov rcx, 1
+    not_times_two:
 
     test rdx, 0x01
     jnz mnum
@@ -523,20 +530,23 @@ read_memory_operand:
     add rdx, 0x060000
 
     cmp rdi, 8          ; rex byte
-    jl 3
+    jl jump_a
     add rdx, 0x0100
     sub rdi, 8
+    jump_a:
 
     cmp rbp, 8
-    jl 3
+    jl jump_b
     add rdx, 0x0200
     sub rbp, 8
+    jump_b:
 
     mov rax, 0x84       ; mod 10, rm 100
     cmp rdi, -1
-    jne 3
+    jne jump_c
     mov rdi, 5
     sub rax, 0x80
+    jump_c:
     shl rdi, 8
     add rax, rdi
 
@@ -544,23 +554,79 @@ read_memory_operand:
     add rax, rbx
 
     cmp rbp, -1         ; index
-    je 4
+    je jump_d
     shl rbp, 11
     add rax, rbp
-    jmp 2
+    jmp jump_e
+    jump_d:
     add rax, 0x2000
-
+    jump_e:
     cmp rsi, 2
-    jne 2
+    jne jump_f
     add rax, 0x4000
+    jump_f:
     cmp rsi, 4
-    jne 2
+    jne jump_g
     add rax, 0x8000
+    jump_g:
     cmp rsi, 8
-    jne 2
+    jne jump_h
     add rax, 0xC000
+    jump_h:
+    ret
 
+read_number:
+    mov r0, 0
+    mov r1, 10
+    mov r5, 1
 
+    cmpb [r8], "-"
+    jne number_loop
+    mov r5, -1
+    add r8, 1
+    call parse_whitespace
+
+    number_loop:
+    sub r3, r3
+    movb bl, [r8]
+    cmp r3, " "
+    je done_number_loop
+    cmp r3, "]"
+    je done_number_loop
+    cmp r3, "+"
+    je done_number_loop
+    cmp r3, "*"
+    je done_number_loop
+    sub r3, 10              ; newline
+    je done_number_loop
+    add r8, 1
+    add r3, 10
+    cmp r1, 256
+    je operand_loop_skip
+    cmp r3, "-"
+    jne not_negative
+    mov r5, -1
+    jmp number_loop
+    not_negative:
+    cmp r3, "x"
+    jne not_hex
+    mov r1, 16
+    jmp number_loop
+    not_hex:
+    sub r3, "A"
+    jl not_hex_character
+    add r3, 10
+    jmp operand_loop_skip
+    not_hex_character:
+    add r3, "A"
+    sub r3, 0x30
+    operand_loop_skip:
+    mul r1
+    add r0, r3
+    jmp number_loop
+    done_number_loop:
+    mul r5
+    mov r2, 1           ; type is integer
     ret
 
 read_operand:           ; read number
@@ -569,15 +635,16 @@ read_operand:           ; read number
     push r5
     push r7
 
-    call whit
+    call parse_whitespace
 
     sub r7, r7
     movb dil, [r8]
     cmp rdi, 34              ; "
-    jne 4
+    jne jump_i
     call reas
     mov rdx, 1
     jmp dore
+    jump_i:
     cmp rdi, "["
     jne nome
     mov rdi, [rsp]
@@ -586,60 +653,11 @@ read_operand:           ; read number
     nome:
     call is_alpha
     cmp rax, 1
-    jne 3
+    jne jump_j
     call reat
     jmp dore
-
-    mov r0, 0
-    mov r1, 10
-    mov r5, 1
-
-    cmpb [r8], "-"
-    jne dloo
-    mov r5, -1
-    add r8, 1
-    call whit
-
-    dloo:
-    sub r3, r3
-    movb bl, [r8]
-    cmp r3, " "
-    je 2
-    cmp r3, "]"
-    je 2
-    cmp r3, "+"
-    je 2
-    cmp r3, "*"
-    je 2
-    sub r3, 10              ; newline
-    je dolo
-    add r8, 1
-    add r3, 10
-    cmp r1, 256
-    je 17
-    sub r3, 0x2D
-    jne 3
-    mov r5, -1
-    jmp 5
-    add r3, 0x2D
-    sub r3, 0x78
-    jne 3
-    mov r1, 16
-    jmp 10
-    add r3, 0x78
-    sub r3, 0x41
-    jl 3
-    add r3, 10
-    jmp 3
-    add r3, 0x41
-    sub r3, 0x30
-    mul r1
-    add r0, r3
-    jmp dloo
-    dolo:
-    mul r5
-    mov r2, 1           ; type is integer
-
+    jump_j:
+    call read_number
     dore:               ; done read
     pop r7
     pop r5
@@ -647,15 +665,27 @@ read_operand:           ; read number
     pop r1
     ret
 
+search_array:
+; search value in rdi, array start in rsi, offset in rdx
+    mov rax, rsi
+    search_array_loop:
+    cmp rdi, [rax]
+    je search_array_found
+    add rax, rdx
+    jmp search_array_loop
+    search_array_found:
+    ret
+
 read_operand_2: ; read and convert label to immediate, takes lookup table in rdi
     push r8
     call read_operand
     test rdx, 0x02
-    jnz 3
+    jnz found_label
     add rsp, 8
     ret
+    found_label:
     pop r8
-    call whit
+    call parse_whitespace
     call read_identifier
 
     push rax
@@ -671,26 +701,37 @@ read_operand_2: ; read and convert label to immediate, takes lookup table in rdi
 ops1:
     test rdx, 0x01
     jz ni
-    mov rcx, 0
-    cmp rdi, "db"
-    jne 2
-    mov rax, 1
-    cmp rdi, "dw"
-    jne 2
-    mov rax, 2
-    cmp rdi, "dd"
-    jne 2
-    mov rax, 4
-    cmp rdi, "dq"
-    jne 2
-    mov rax, 8
-    cmp rdi, "push"
-    jne immediate_only_found
-    mov rax, 4
-    mov rcx, 1
-    mov rdx, 0x68
-
-    immediate_only_found:
+    jmp immediate_only_array_end
+    immediate_only_array:
+    dq "db"
+    dq 1
+    dq 0
+    dq 0
+    dq "dw"
+    dq 2
+    dq 0
+    dq 0
+    dq "dd"
+    dq 4
+    dq 0
+    dq 0
+    dq "dq"
+    dq 8
+    dq 0
+    dq 0
+    dq "push"
+    dq 4
+    dq 1
+    dq 0x68
+    immediate_only_array_end:
+    push rsi
+    mov rsi, immediate_only_array
+    mov rdx, 32
+    call search_array
+    pop rsi
+    mov rdx, [rax+24]
+    mov rcx, [rax+16]
+    mov rax, [rax+8]
 
     push rdx
     mov rdi, rcx
@@ -707,15 +748,23 @@ ops1:
 
     test rdx, 0x08
     jz nm
-    cmp rdi, "mul"        ; mul
-    jne 2
-    mov rax, 0x20F7
-    cmp rdi, "push"        ; push
-    jne 2
-    mov rax, 0x30FF
-    cmp rdi, "pop"        ; pop
-    jne 2
-    mov rax, 0x008F
+    jmp memory_only_array_end
+    memory_only_array:
+    dq "mul"
+    dq 0x20F7
+    dq "push"
+    dq 0x30FF
+    dq "pop"
+    dq 0x008F
+    memory_only_array_end:
+    push rdx
+    push rsi
+    mov rsi, memory_only_array
+    mov rdx, 16
+    call search_array
+    mov rax, [rax+8]
+    pop rsi
+    pop rdx
 
     mov rdi, rdx
     shr rdi, 8
@@ -735,28 +784,37 @@ ops1:
     ret
 
     nm:
-
     ; mulr
     test rdx, 0x04
     jz nr
-    cmp rdi, "mul"        ; mul
-    jne 2
-    mov rax, 0xE0F7
-    cmp rdi, "push"        ; push
-    jne 2
-    mov rax, 0xF0FF
-    cmp rdi, "pop"        ; pop
-    jne 2
-    mov rax, 0xC08F
+    jmp register_only_array_end
+    register_only_array:
+    dq "mul"
+    dq 0xE0F7
+    dq "push"
+    dq 0xF0FF
+    dq "pop"
+    dq 0xC08F
+    register_only_array_end:
+    push rdx
+    push rsi
+    mov rsi, register_only_array
+    mov rdx, 16
+    call search_array
+    mov rax, [rax+8]
+    pop rsi
+    pop rdx
 
     mov rdi, 0x40
     test rdx, 0x80
-    je 2
+    je jump_k
     add rdi, 0x08
+    jump_k:
     cmp rsi, 8
-    jl 3
+    jl jump_l
     add rdi, 0x01
     sub rsi, 8
+    jump_l:
 
     push rdi
     mov rdi, 1
@@ -765,7 +823,6 @@ ops1:
 
     shl rsi, 8
     add rax, rsi
-
 
     sub r4, 8
     mov [r4], rax
@@ -802,59 +859,61 @@ ops2:
 
     mov rbx, 0x40
     test rdx, 0x80
-    je 2
+    je jump_m
     add rbx, 0x08
+    jump_m:
     cmp rcx, 8
-    jl 3
+    jl jump_n
     sub rcx, 8
     add rbx, 0x01
+    jump_n:
 
     push rbx
     mov rdi, 1
     call prin
     pop rbx
 
-    ; add/sub/mov/cmpri
-    cmp rax, "add"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xC081
-    cmp rax, "sub"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xE881
-    cmp rax, "mov"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xC0C7
-    cmp rax, "cmp"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xF881
-    cmp rax, "shl"
-    jne 3
-    mov rdi, 3
-    mov rbx, 0xE0C1
-    cmp rax, "shr"
-    jne 3
-    mov rdi, 3
-    mov rbx, 0xE8C1
-    cmp rax, "test"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xC0F7
-    cmp rax, "and"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xE081
-    cmp rax, "or"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xC881
-    cmp rax, "xor"
-    jne 3
-    mov rdi, 6
-    mov rbx, 0xF081
+    jmp ri_array_end
+    ri_array:
+    dq "add"
+    dq 6
+    dq 0xC081
+    dq "sub"
+    dq 6
+    dq 0xE881
+    dq "mov"
+    dq 6
+    dq 0xC0C7
+    dq "cmp"
+    dq 6
+    dq 0xF881
+    dq "shl"
+    dq 3
+    dq 0xE0C1
+    dq "shr"
+    dq 3
+    dq 0xE8C1
+    dq "test"
+    dq 6
+    dq 0xC0F7
+    dq "and"
+    dq 6
+    dq 0xE081
+    dq "or"
+    dq 6
+    dq 0xC881
+    dq "xor"
+    dq 6 ; rdi
+    dq 0xF081 ; rbx
+    ri_array_end:
+    push rsi
+    mov rdi, rax
+    mov rsi, ri_array
+    mov rdx, 24
+    call search_array
+    mov rdi, [rax+8]
+    mov rbx, [rax+16]
+    pop rsi
 
     sub rsp, 8
 
@@ -876,38 +935,45 @@ nri:
 
     mov rbx, 0x40
     test rdx, 0x80
-    je 2
+    je jump_o
     add rbx, 0x08
+    jump_o:
     cmp rcx, 8
-    jl 3
+    jl jump_p
     sub rcx, 8
     add rbx, 0x04
+    jump_p:
     cmp rsi, 8
-    jl 3
+    jl jump_q
     sub rsi, 8
     add rbx, 0x01
+    jump_q:
 
     push rbx
     mov rdi, 1
     call prin
     pop rbx
 
-    ; sub/add/movrr
-    cmp rax, "add"        ; add
-    jne 2
-    mov rbx, 0xC003
-    cmp rax, "sub"        ; sub
-    jne 2
-    mov rbx, 0xC02B
-    cmp rax, "mov"        ; mov
-    jne 2
-    mov rbx, 0xC08B
-    cmp rax, "cmp"        ; cmp
-    jne 2
-    mov rbx, 0xC03B
-    cmp rax, "or"        ; cmp
-    jne 2
-    mov rbx, 0xC00B
+    jmp rr_array_end
+    rr_array:
+    dq "add"        ; add
+    dq 0xC003
+    dq "sub"        ; sub
+    dq 0xC02B
+    dq "mov"        ; mov
+    dq 0xC08B
+    dq "cmp"        ; cmp
+    dq 0xC03B
+    dq "or"        ; cmp
+    dq 0xC00B
+    rr_array_end:
+    push rsi
+    mov rdi, rax
+    mov rsi, rr_array
+    mov rdx, 16
+    call search_array
+    mov rbx, [rax+8]
+    pop rsi
 
     shl rcx, 11
     add rbx, rcx
@@ -929,12 +995,14 @@ nrr:
 
     mov rbx, 0x40
     test rdx, 0x80
-    je 2
+    je jump_r
     add rbx, 0x08
+    jump_r:
     cmp rcx, 8
-    jl 3
+    jl jump_s
     sub rcx, 8
     add rbx, 0x04
+    jump_s:
 
     push rdi
 
@@ -948,28 +1016,30 @@ nrr:
     call prin
     pop rbx
     
-    
-    cmp rax, "add"
-    jne 2
-    mov rdi, 0x03
-    cmp rax, "sub"
-    jne 2
-    mov rdi, 0x2B
-    cmp rax, "mov"
-    jne 2
-    mov rdi, 0x8B
-    cmp rax, "movb"
-    jne 2
-    mov rdi, 0x8A
-    cmp rax, "movs"
-    jne 2
-    mov rdi, 0x63
-    cmp rax, "lea"
-    jne 2
-    mov rdi, 0x8D
-    cmp rax, "cmp"
-    jne 2
-    mov rdi, 0x3B
+    jmp rm_array_end
+    rm_array:
+    dq "add"
+    dq 0x03
+    dq "sub"
+    dq 0x2B
+    dq "mov"
+    dq 0x8B
+    dq "movb"
+    dq 0x8A
+    dq "movs"
+    dq 0x63
+    dq "lea"
+    dq 0x8D
+    dq "cmp"
+    dq 0x3B
+    rm_array_end:
+    push rsi
+    mov rdi, rax
+    mov rsi, rm_array
+    mov rdx, 16
+    call search_array
+    mov rdi, [rax+8]
+    pop rsi
 
     push rdi
     mov rdi, 1
@@ -997,12 +1067,14 @@ nrm:
 
     mov rbx, 0x40
     test rdi, 0x80
-    je 2
+    je jump_t
     add rbx, 0x08
+    jump_t:
     cmp rsi, 8
-    jl 3
+    jl jump_u
     sub rsi, 8
     add rbx, 0x04
+    jump_u:
 
     push rdx
 
@@ -1016,11 +1088,13 @@ nrm:
     pop rbx
     
     cmp rax, "mov"
-    jne 2
+    jne not_mov
     mov rdi, 0x89
+    not_mov:
     cmp rax, "cmp"
-    jne 2
+    jne not_cmp
     mov rdi, 0x39
+    not_cmp:
 
     push rdi
     mov rdi, 1
@@ -1048,8 +1122,9 @@ nmr:
 
     mov rbx, 0x40
     test rdi, 0x80
-    je 2
+    je jump_v
     add rbx, 0x08
+    jump_v:
 
     push rdx
 
@@ -1062,27 +1137,32 @@ nmr:
     call prin
     pop rbx
     
-
-    cmp rax, "cmpb"
-    jne 3
-    mov rdx, 1
-    mov rbx, 0x3880
-    cmp rax, "mov"
-    jne 3
-    mov rdx, 4
-    mov rbx, 0x00C7
-    cmp rax, "add"
-    jne 3
-    mov rdx, 4
-    mov rbx, 0x0081
-    cmp rax, "sub"
-    jne 3
-    mov rdx, 4
-    mov rbx, 0x2881
-    cmp rax, "cmp"
-    jne 3
-    mov rdx, 4
-    mov rbx, 0x3881
+    jmp mi_array_end
+    mi_array:
+    dq "cmpb"
+    dq 1
+    dq 0x3880
+    dq "mov"
+    dq 4
+    dq 0x00C7
+    dq "add"
+    dq 4
+    dq 0x0081
+    dq "sub"
+    dq 4
+    dq 0x2881
+    dq "cmp"
+    dq 4
+    dq 0x3881
+    mi_array_end:
+    push rsi
+    mov rdi, rax
+    mov rsi, mi_array
+    mov rdx, 24
+    call search_array
+    mov rdx, [rax+8]
+    mov rbx, [rax+16]
+    pop rsi
 
     pop rdi
     shr rdi, 16
@@ -1131,11 +1211,6 @@ parse_label_ret:
 
 parse_instruction:
     ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
-    call parse_label
-    cmp rax, 0
-    je not_label
-    ret
-    not_label:
     call read_identifier
     mov rdi, rax
     mov rsi, rdx
@@ -1157,8 +1232,9 @@ parse_instruction:
     shl rcx, 32
     add rcx, "sysc"
     cmp rax, rcx
-    je 2
+    je jump_w
     jne nsys
+    jump_w:
     mov r0, 0x050F
     push r0
     mov r7, 2
@@ -1174,9 +1250,10 @@ parse_instruction:
     sub r0, r0
     movb al, [r8]
     cmp r0, 10
-    je 3
+    je jump_x
     add r8, 1
     jmp coml
+    jump_x:
     sub [instruction_location_array], 8
     ret
     ncom:
@@ -1195,41 +1272,49 @@ parse_instruction:
     mov rbx, -1
     
     cmp r0, "jne"
-    jne 3
+    jne not_jne
     mov rdx, 0x850F
     mov rbx, 2
+    not_jne:
     cmp r0, "jnz"
-    jne 3
+    jne not_jnz
     mov rdx, 0x850F
     mov rbx, 2
+    not_jnz:
     cmp r0, "jmp"
-    jne 3
+    jne not_jmp
     mov rdx, 0xE9
     mov rbx, 1
+    not_jmp:
     cmp r0, "je"
-    jne 3
+    jne not_je
     mov rdx, 0x840F
     mov rbx, 2
+    not_je:
     cmp r0, "jz"
-    jne 3
+    jne not_jz
     mov rdx, 0x840F
     mov rbx, 2
+    not_jz:
     cmp r0, "jl"          ; jl
-    jne 3
+    jne not_jl
     mov rdx, 0x8C0F
     mov rbx, 2
+    not_jl:
     cmp r0, "jg"          ; jg
-    jne 3
+    jne not_jg
     mov rdx, 0x8F0F
     mov rbx, 2
+    not_jg:
     cmp r0, "call"          ; call
-    jne 3
+    jne not_call
     mov rdx, 0xE8
     mov rbx, 1
+    not_call:
 
     cmp rbx, -1
     je njum
-    call whit
+    call parse_whitespace
 
     push r8
     push rdx
@@ -1259,6 +1344,15 @@ parse_instruction:
     pop rdx
     mov rax, [rax]
     jmp jfad
+
+parse_line:
+    call parse_label
+    cmp rax, 0
+    je not_label
+    ret
+    not_label:
+    call parse_instruction
+    ret
 
 jnla:
     add rsp, 8
@@ -1293,9 +1387,10 @@ njum:
     sub rax, rax
     movb rax, [r8]
     cmp rax, ","
-    je 3
+    je jump_y
     call ops1
     ret
+    jump_y:
 
     add r8, 1
 
@@ -1452,7 +1547,7 @@ main:
     mov r14, [instruction_location_array]
     mov [r14], rax
     add [instruction_location_array], 8
-    call parse_instruction
+    call parse_line
     jmp main
 
 inva:
@@ -1472,5 +1567,4 @@ call prin
 add r4, 24
 
 call exit
-jmp 0
 mov r0, r0
