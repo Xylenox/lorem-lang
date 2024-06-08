@@ -10,7 +10,7 @@ inpf: dq 0
 outf: dq 0
 flen: dq 0
 iter: dq 0
-instruction_location_array: dq 0  ; offset array
+current_location: dq 0  ; offset array
 
 exit:
     mov r0, 60
@@ -1193,9 +1193,9 @@ parse_label:
     cmpb [r8], 58
     jne parse_label_ret
     add rsp, 8
-    sub [instruction_location_array], 8          ; instruction loc array
+    sub [current_location], 8          ; instruction loc array
     add r8, 1
-    mov rsi, [instruction_location_array]
+    mov rsi, [current_location]
     push [rsi]
     mov rdi, rax
     mov rsi, rdx
@@ -1254,7 +1254,7 @@ parse_instruction:
     add r8, 1
     jmp coml
     jump_x:
-    sub [instruction_location_array], 8
+    sub [current_location], 8
     ret
     ncom:
 
@@ -1262,7 +1262,7 @@ parse_instruction:
     cmp r0, 0
     jne nspa
     add r8, 1
-    sub [instruction_location_array], 8
+    sub [current_location], 8
     ret
     nspa:
 
@@ -1326,8 +1326,6 @@ parse_instruction:
     pop rsi
     pop rdx
 
-    test rbp, 0x02
-    jz jnla
     pop r8
     push rdx
     push rsi
@@ -1347,19 +1345,11 @@ parse_instruction:
 
 parse_line:
     call parse_label
-    cmp rax, 0
-    je not_label
-    ret
-    not_label:
     call parse_instruction
     ret
 
-jnla:
-    add rsp, 8
-    mov r14, [instruction_location_array]
-    mov rax, [r14 + 8*rax - 8]
 jfad:
-    mov rsi, [instruction_location_array]
+    mov rsi, [current_location]
     sub rax, [rsi - 8]
     sub rax, rbx
     sub rax, 4
@@ -1494,7 +1484,7 @@ mov r0, 9               ; mmap
 syscall
 pop r8                  ; restore r8
 mov r14, r0             ; save instruction location array end
-mov [instruction_location_array], rax
+mov [current_location], rax
 mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
@@ -1504,7 +1494,7 @@ push r8
 
 mov rax, [flen]
 shl rax, 6
-add rax, [instruction_location_array]
+add rax, [current_location]
 
 mov [label_table], rax
 mov [label_table+8], rax
@@ -1522,7 +1512,7 @@ resl:
     sub [iter], 1
     mov r8, [rsp]
     mov r14, [rsp+8]
-    mov [instruction_location_array], r14
+    mov [current_location], r14
 
     ; truncate
     mov rdi, [outf]
@@ -1544,9 +1534,9 @@ main:
     mov rax, 8
     syscall                     ; lseek save current instruction position
     add rax, 0x400000
-    mov r14, [instruction_location_array]
+    mov r14, [current_location]
     mov [r14], rax
-    add [instruction_location_array], 8
+    add [current_location], 8
     call parse_line
     jmp main
 

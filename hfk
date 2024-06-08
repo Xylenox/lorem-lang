@@ -171,5 +171,4 @@ call prin
 add r4, 24
 
 call exit
-jmp 0
 mov r0, r0
