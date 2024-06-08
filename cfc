@@ -748,6 +748,46 @@ ops1:
     dq 0
     dq 1
     dq 0x68
+    dq "jmp"
+    dq 4
+    dq 1
+    dq 1
+    dq 0xE9
+    dq "jne"
+    dq 4
+    dq 1
+    dq 2
+    dq 0x850F
+    dq "jnz"
+    dq 4
+    dq 1
+    dq 2
+    dq 0x850F
+    dq "je"
+    dq 4
+    dq 1
+    dq 2
+    dq 0x840F
+    dq "jz"
+    dq 4
+    dq 1
+    dq 2
+    dq 0x840F
+    dq "jl"          ; jl
+    dq 4
+    dq 1
+    dq 2
+    dq 0x8C0F
+    dq "jg"          ; jg
+    dq 4
+    dq 1
+    dq 2
+    dq 0x8F0F
+    dq "call"          ; call
+    dq 4
+    dq 1
+    dq 1
+    dq 0xE8
     immediate_only_array_end:
     push rsi
     mov rsi, immediate_only_array
@@ -756,7 +796,15 @@ ops1:
     pop rsi
     mov rdx, [rax+32]
     mov rcx, [rax+24]
+    mov rdi, [rax+16]
     mov rax, [rax+8]
+
+    cmp rdi, 1
+    jne not_jump
+    sub rsi, [current_location]
+    sub rsi, rcx
+    sub rsi, rax
+    not_jump:
 
     push rdx
     mov rdi, rcx
@@ -1272,95 +1320,6 @@ parse_instruction:
 
     ; 1-operandsdsddddddd
 
-    ; jumps
-    mov rbx, -1
-    
-    cmp r0, "jne"
-    jne not_jne
-    mov rdx, 0x850F
-    mov rbx, 2
-    not_jne:
-    cmp r0, "jnz"
-    jne not_jnz
-    mov rdx, 0x850F
-    mov rbx, 2
-    not_jnz:
-    cmp r0, "jmp"
-    jne not_jmp
-    mov rdx, 0xE9
-    mov rbx, 1
-    not_jmp:
-    cmp r0, "je"
-    jne not_je
-    mov rdx, 0x840F
-    mov rbx, 2
-    not_je:
-    cmp r0, "jz"
-    jne not_jz
-    mov rdx, 0x840F
-    mov rbx, 2
-    not_jz:
-    cmp r0, "jl"          ; jl
-    jne not_jl
-    mov rdx, 0x8C0F
-    mov rbx, 2
-    not_jl:
-    cmp r0, "jg"          ; jg
-    jne not_jg
-    mov rdx, 0x8F0F
-    mov rbx, 2
-    not_jg:
-    cmp r0, "call"          ; call
-    jne not_call
-    mov rdx, 0xE8
-    mov rbx, 1
-    not_call:
-
-    cmp rbx, -1
-    je njum
-    call read_whitespace
-
-    push r8
-    push rdx
-    push rsi
-    push rdi
-    call read_operand
-    mov rbp, rdx
-    pop rdi
-    pop rsi
-    pop rdx
-
-    pop r8
-    push rdx
-    push rsi
-    push rdi
-    call read_identifier
-    pop rdi
-    pop rsi
-
-    push rsi
-    mov rdi, rax
-    mov rsi, rdx
-    call lookup_label
-    pop rsi
-    pop rdx
-    mov rax, [rax]
-
-    sub rax, [current_location]
-    sub rax, rbx
-    sub rax, 4
-
-    sub rsp, 8
-    mov [rsp], edx
-    mov [rsp+rbx], eax
-    mov r7, 4
-    add r7, rbx
-    call prin
-    add rsp, 8
-    ret
-njum:
-
-    ; two operands
     push rax
     push rdi
     call read_operand_2
