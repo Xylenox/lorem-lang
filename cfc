@@ -39,15 +39,26 @@ pop r0
 ret
 
 is_alpha:           ; is alpha
-cmp r7, 97      ; a
+cmp r7, "a"      ; a
 jl nalp
-cmp r7, 123     ; z
-jl yalp
-jmp nalp
+cmp r7, "z"     ; z
+jg nalp
 yalp:
 mov r0, 1
 ret
 nalp:
+mov r0, 0
+ret
+
+is_digit:           ; is alpha
+cmp r7, "0"
+jl not_digit
+cmp r7, "9"
+jg not_digit
+yes_digit:
+mov r0, 1
+ret
+not_digit:
 mov r0, 0
 ret
 
@@ -330,15 +341,30 @@ end_of_string:
     not_second_shorter:
     ret
 
-parse_whitespace:
+
+read_space:
+    cmp r8, [flen]
+    je done_space
+    cmpb [r8], " "
+    je not_done_space
+    done_space:
+    ret
+    not_done_space:
+    add r8, 1
+    jmp read_space
+    
+read_whitespace:
+    cmp r8, [flen]
+    je done_whitespace
     cmpb [r8], " "
     je not_done_whitespace
     cmpb [r8], 10
     je not_done_whitespace
+    done_whitespace:
     ret
     not_done_whitespace:
     add r8, 1
-    jmp parse_whitespace
+    jmp read_whitespace
 
 reat:
     push rdi
@@ -413,32 +439,26 @@ reas:           ; read string
     ret
 
 read_identifier: ; read identifier and return start and end pointers
-    ; call parse_whitespace
-    mov rax, r8
+    ; call read_whitespace
+    push r8
     iloo:
     sub rcx, rcx
     movb cl, [r8]
-    cmp rcx, " "         ; space
-    je idon
-    cmp rcx, 10          ; newline
-    je idon
-    cmp rcx, ":"         ; label
-    je idon
-    cmp rcx, "."         ; period
-    je idon
-    cmp rcx, ","
-    je idon
-    cmp rcx, "]"
-    je idon
-    cmp rcx, "+"
-    je idon
-    cmp rcx, "-"
-    je idon
-    cmp rcx, "*"
-    je idon
+    mov rdi, rcx
+    call is_alpha
+    cmp rax, 1
+    je identifier_loop_continue
+    call is_digit
+    cmp rax, 1
+    je identifier_loop_continue
+    cmp rcx, "_"
+    je identifier_loop_continue
+    jmp idon
+    identifier_loop_continue:
     add r8, 1
     jmp iloo
     idon:
+    pop rax
     mov rdx, r8
     ret
 idti:  ; identifier to number
@@ -468,7 +488,7 @@ read_memory_operand:
     mov rbp, -1
     mov rbx, 0
     mloo:
-    call parse_whitespace
+    call read_whitespace
     cmpb [r8], "]"
     je mldo
 
@@ -490,7 +510,7 @@ read_memory_operand:
     mov rdi, [rsp+8]
     call read_operand_2
     pop rdi
-    call parse_whitespace
+    call read_whitespace
 
     cmpb [r8], "*"
     jne not_times_two
@@ -584,7 +604,7 @@ read_number:
     jne number_loop
     mov r5, -1
     add r8, 1
-    call parse_whitespace
+    call read_whitespace
 
     number_loop:
     sub r3, r3
@@ -635,7 +655,7 @@ read_operand:           ; read number
     push r5
     push r7
 
-    call parse_whitespace
+    call read_whitespace
 
     sub r7, r7
     movb dil, [r8]
@@ -685,7 +705,7 @@ read_operand_2: ; read and convert label to immediate, takes lookup table in rdi
     ret
     found_label:
     pop r8
-    call parse_whitespace
+    call read_whitespace
     call read_identifier
 
     push rax
@@ -1186,6 +1206,7 @@ nmi:
 
 parse_label:
     push r8
+    call read_space
     call read_identifier
     mov rdi, rax
     mov rsi, rdx
@@ -1211,7 +1232,12 @@ parse_label_ret:
 
 parse_instruction:
     ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
+    call read_space
     call read_identifier
+    cmp rax, rdx
+    jne yes_identifier
+    ret
+    yes_identifier:
     mov rdi, rax
     mov rsi, rdx
     call idti
@@ -1245,18 +1271,10 @@ parse_instruction:
 
     ; comments
     cmp r0, 0x3B
-    jne ncom
-    coml:
-    sub r0, r0
-    movb al, [r8]
-    cmp r0, 10
-    je jump_x
-    add r8, 1
-    jmp coml
-    jump_x:
-    sub [current_location], 8
+    jne ncom2
+    sub r8, 1
     ret
-    ncom:
+    ncom2:
 
     ; space/newline
     cmp r0, 0
@@ -1314,7 +1332,7 @@ parse_instruction:
 
     cmp rbx, -1
     je njum
-    call parse_whitespace
+    call read_whitespace
 
     push r8
     push rdx
@@ -1343,9 +1361,42 @@ parse_instruction:
     mov rax, [rax]
     jmp jfad
 
+parse_comment:
+    call peek_character
+    cmp r0, 0x3B
+    jne done_comment
+    coml:
+    sub r0, r0
+    movb al, [r8]
+    cmp r0, 10
+    je done_comment
+    add r8, 1
+    jmp coml
+    done_comment:
+    ret
+
+peek_character:
+    sub rax, rax
+    cmp r8, [flen]
+    je peek_character_ret
+    movb rax, [r8]
+    peek_character_ret:
+    ret
+
+read_newline:
+    call read_space
+    call peek_character
+    cmp rax, 10
+    jne newline_done
+    add r8, 1
+    newline_done:
+    ret
+
 parse_line:
     call parse_label
     call parse_instruction
+    call parse_comment
+    call read_newline
     ret
 
 jfad:
