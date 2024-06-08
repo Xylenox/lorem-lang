@@ -1211,13 +1211,11 @@ parse_label:
     mov rdi, rax
     mov rsi, rdx
 
-    cmpb [r8], 58
+    cmpb [r8], ":"
     jne parse_label_ret
     add rsp, 8
-    sub [current_location], 8          ; instruction loc array
     add r8, 1
-    mov rsi, [current_location]
-    push [rsi]
+    push [current_location]
     mov rdi, rax
     mov rsi, rdx
     call lookup_label
@@ -1280,7 +1278,6 @@ parse_instruction:
     cmp r0, 0
     jne nspa
     add r8, 1
-    sub [current_location], 8
     ret
     nspa:
 
@@ -1400,8 +1397,7 @@ parse_line:
     ret
 
 jfad:
-    mov rsi, [current_location]
-    sub rax, [rsi - 8]
+    sub rax, [current_location]
     sub rax, rbx
     sub rax, 4
 
@@ -1562,8 +1558,6 @@ resl:
     je exit
     sub [iter], 1
     mov r8, [rsp]
-    mov r14, [rsp+8]
-    mov [current_location], r14
 
     ; truncate
     mov rdi, [outf]
@@ -1585,9 +1579,7 @@ main:
     mov rax, 8
     syscall                     ; lseek save current instruction position
     add rax, 0x400000
-    mov r14, [current_location]
-    mov [r14], rax
-    add [current_location], 8
+    mov [current_location], rax
     call parse_line
     jmp main
 
@@ -1608,4 +1600,3 @@ call prin
 add r4, 24
 
 call exit
-mov r0, r0
