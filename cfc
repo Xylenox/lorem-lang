@@ -724,33 +724,38 @@ ops1:
     jmp immediate_only_array_end
     immediate_only_array:
     dq "db"
-    dq 1
-    dq 0
-    dq 0
+    dq 1    ; length of immediate
+    dq 0    ; is jump
+    dq 0    ; length of opcode
+    dq 0    ; opcode
     dq "dw"
     dq 2
+    dq 0
     dq 0
     dq 0
     dq "dd"
     dq 4
     dq 0
     dq 0
+    dq 0
     dq "dq"
     dq 8
     dq 0
     dq 0
+    dq 0
     dq "push"
     dq 4
+    dq 0
     dq 1
     dq 0x68
     immediate_only_array_end:
     push rsi
     mov rsi, immediate_only_array
-    mov rdx, 32
+    mov rdx, 40
     call search_array
     pop rsi
-    mov rdx, [rax+24]
-    mov rcx, [rax+16]
+    mov rdx, [rax+32]
+    mov rcx, [rax+24]
     mov rax, [rax+8]
 
     push rdx
@@ -1211,15 +1216,13 @@ parse_label:
     mov rdi, rax
     mov rsi, rdx
 
+    call peek_character
     cmpb [r8], ":"
     jne parse_label_ret
     add rsp, 8
     add r8, 1
-    push [current_location]
-    mov rdi, rax
-    mov rsi, rdx
     call lookup_label
-    pop rsi
+    mov rsi, [current_location]
     mov [rax], rsi
     mov rax, 1
     ret
@@ -1266,20 +1269,6 @@ parse_instruction:
     pop r0
     ret
     nsys:                   ; not sys
-
-    ; comments
-    cmp r0, 0x3B
-    jne ncom2
-    sub r8, 1
-    ret
-    ncom2:
-
-    ; space/newline
-    cmp r0, 0
-    jne nspa
-    add r8, 1
-    ret
-    nspa:
 
     ; 1-operandsdsddddddd
 
@@ -1356,7 +1345,43 @@ parse_instruction:
     pop rsi
     pop rdx
     mov rax, [rax]
-    jmp jfad
+
+    sub rax, [current_location]
+    sub rax, rbx
+    sub rax, 4
+
+    sub rsp, 8
+    mov [rsp], edx
+    mov [rsp+rbx], eax
+    mov r7, 4
+    add r7, rbx
+    call prin
+    add rsp, 8
+    ret
+njum:
+
+    ; two operands
+    push rax
+    push rdi
+    call read_operand_2
+    pop rcx
+    pop rdi
+    mov rsi, rax
+
+    sub rax, rax
+    movb rax, [r8]
+    cmp rax, ","
+    je jump_y
+    call ops1
+    ret
+    jump_y:
+
+    add r8, 1
+
+    ; passes instruction mnem in rdi, operand name in rsi, and operand type in rdx
+    call ops2
+    ret
+
 
 parse_comment:
     call peek_character
@@ -1396,44 +1421,6 @@ parse_line:
     call read_newline
     ret
 
-jfad:
-    sub rax, [current_location]
-    sub rax, rbx
-    sub rax, 4
-
-    sub rsp, 8
-    mov [rsp], edx
-    mov [rsp+rbx], eax
-    mov r7, 4
-    add r7, rbx
-    call prin
-    add rsp, 8
-    ret
-njum:
-
-    ; two operands
-
-
-    push rax
-    push rdi
-    call read_operand_2
-    pop rcx
-    pop rdi
-    mov rsi, rax
-
-    sub rax, rax
-    movb rax, [r8]
-    cmp rax, ","
-    je jump_y
-    call ops1
-    ret
-    jump_y:
-
-    add r8, 1
-
-    ; passes instruction mnem in rdi, operand name in rsi, and operand type in rdx
-    call ops2
-    ret
 
 label_table:
     dq 0
