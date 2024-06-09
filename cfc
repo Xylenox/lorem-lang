@@ -508,7 +508,7 @@ read_memory_operand:
 
     push rdi
     mov rdi, [rsp+8]
-    call read_operand_2
+    call read_operand
     pop rdi
     call read_whitespace
 
@@ -649,7 +649,7 @@ read_number:
     mov r2, 1           ; type is integer
     ret
 
-read_operand:           ; read number
+read_operand_or_label:           ; read number
     push r1
     push r3
     push r5
@@ -696,9 +696,9 @@ search_array:
     search_array_found:
     ret
 
-read_operand_2: ; read and convert label to immediate, takes lookup table in rdi
+read_operand: ; read and convert label to immediate, takes lookup table in rdi
     push r8
-    call read_operand
+    call read_operand_or_label
     test rdx, 0x02
     jnz found_label
     add rsp, 8
@@ -916,7 +916,7 @@ ops2:
     push rax
     push rcx
     push rdx
-    call read_operand_2           ; TODO: implement using memory operand as immediate
+    call read_operand           ; TODO: implement using memory operand as immediate
     mov rsi, rax
     mov rdi, rdx
     pop rdx
@@ -1291,6 +1291,15 @@ parse_instruction:
     mov rsi, rdx
     call idti
 
+    jmp no_operands_end
+    no_operands_array:
+    dq "ret"
+    dq 1
+    dq 0xC3
+    dq "syscall"
+    dq 2
+    dq 0x050F
+    no_operands_end:
     ; ret
     cmp r0, "ret"
     jne nret
@@ -1322,7 +1331,7 @@ parse_instruction:
 
     push rax
     push rdi
-    call read_operand_2
+    call read_operand
     pop rcx
     pop rdi
     mov rsi, rax
@@ -1344,12 +1353,11 @@ parse_instruction:
 
 parse_comment:
     call peek_character
-    cmp r0, 0x3B
+    cmp rax, 0x3B
     jne done_comment
     coml:
-    sub r0, r0
-    movb al, [r8]
-    cmp r0, 10
+    call peek_character
+    cmp rax, 10
     je done_comment
     add r8, 1
     jmp coml
