@@ -7,3 +7,4 @@
 | movb     |    |    |    | y  | y  |   |   |   |
 | pop      |    |    |    |    |    | y | y |   |
 | push     |    |    |    |    |    | y | y | y |
+| jmp      |    |    |    |    |    | y | y | y |

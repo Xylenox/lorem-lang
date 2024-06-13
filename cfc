@@ -829,6 +829,8 @@ ops1:
     dq 0x30FF
     dq "pop"
     dq 0x008F
+    dq "jmp"
+    dq 0x20FF
     memory_only_array_end:
     push rdx
     push rsi
@@ -868,6 +870,8 @@ ops1:
     dq 0xF0FF
     dq "pop"
     dq 0xC08F
+    dq "jmp"
+    dq 0xE0FF
     register_only_array_end:
     push rdx
     push rsi
