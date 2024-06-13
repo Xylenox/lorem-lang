@@ -1160,14 +1160,24 @@ nrm:
     call prin
     pop rbx
     
-    cmp rax, "mov"
-    jne not_mov
-    mov rdi, 0x89
-    not_mov:
-    cmp rax, "cmp"
-    jne not_cmp
-    mov rdi, 0x39
-    not_cmp:
+    jmp mr_array_end
+    mr_array:
+    dq "mov"
+    dq 0x89
+    dq "cmp"
+    dq 0x39
+    dq "add"
+    dq 0x01
+    dq "movb"
+    dq 0x88
+    mr_array_end:
+    push rsi
+    mov rdi, rax
+    mov rsi, mr_array
+    mov rdx, 16
+    call search_array
+    mov rdi, [rax+8]
+    pop rsi
 
     push rdi
     mov rdi, 1
