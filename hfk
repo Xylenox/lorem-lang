@@ -4,7 +4,7 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-(start)
+jmp start
 
 constant_strings:
 push_string:
@@ -24,25 +24,101 @@ exit:
     syscall
 
 prin:                   ; printst
-push r0
-push r1
+push rax
+push rcx
 push rdx
-push r6
+push rsi
 push rdi
 push r11
 mov rdx, rdi
 mov rdi, [outf]
-mov r6, r4
-add r6, 56
-mov r0, 1
+mov rsi, r4
+add rsi, 56
+mov rax, 1
 syscall
 pop r11
 pop rdi
-pop r6
+pop rsi
 pop rdx
-pop r1
-pop r0
+pop rcx
+pop rax
 ret
+
+print_range: ; FOLLOWS SYSTEM V ABI
+    ; prints [rdi, rsi) to outf
+    mov rdx, rsi        ; length of print
+    sub rdx, rdi
+    mov rsi, rdi ; rsi already stores buffer lcoation
+    mov rdi, [outf]
+    mov rax, 1
+    syscall
+    ret
+
+is_alpha:           ; is alpha
+cmp r7, "a"      ; a
+jl nalp
+cmp r7, "z"     ; z
+jg nalp
+yalp:
+mov r0, 1
+ret
+nalp:
+mov r0, 0
+ret
+
+is_digit:           ; is alpha
+cmp r7, "0"
+jl not_digit
+cmp r7, "9"
+jg not_digit
+yes_digit:
+mov r0, 1
+ret
+not_digit:
+mov r0, 0
+ret
+
+read_whitespace:
+    cmp r8, [flen]
+    je done_whitespace
+    cmpb [r8], " "
+    je not_done_whitespace
+    cmpb [r8], 10
+    je not_done_whitespace
+    done_whitespace:
+    ret
+    not_done_whitespace:
+    add r8, 1
+    jmp read_whitespace
+
+read_identifier: ; read identifier and return start and end pointers
+    ; call read_whitespace
+    push r8
+    iloo:
+    sub rcx, rcx
+    movb cl, [r8]
+    mov rdi, rcx
+    call is_alpha
+    cmp rax, 1
+    je identifier_loop_continue
+    call is_digit
+    cmp rax, 1
+    je identifier_loop_continue
+    cmp rcx, "_"
+    je identifier_loop_continue
+    jmp idon
+    identifier_loop_continue:
+    add r8, 1
+    jmp iloo
+    idon:
+    pop rax
+    mov rdx, r8
+    ret
+
+argument_buffer_begin:
+dq 0
+argument_buffer_end:
+dq 0
 
 start:
 ; open input
@@ -93,7 +169,8 @@ mov r0, 9               ; mmap
 syscall
 pop r8                  ; restore r8
 mov r14, r0             ; save instruction location array end
-mov [ofar], rax
+mov [argument_buffer_begin], rax
+mov [argument_buffer_end], rax
 mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
@@ -111,30 +188,60 @@ main:
     jne not_function
     add r8, 1
     
-    push [jmp_string]
+    mov rax, [argument_buffer_begin]
+    mov [argument_buffer_end], rax
+
+    function_loop:
+    call read_whitespace
+    cmpb [r8], "\)"
+    je function_loop_done
+    call read_identifier
+    mov rcx, [argument_buffer_end]
+    mov [rcx], rax
+    mov [rcx+8], rdx
+    call print_range
+    add [argument_buffer_end], 16
+    jmp function_loop 
+
+    function_loop_done:
+
+    function_print_loop:
+    sub [argument_buffer_end], 16
+    mov rax, [argument_buffer_end]
+    cmp rax, [argument_buffer_begin]
+    je function_print_loop_done
+    jmp push_string_end
+    push_string:
+    dq "push "
+    push_string_end:
+    mov rdi, push_string
+    mov rsi, push_string
+    add rsi, 5
+    call print_range
+
+    mov rax, [argument_buffer_end]
+    mov rdi, [rax]
+    mov rsi, [rax+8]
+    call print_range
+    
+    push 10
+    mov rdi, 1
+    call prin
+
+    jmp function_print_loop
+    function_print_loop_done:
+
+    push "jmp "
     mov r7, 4
     call prin
     pop rax
 
-    function_loop:
-    cmpb [r8], "\)"
-    je function_loop_done
-    movb rax, [r8]
-    push rax
-    mov r7, 1
-    call prin
-    add r8, 1
-    jmp function_loop
-
-    function_loop_done:
-    jmp newline_string_end
-
-    newline_string:
-    dq 10
-    newline_string_end:
-
-    push [newline_string]
-    mov r7, 1
+    mov rcx, [argument_buffer_begin]
+    mov rdi, [rcx]
+    mov rsi, [rcx+8]
+    call print_range
+    push 10
+    mov rdi, 1
     call prin
     pop rax
     add r8, 1
@@ -146,6 +253,7 @@ main:
     jne not_escape
     add r8, 1
     not_escape:
+
     
     push [r8]
     mov rdi, 1
