@@ -1478,7 +1478,7 @@ mov [flen], r10
 mov r0, 9               ; mmap
 mov r7, 0               ; address
 mov r6, [flen]              ; length
-mov r2, 3               ; PROT_READ | PROT_WRITE
+mov r2, 3               ; PROT_READ \| PROT_WRITE
 mov r10, 2              ; MAP_PRIVATE
 mov r9, 0               ; offset
 syscall
@@ -1490,8 +1490,8 @@ mov r7, 0               ; adress
 mov r6, [flen]             ; length
 shl r6, 8               ; 64 * file size, should be good
 
-mov r2, 3               ; PROT_READ | PROT_WRITE
-mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
+mov r2, 3               ; PROT_READ \| PROT_WRITE
+mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
 push r8                 ; save r8
 mov r8, -1              ; file descriptor empty, anonymous
 mov r9, 0               ; offset

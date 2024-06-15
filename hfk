@@ -23,6 +23,35 @@ exit:
     mov r7, 0
     syscall
 
+malloc:
+push rcx
+push rdx
+push rsi
+push rdi
+push r8
+push r9
+push r10
+push r11
+
+mov rsi, rdi
+mov rdi, 0               ; adress
+mov rdx, 3               ; PROT_READ \| PROT_WRITE
+mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
+mov r8, -1              ; file descriptor empty, anonymous
+mov r9, 0               ; offset
+mov rax, 9               ; mmap
+syscall
+
+pop r11
+pop r10
+pop r9
+pop r8
+pop rdi
+pop rsi
+pop rdx
+pop rcx
+ret
+
 prin:                   ; printst
 push rax
 push rcx
@@ -52,6 +81,15 @@ print_range: ; FOLLOWS SYSTEM V ABI
     mov rdi, [outf]
     mov rax, 1
     syscall
+    ret
+
+
+print_range_line:
+    call print_range
+    push 10
+    mov rdi, 1
+    call prin
+    add rsp, 8
     ret
 
 is_alpha:           ; is alpha
@@ -148,7 +186,7 @@ mov [flen], r10
 mov r0, 9               ; mmap
 mov r7, 0               ; address
 mov r6, [flen]              ; length
-mov r2, 3               ; PROT_READ | PROT_WRITE
+mov r2, 3               ; PROT_READ \| PROT_WRITE
 mov r10, 2              ; MAP_PRIVATE
 mov r9, 0               ; offset
 syscall
@@ -160,8 +198,8 @@ mov r7, 0               ; adress
 mov r6, [flen]             ; length
 shl r6, 8               ; 64 * file size, should be good
 
-mov r2, 3               ; PROT_READ | PROT_WRITE
-mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
+mov r2, 3               ; PROT_READ \| PROT_WRITE
+mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
 push r8                 ; save r8
 mov r8, -1              ; file descriptor empty, anonymous
 mov r9, 0               ; offset
@@ -184,66 +222,73 @@ main:
     ; main loop
     cmp r8, [flen]
     je exit
-    cmpb [r8], "\("
+    cmpb [r8], "\|"
     jne not_function
     add r8, 1
     
+    jmp function_header_end
+    function_header:
+    dq "mov rdi,"
+    dq " 80"
+    
+    dq "call mal"
+    dq "loc"
+    
+    dq "mov rdx,"
+    dq " rax"
+    function_header_end:
+    lea rdi, [function_header]
+    lea rsi, [function_header+11]
+    call print_range_line
+    lea rdi, [function_header+16]
+    lea rsi, [function_header+27]
+    call print_range_line
+    lea rdi, [function_header+32]
+    lea rsi, [function_header+44]
+    call print_range_line
+
     mov rax, [argument_buffer_begin]
     mov [argument_buffer_end], rax
 
     function_loop:
     call read_whitespace
-    cmpb [r8], "\)"
+    cmpb [r8], "\|"
     je function_loop_done
     call read_identifier
     mov rcx, [argument_buffer_end]
+
+    jmp suff_strings_end
+    mov_string:
+    dq "mov rcx,"
+    dq " "
+    mov_string_end:
+    suff_strings:
+    dq "mov [rdx"
+    dq "], rcx"
+    dq "add rdx,"
+    dq " 8"
+    suff_strings_end:
     mov [rcx], rax
     mov [rcx+8], rdx
+    lea rdi, [mov_string]
+    lea rsi, [mov_string+9]
     call print_range
-    add [argument_buffer_end], 16
-    jmp function_loop 
-
-    function_loop_done:
-
-    function_print_loop:
-    sub [argument_buffer_end], 16
-    mov rax, [argument_buffer_end]
-    cmp rax, [argument_buffer_begin]
-    je function_print_loop_done
-    jmp push_string_end
-    push_string:
-    dq "push "
-    push_string_end:
-    mov rdi, push_string
-    mov rsi, push_string
-    add rsi, 5
-    call print_range
-
     mov rax, [argument_buffer_end]
     mov rdi, [rax]
     mov rsi, [rax+8]
-    call print_range
-    
-    push 10
-    mov rdi, 1
-    call prin
+    call print_range_line
+    lea rdi, [suff_strings]
+    lea rsi, [suff_strings+14]
+    call print_range_line
+    lea rdi, [suff_strings+16]
+    lea rsi, [suff_strings+26]
+    call print_range_line
 
-    jmp function_print_loop
-    function_print_loop_done:
+    add [argument_buffer_end], 16
+    jmp function_loop
 
-    push "jmp "
-    mov r7, 4
-    call prin
-    pop rax
+    function_loop_done:
 
-    mov rcx, [argument_buffer_begin]
-    mov rdi, [rcx]
-    mov rsi, [rcx+8]
-    call print_range
-    push 10
-    mov rdi, 1
-    call prin
-    pop rax
     add r8, 1
     jmp main
     

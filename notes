@@ -10,3 +10,40 @@
 
 0xFF00 = REX byte
 0xFF0000 = length of r/m
+
+
+SYNTAX IDEAS:
+
+(fun_name: |a b c| x y z -> x y a b c)
+
+save a, b, c in closure array
+environment = malloc(3*8)
+mov a, b, c into environment
+
+ok this is end goal, but lots of work
+
+temporarily
+
+|a b c|
+---------
+mov rdi, 80
+call malloc
+mov rdx, rax
+
+mov rcx, a
+mov [rdx], rcx
+add rdx, 8
+
+mov rcx, b
+mov [rdx], rcx
+add rdx, 8
+
+mov rcx, c
+mov [rdx], rcx
+add rdx, 8
+
+this just makes a closure and puts in rax
+save a, b, c in closure array
+environment = malloc(3*8)
+mov a, b, c into environment
+save environment in rax
