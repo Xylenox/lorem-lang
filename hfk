@@ -4,7 +4,9 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-jmp start
+|1 start|
+push rax
+jmp runtime_call
 
 constant_strings:
 push_string:
@@ -22,6 +24,24 @@ exit:
     mov r0, 60
     mov r7, 0
     syscall
+
+runtime_call:
+    ; first input is closure containing \| number of operands including function, function, environment \|
+    mov rdx, [rsp]
+    mov rcx, [rdx]
+    shl rcx, 3
+    add rdx, 8
+    add rsp, 8
+    sub rsp, rcx
+
+    runtime_call_loop:
+    sub rcx, 8
+    mov rax, [rdx+rcx]
+    mov [rsp+rcx], rax
+    cmp rcx, 0
+    jne runtime_call_loop
+    
+    ret     ; fake ret lol
 
 malloc:
 push rcx
