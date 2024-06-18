@@ -44,33 +44,37 @@ runtime_call:
     ret     ; fake ret lol
 
 malloc:
-push rcx
-push rdx
-push rsi
-push rdi
-push r8
-push r9
-push r10
-push r11
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push r8
+    push r9
+    push r10
+    push r11
 
-mov rsi, rdi
-mov rdi, 0               ; adress
-mov rdx, 3               ; PROT_READ \| PROT_WRITE
-mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
-mov r8, -1              ; file descriptor empty, anonymous
-mov r9, 0               ; offset
-mov rax, 9               ; mmap
-syscall
+    mov rsi, rdi
+    mov rdi, 0               ; adress
+    mov rdx, 3               ; PROT_READ \| PROT_WRITE
+    mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
+    mov r8, -1              ; file descriptor empty, anonymous
+    mov r9, 0               ; offset
+    mov rax, 9               ; mmap
+    syscall
 
-pop r11
-pop r10
-pop r9
-pop r8
-pop rdi
-pop rsi
-pop rdx
-pop rcx
-ret
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    ret
+
+make_pair:
+    ; takes in (cont a b) and calls cont with a function that takes a continuation and calls it with two values
+
 
 prin:                   ; printst
 push rax
@@ -173,6 +177,27 @@ read_identifier: ; read identifier and return start and end pointers
     mov rdx, r8
     ret
 
+read_operand:
+    sub rcx, rcx
+    movb cl, [r8]
+    cmp rcx, "\["
+    jne read_identifier
+    push r8
+    memory_operand_loop:
+    sub rcx, rcx
+    movb cl, [r8]
+    mov rdi, rcx
+    cmp rcx, "\]"
+    je memory_operand_loop_done
+    add r8, 1
+    jmp memory_operand_loop
+    memory_operand_loop_done:
+    add r8, 1
+    pop rax
+    mov rdx, r8
+    ret
+
+
 argument_buffer_begin:
 dq 0
 argument_buffer_end:
@@ -243,11 +268,11 @@ main:
     cmp r8, [flen]
     je exit
     cmpb [r8], "\|"
-    jne not_function
+    jne not_closure
     add r8, 1
     
-    jmp function_header_end
-    function_header:
+    jmp closure_header_end
+    closure_header:
     dq "mov rdi,"
     dq " 80"
     
@@ -256,25 +281,25 @@ main:
     
     dq "mov rdx,"
     dq " rax"
-    function_header_end:
-    lea rdi, [function_header]
-    lea rsi, [function_header+11]
+    closure_header_end:
+    lea rdi, [closure_header]
+    lea rsi, [closure_header+11]
     call print_range_line
-    lea rdi, [function_header+16]
-    lea rsi, [function_header+27]
+    lea rdi, [closure_header+16]
+    lea rsi, [closure_header+27]
     call print_range_line
-    lea rdi, [function_header+32]
-    lea rsi, [function_header+44]
+    lea rdi, [closure_header+32]
+    lea rsi, [closure_header+44]
     call print_range_line
 
     mov rax, [argument_buffer_begin]
     mov [argument_buffer_end], rax
 
-    function_loop:
+    closure_loop:
     call read_whitespace
     cmpb [r8], "\|"
-    je function_loop_done
-    call read_identifier
+    je closure_loop_done
+    call read_operand
     mov rcx, [argument_buffer_end]
 
     jmp suff_strings_end
@@ -305,14 +330,14 @@ main:
     call print_range_line
 
     add [argument_buffer_end], 16
-    jmp function_loop
+    jmp closure_loop
 
-    function_loop_done:
+    closure_loop_done:
 
     add r8, 1
     jmp main
     
-    not_function:
+    not_closure:
     
     cmpb [r8], "\\"
     jne not_escape

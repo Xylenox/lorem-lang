@@ -47,3 +47,25 @@ save a, b, c in closure array
 environment = malloc(3*8)
 mov a, b, c into environment
 save environment in rax
+
+(name: a b c -> c b a)
+
+jmp name_end
+a: dq 0
+b: dq 0
+c: dq 0
+name:
+mov rax, [rsp]
+mov [a], rax
+add rsp, 8
+mov rax, [rsp]
+mov [b], rax
+add rsp, 8
+mov rax, [rsp]
+mov [c], rax
+add rsp, 8
+push [a]
+push [b]
+push [c]
+jmp runtime_call
+name_end:
