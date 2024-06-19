@@ -4,15 +4,28 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-|1 start|
+push start
+push 0
+|1 make_pair_test|
 push rax
+jmp make_pair
+make_pair_test:
+|1 call_start_with_pair|
+pop rcx
+push rax
+push rcx
 jmp runtime_call
+call_start_with_pair:
+pop rax
+ret
 
 constant_strings:
 push_string:
 dq "push "
 jmp_string:
 dq "jmp "
+newline_string:
+dq 10
 
 inpf: dq 0
 outf: dq 0
@@ -74,7 +87,21 @@ malloc:
 
 make_pair:
     ; takes in (cont a b) and calls cont with a function that takes a continuation and calls it with two values
-
+    |3 make_pair_lambda [rsp+8] [rsp+16]|
+    pop rcx
+    add rsp, 16
+    push rax
+    push rcx
+    jmp runtime_call
+    make_pair_lambda:
+    ; takes in (a b cont) and calls cont with a b
+    pop rax
+    pop rcx
+    pop rdx
+    push rcx
+    push rax
+    push rdx
+    jmp runtime_call
 
 prin:                   ; printst
 push rax
@@ -107,6 +134,45 @@ print_range: ; FOLLOWS SYSTEM V ABI
     syscall
     ret
 
+print_range_pair:
+    push rdi
+    |1 print_range_pair_lambda|
+    pop rdi
+    push rax
+    push rdi
+    jmp runtime_call
+    print_range_pair_lambda:
+        pop rdi
+        pop rsi
+        call print_range
+        ret
+
+make_pair_imperative:
+    push rsi
+    push rdi
+    |1 make_pair_imperative_lambda|
+    push rax
+    jmp make_pair
+    make_pair_imperative_lambda:
+        pop rax
+        ret
+
+print_ranges:
+    cmp rdi, 0
+    jne print_ranges_continue
+    ret
+    print_ranges_continue:
+    push rdi
+    |1 print_ranges_lambda|
+    pop rdi
+    push rax
+    push rdi
+    jmp runtime_call
+    print_ranges_lambda:
+        pop rdi
+        call print_range_pair
+        pop rdi
+        jmp print_ranges
 
 print_range_line:
     call print_range
@@ -282,9 +348,21 @@ main:
     dq "mov rdx,"
     dq " rax"
     closure_header_end:
+    lea rdi, [newline_string]
+    lea rsi, [newline_string+1]
+    call make_pair_imperative
+    mov rdi, rax
+    mov rsi, 0
+    call make_pair_imperative
+    push rax
     lea rdi, [closure_header]
     lea rsi, [closure_header+11]
-    call print_range_line
+    call make_pair_imperative
+    mov rdi, rax
+    pop rsi
+    call make_pair_imperative
+    mov rdi, rax
+    call print_ranges
     lea rdi, [closure_header+16]
     lea rsi, [closure_header+27]
     call print_range_line
