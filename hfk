@@ -206,6 +206,27 @@ not_digit:
 mov r0, 0
 ret
 
+parse_comment:
+    call peek_character
+    cmp rax, 0x3B
+    jne done_comment
+    coml:
+    call peek_character
+    cmp rax, 10
+    je done_comment
+    add r8, 1
+    jmp coml
+    done_comment:
+    ret
+
+peek_character:
+    sub rax, rax
+    cmp r8, [flen]
+    je peek_character_ret
+    movb rax, [r8]
+    peek_character_ret:
+    ret
+
 read_whitespace:
     cmp r8, [flen]
     je done_whitespace
@@ -263,78 +284,14 @@ read_operand:
     mov rdx, r8
     ret
 
+read_and_convert_operand:
+    call read_operand
+    mov rdi, rax
+    mov rsi, rdx
+    call make_pair_imperative
+    ret
 
-argument_buffer_begin:
-dq 0
-argument_buffer_end:
-dq 0
-
-start:
-; open input
-mov r6, 0x0             ; READ_ONLY
-mov r2, 0xFFFF          ; all perms
-mov r7, [rsp+16]            ; argv[1]
-mov r0, 2
-syscall
-mov r8, r0              ; save input file descriptor
-; open output
-mov r0, 2               ; fopen
-mov r6, 0x242           ; truncate/create/READ_WRITE
-mov r2, 0xFFFF          ; all perms
-mov r7, [rsp+24]            ; argv[2]
-syscall
-mov [outf], r0
-; get input size
-sub rsp, 0xC0            ; fstat size
-mov r7, r8              ; input file descriptor
-mov r6, rsp              ; fstat buffer
-mov r0, 5               ; fstat
-syscall
-mov r10, [rsp+48]            ; file size
-mov [flen], r10
-
-; mmap input
-mov r0, 9               ; mmap
-mov r7, 0               ; address
-mov r6, [flen]              ; length
-mov r2, 3               ; PROT_READ \| PROT_WRITE
-mov r10, 2              ; MAP_PRIVATE
-mov r9, 0               ; offset
-syscall
-
-mov r8, r0              ; save mmap address
-
-; make heap
-mov r7, 0               ; adress
-mov r6, [flen]             ; length
-shl r6, 8               ; 64 * file size, should be good
-
-mov r2, 3               ; PROT_READ \| PROT_WRITE
-mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
-push r8                 ; save r8
-mov r8, -1              ; file descriptor empty, anonymous
-mov r9, 0               ; offset
-mov r0, 9               ; mmap
-syscall
-pop r8                  ; restore r8
-mov r14, r0             ; save instruction location array end
-mov [argument_buffer_begin], rax
-mov [argument_buffer_end], rax
-mov r15, [flen]            ; store max length of instruction location array
-shl r15, 4              ; 16 * file size
-
-mov [iter], 2
-push r14
-push r8
-
-add [flen], r8
-
-main:
-    ; main loop
-    cmp r8, [flen]
-    je exit
-    cmpb [r8], "\|"
-    jne not_closure
+parse_closure:
     add r8, 1
     
     jmp closure_header_end
@@ -411,12 +368,108 @@ main:
     jmp closure_loop
 
     closure_loop_done:
-
     add r8, 1
+    ret
+
+parse_function:
+    add r8, 1
+    call read_whitespace
+    call read_identifier
+    mov rdi, rax
+    mov rsi, rdx
+    call print_range_line
+    call read_whitespace
+    add r8, 1
+    ret
+
+
+argument_buffer_begin:
+dq 0
+argument_buffer_end:
+dq 0
+
+start:
+; open input
+mov r6, 0x0             ; READ_ONLY
+mov r2, 0xFFFF          ; all perms
+mov r7, [rsp+16]            ; argv[1]
+mov r0, 2
+syscall
+mov r8, r0              ; save input file descriptor
+; open output
+mov r0, 2               ; fopen
+mov r6, 0x242           ; truncate/create/READ_WRITE
+mov r2, 0xFFFF          ; all perms
+mov r7, [rsp+24]            ; argv[2]
+syscall
+mov [outf], r0
+; get input size
+sub rsp, 0xC0            ; fstat size
+mov r7, r8              ; input file descriptor
+mov r6, rsp              ; fstat buffer
+mov r0, 5               ; fstat
+syscall
+mov r10, [rsp+48]            ; file size
+mov [flen], r10
+
+; mmap input
+mov r0, 9               ; mmap
+mov r7, 0               ; address
+mov r6, [flen]              ; length
+mov r2, 3               ; PROT_READ \| PROT_WRITE
+mov r10, 2              ; MAP_PRIVATE
+mov r9, 0               ; offset
+syscall
+
+mov r8, r0              ; save mmap address
+
+; make heap
+mov r7, 0               ; adress
+mov r6, [flen]             ; length
+shl r6, 8               ; 64 * file size, should be good
+
+mov r2, 3               ; PROT_READ \| PROT_WRITE
+mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
+push r8                 ; save r8
+mov r8, -1              ; file descriptor empty, anonymous
+mov r9, 0               ; offset
+mov r0, 9               ; mmap
+syscall
+pop r8                  ; restore r8
+mov r14, r0             ; save instruction location array end
+mov [argument_buffer_begin], rax
+mov [argument_buffer_end], rax
+mov r15, [flen]            ; store max length of instruction location array
+shl r15, 4              ; 16 * file size
+
+mov [iter], 2
+push r14
+push r8
+
+add [flen], r8
+
+main:
+    ; main loop
+    cmp r8, [flen]
+    je exit
+    cmpb [r8], "\|"
+    jne not_closure
+    call parse_closure
     jmp main
-    
     not_closure:
+
+    cmpb [r8], "\("
+    jne not_function
+    call parse_function
+    jmp main
+    not_function:
     
+    cmpb [r8], "\;"
+    jne not_comment
+    call parse_comment
+    jmp main
+    not_comment:
+
     cmpb [r8], "\\"
     jne not_escape
     add r8, 1
