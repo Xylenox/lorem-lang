@@ -371,15 +371,115 @@ parse_closure:
     add r8, 1
     ret
 
+function_name:
+    dq 0
+    dq 0
+label_end_string:
+    dq ":"
+dq_string:
+    dq ": dq 0"
+pop_start_string:
+    dq "pop ["
+pop_end_string:
+    dq "]"
+push_start_string:
+    dq "push ["
+push_end_string:
+    dq "]"
+runtime_call_string:
+    dq "jmp runt"
+    dq "ime_call"
+
+print_label:
+    call print_range
+    lea rdi, [label_end_string]
+    lea rsi, [label_end_string+1]
+    call print_range_line
+    ret
 parse_function:
     add r8, 1
     call read_whitespace
     call read_identifier
+    mov [function_name], rax
+    mov [function_name+8], rdx
+    add r8, 1
+
+    push r8
+
+    function_arg_loop:
+    call read_whitespace
+    cmpb [r8], "-"
+    je function_arg_loop_done
+    call read_identifier
     mov rdi, rax
     mov rsi, rdx
+    call print_range
+    lea rdi, [dq_string]
+    lea rsi, [dq_string+6]
     call print_range_line
+    jmp function_arg_loop
+
+    function_arg_loop_done:
+    mov rdi, [function_name]
+    mov rsi, [function_name+8]
+    call print_label
     call read_whitespace
+
+    pop r8
+    
+    function_arg_loop_2:
+    call read_whitespace
+    cmpb [r8], "-"
+    je function_arg_loop_done_2
+    lea rdi, [pop_start_string]
+    lea rsi, [pop_start_string+5]
+    call print_range
+    call read_identifier
+    mov rdi, rax
+    mov rsi, rdx
+    call print_range
+    lea rdi, [pop_end_string]
+    lea rsi, [pop_end_string+1]
+    call print_range_line
+    jmp function_arg_loop_2
+    function_arg_loop_done_2:
+    add r8, 2
+
+    mov rax, [argument_buffer_begin]
+    mov [argument_buffer_end], rax
+    function_body_loop:
+    call read_whitespace
+    cmpb [r8], "\)"
+    je function_body_loop_end
+
+    call read_identifier
+    mov rcx, [argument_buffer_end]
+    mov [rcx], rax
+    mov [rcx+8], rdx
+    add [argument_buffer_end], 16
+    jmp function_body_loop
+    function_body_loop_end:
     add r8, 1
+    function_body_reverse_loop:
+    lea rdi, [push_start_string]
+    lea rsi, [push_start_string+6]
+    call print_range
+    sub [argument_buffer_end], 16
+    mov rcx, [argument_buffer_end]
+    mov rdi, [rcx]
+    mov rsi, [rcx+8]
+    call print_range
+    lea rdi, [push_end_string]
+    lea rsi, [push_end_string+1]
+    call print_range_line
+    mov rcx, [argument_buffer_end]
+    cmp rcx, [argument_buffer_begin]
+    jne function_body_reverse_loop
+    function_done:
+    
+    lea rdi, [runtime_call_string]
+    lea rsi, [runtime_call_string+16]
+    call print_range_line
     ret
 
 
