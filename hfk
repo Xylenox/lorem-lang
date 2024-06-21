@@ -85,16 +85,10 @@ malloc:
     pop rcx
     ret
 
-make_pair:
-    ; takes in (cont a b) and calls cont with a function that takes a continuation and calls it with two values
-    |3 make_pair_lambda [rsp+8] [rsp+16]|
-    pop rcx
-    add rsp, 16
-    push rax
-    push rcx
-    jmp runtime_call
-    ; takes in (a b cont) and calls cont with a b
-    (make_pair_lambda: a b cont -> cont a b)
+; takes in (cont a b) and calls cont with a function that takes a continuation and calls it with two values
+(make_pair: cont a b -> cont |3 make_pair_lambda [a] [b]|)
+; takes in (a b cont) and calls cont with a b
+(make_pair_lambda: a b cont -> cont a b)
 
 prin:                   ; printst
 push rax
@@ -258,9 +252,7 @@ read_identifier: ; read identifier and return start and end pointers
     ret
 
 read_operand:
-    sub rcx, rcx
-    movb cl, [r8]
-    cmp rcx, "\["
+    cmpb [r8], "\["
     jne read_identifier
     push r8
     memory_operand_loop:
@@ -285,9 +277,7 @@ read_and_convert_operand:
     ret
 
 read_id_or_closure:
-    sub rcx, rcx
-    movb cl, [r8]
-    cmp rcx, "\|"
+    cmpb [r8], "\|"
     jne read_identifier
     push r8
     add r8, 1
@@ -342,16 +332,10 @@ parse_closure:
     lea rsi, [closure_header+44]
     call print_range_line
 
-    mov rax, [argument_buffer_begin]
-    mov [argument_buffer_end], rax
-
     closure_loop:
     call read_whitespace
     cmpb [r8], "\|"
     je closure_loop_done
-    call read_operand
-    mov rcx, [argument_buffer_end]
-
     jmp suff_strings_end
     mov_string:
     dq "mov rcx,"
@@ -363,14 +347,12 @@ parse_closure:
     dq "add rdx,"
     dq " 8"
     suff_strings_end:
-    mov [rcx], rax
-    mov [rcx+8], rdx
     lea rdi, [mov_string]
     lea rsi, [mov_string+9]
     call print_range
-    mov rax, [argument_buffer_end]
-    mov rdi, [rax]
-    mov rsi, [rax+8]
+    call read_operand
+    mov rdi, rax
+    mov rsi, rdx
     call print_range_line
     lea rdi, [suff_strings]
     lea rsi, [suff_strings+14]
@@ -379,7 +361,6 @@ parse_closure:
     lea rsi, [suff_strings+26]
     call print_range_line
 
-    add [argument_buffer_end], 16
     jmp closure_loop
 
     closure_loop_done:
