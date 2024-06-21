@@ -85,9 +85,7 @@ malloc:
     pop rcx
     ret
 
-; takes in (cont a b) and calls cont with a function that takes a continuation and calls it with two values
 (make_pair: cont a b -> cont |3 make_pair_lambda [a] [b]|)
-; takes in (a b cont) and calls cont with a b
 (make_pair_lambda: a b cont -> cont a b)
 
 prin:                   ; printst
@@ -170,28 +168,28 @@ print_range_line:
     ret
 
 is_alpha:           ; is alpha
-cmp r7, "a"      ; a
-jl nalp
-cmp r7, "z"     ; z
-jg nalp
-yalp:
-mov r0, 1
-ret
-nalp:
-mov r0, 0
-ret
+    cmp r7, "a"      ; a
+    jl nalp
+    cmp r7, "z"     ; z
+    jg nalp
+    yalp:
+    mov r0, 1
+    ret
+    nalp:
+    mov r0, 0
+    ret
 
 is_digit:           ; is alpha
-cmp r7, "0"
-jl not_digit
-cmp r7, "9"
-jg not_digit
-yes_digit:
-mov r0, 1
-ret
-not_digit:
-mov r0, 0
-ret
+    cmp r7, "0"
+    jl not_digit
+    cmp r7, "9"
+    jg not_digit
+    yes_digit:
+    mov r0, 1
+    ret
+    not_digit:
+    mov r0, 0
+    ret
 
 parse_comment:
     call peek_character
