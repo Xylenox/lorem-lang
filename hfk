@@ -93,15 +93,8 @@ make_pair:
     push rax
     push rcx
     jmp runtime_call
-    make_pair_lambda:
     ; takes in (a b cont) and calls cont with a b
-    pop rax
-    pop rcx
-    pop rdx
-    push rcx
-    push rax
-    push rdx
-    jmp runtime_call
+    (make_pair_lambda: a b cont -> cont a b)
 
 prin:                   ; printst
 push rax
@@ -291,6 +284,28 @@ read_and_convert_operand:
     call make_pair_imperative
     ret
 
+read_id_or_closure:
+    sub rcx, rcx
+    movb cl, [r8]
+    cmp rcx, "\|"
+    jne read_identifier
+    push r8
+    add r8, 1
+    id_or_closure_loop:
+    sub rcx, rcx
+    movb cl, [r8]
+    mov rdi, rcx
+    cmp rcx, "\|"
+    je id_or_closure_loop_done
+    add r8, 1
+    jmp id_or_closure_loop
+    id_or_closure_loop_done:
+    add r8, 1
+    pop rax
+    mov rdx, r8
+    ret
+
+
 parse_closure:
     add r8, 1
     
@@ -389,7 +404,8 @@ push_end_string:
 runtime_call_string:
     dq "jmp runt"
     dq "ime_call"
-
+push_rax_string:
+    dq "push rax"
 print_label:
     call print_range
     lea rdi, [label_end_string]
@@ -452,7 +468,7 @@ parse_function:
     cmpb [r8], "\)"
     je function_body_loop_end
 
-    call read_identifier
+    call read_id_or_closure
     mov rcx, [argument_buffer_end]
     mov [rcx], rax
     mov [rcx+8], rdx
@@ -461,10 +477,26 @@ parse_function:
     function_body_loop_end:
     add r8, 1
     function_body_reverse_loop:
+    sub [argument_buffer_end], 16
+    mov rcx, [argument_buffer_end]
+    mov rdi, [rcx]
+    cmpb [rdi], "\|"
+    jne not_body_closure
+
+    push r8
+    mov r8, rdi
+    call parse_closure
+    pop r8
+
+    lea rdi, [push_rax_string]
+    lea rsi, [push_rax_string+8]
+    call print_range_line
+    jmp end_process_function_body
+
+    not_body_closure:
     lea rdi, [push_start_string]
     lea rsi, [push_start_string+6]
     call print_range
-    sub [argument_buffer_end], 16
     mov rcx, [argument_buffer_end]
     mov rdi, [rcx]
     mov rsi, [rcx+8]
@@ -472,6 +504,7 @@ parse_function:
     lea rdi, [push_end_string]
     lea rsi, [push_end_string+1]
     call print_range_line
+    end_process_function_body:
     mov rcx, [argument_buffer_end]
     cmp rcx, [argument_buffer_begin]
     jne function_body_reverse_loop
