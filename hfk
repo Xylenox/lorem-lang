@@ -85,6 +85,22 @@ malloc:
     pop rcx
     ret
 
+compare: ; takes in (sucess_cont fail_cont a b) and calls success_cont or fail_cont depending on a == b
+    mov rax, [rsp+16]
+    mov rcx, [rsp+24]
+    cmp rax, rcx
+    jne compare_fail
+    mov rax, [rsp]
+    add rsp, 32
+    push rax
+    jmp runtime_call
+
+    compare_fail:
+        mov rax, [rsp+8]
+        add rsp, 32
+        push rax
+        jmp runtime_call
+
 (make_pair: cont a b -> cont |3 make_pair_lambda [a] [b]|)
 (make_pair_lambda: a b cont -> cont a b)
 
@@ -141,6 +157,8 @@ make_pair_imperative:
     make_pair_imperative_lambda:
         pop rax
         ret
+
+print_ranges_function:
 
 print_ranges:
     cmp rdi, 0
@@ -473,6 +491,25 @@ parse_function:
     jmp end_process_function_body
 
     not_body_closure:
+    mov rcx, [argument_buffer_end]
+    mov rdi, [rcx]
+    movb dil, [rdi]
+    and rdi, 0xFF
+    call is_alpha
+    cmp rax, 1
+    je body_identifier
+    
+    body_constant:
+    lea rdi, [push_start_string]
+    lea rsi, [push_start_string+5]
+    call print_range
+    mov rcx, [argument_buffer_end]
+    mov rdi, [rcx]
+    mov rsi, [rcx+8]
+    call print_range_line
+    jmp end_process_function_body
+    
+    body_identifier:
     lea rdi, [push_start_string]
     lea rsi, [push_start_string+6]
     call print_range
@@ -493,7 +530,6 @@ parse_function:
     lea rsi, [runtime_call_string+16]
     call print_range_line
     ret
-
 
 argument_buffer_begin:
 dq 0
