@@ -85,6 +85,13 @@ malloc:
     pop rcx
     ret
 
+deref_byte: ; takes (cont ptr) and calls cont with *ptr
+    mov rax, [rsp+8]
+    sub rcx, rcx
+    movb rcx, [rax]
+    mov [rsp+8], rcx
+    jmp runtime_call    
+
 compare: ; takes in (sucess_cont fail_cont a b) and calls success_cont or fail_cont depending on a == b
     mov rax, [rsp+16]
     mov rcx, [rsp+24]
@@ -311,7 +318,6 @@ read_id_or_closure:
     mov rdx, r8
     ret
 
-
 parse_closure:
     add r8, 1
     
@@ -531,6 +537,41 @@ parse_function:
     call print_range_line
     ret
 
+parse_function_function: ; takes (lo hi)
+    pop r8
+    pop [flen]
+    call parse_function
+    push [flen]
+    push r8
+    jmp main_loop
+
+parse_closure_function: ; takes (lo hi)
+    pop r8
+    pop [flen]
+    call parse_closure
+    push [flen]
+    push r8
+    jmp main_loop
+
+parse_comment_function: ; takes (lo hi)
+    pop r8
+    pop [flen]
+    call parse_comment
+    push [flen]
+    push r8
+    jmp main_loop
+
+parse_escape_function: ; takes (lo hi)
+    pop r8
+    pop [flen]
+    lea rdi, [r8+1]
+    lea rsi, [r8+2]
+    call print_range
+    add r8, 2
+    push [flen]
+    push r8
+    jmp main_loop
+
 argument_buffer_begin:
 dq 0
 argument_buffer_end:
@@ -596,32 +637,20 @@ push r8
 
 add [flen], r8
 
-main:
+push [flen]
+push r8
+jmp main_loop
+(main_loop: lo hi -> |1 compare| |1 exit| |4 parse_token [lo] [hi]| lo hi)
+
+(parse_token: lo hi -> |1 deref_byte| |3 check_function [lo] [hi]| lo)
+(check_function: lo hi c -> |1 compare| |3 parse_function_function [lo] [hi]| |4 check_closure [lo] [hi] [c]| c 40)
+(check_closure: lo hi c -> |1 compare| |3 parse_closure_function [lo] [hi]| |4 check_comment [lo] [hi] [c]| c 124)
+(check_comment: lo hi c -> |1 compare| |3 parse_comment_function [lo] [hi]| |4 check_escape [lo] [hi] [c]| c 59)
+(check_escape: lo hi c -> |1 compare| |3 parse_escape_function [lo] [hi]| |3 main_body [lo] [hi]| c 92)
     ; main loop
-    cmp r8, [flen]
-    je exit
-    cmpb [r8], "\|"
-    jne not_closure
-    call parse_closure
-    jmp main
-    not_closure:
-
-    cmpb [r8], "\("
-    jne not_function
-    call parse_function
-    jmp main
-    not_function:
-    
-    cmpb [r8], "\;"
-    jne not_comment
-    call parse_comment
-    jmp main
-    not_comment:
-
-    cmpb [r8], "\\"
-    jne not_escape
-    add r8, 1
-    not_escape:
+main_body:
+    pop r8
+    pop [flen]
 
     
     push [r8]
@@ -629,7 +658,12 @@ main:
     call prin
     pop rax
     add r8, 1
-    jmp main    
+    jmp main_body_done
+
+    main_body_done:
+    push [flen]
+    push r8
+    jmp main_loop
 
 inva:
 ; invalid
