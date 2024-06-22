@@ -56,6 +56,10 @@ runtime_call:
     
     ret     ; fake ret lol
 
+page_pointer:
+dq 0
+memory_left:
+dq 0
 malloc:
     push rcx
     push rdx
@@ -66,7 +70,13 @@ malloc:
     push r10
     push r11
 
-    mov rsi, rdi
+    cmp [memory_left], rdi
+    jl new_page
+    jmp malloc_ret
+    
+    new_page:
+    push rdi
+    mov rsi, 4096
     mov rdi, 0               ; adress
     mov rdx, 3               ; PROT_READ \| PROT_WRITE
     mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
@@ -74,6 +84,14 @@ malloc:
     mov r9, 0               ; offset
     mov rax, 9               ; mmap
     syscall
+    pop rdi
+    mov [page_pointer], rax
+    mov [memory_left], 4096
+
+    malloc_ret:
+    mov rax, [page_pointer]
+    add [page_pointer], rdi
+    sub [memory_left], rdi
 
     pop r11
     pop r10

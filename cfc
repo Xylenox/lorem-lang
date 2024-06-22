@@ -1172,6 +1172,8 @@ nrm:
     dq 0x39
     dq "add"
     dq 0x01
+    dq "sub"
+    dq 0x29
     dq "movb"
     dq 0x88
     mr_array_end:
