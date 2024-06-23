@@ -69,3 +69,6 @@ push [b]
 push [c]
 jmp runtime_call
 name_end:
+
+MAJOR CHANGE:
+continuations should go at END! this makes code cleaner and easier to read (the arguments to the function are more important in the moment than what happens after)
