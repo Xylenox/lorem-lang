@@ -233,16 +233,24 @@ print_range_function:
 (map_internal_b: action cont b new_a -> |1 map_tree| b action |4 map_internal_merge [action] [cont] [new_a]|)
 (map_internal_merge: action cont new_a new_b -> |1 make_internal| new_a new_b cont)
 
+map_tree_imperative:
+    sub rsp, 24
+    mov [rsp], rdi
+    mov [rsp+8], rsi
+    |1 map_tree_imperative_lambda|
+    mov [rsp+16], rax
+    jmp map_tree
+    map_tree_imperative_lambda:
+        pop rax
+        ret
+
 map_id_imperative:
-    push rdi
-    |1 map_id_imperative_lambda|
-    pop rdi
-    push rax
-    push rdi
+    sub rsp, 24
+    mov [rsp], rdi
     |1 make_leaf|
-    pop rdi
-    push rax
-    push rdi
+    mov [rsp+8], rax
+    |1 map_id_imperative_lambda|
+    mov [rsp+16], rax
     jmp map_tree
     map_id_imperative_lambda:
         pop rax
@@ -613,6 +621,30 @@ print_label:
     lea rsi, [label_end_string+1]
     call print_range_line
     ret
+map_argument: ; (l r cont)
+    mov rdi, [rsp]
+    mov rsi, [rsp+8]
+    mov rax, [rsp+16]
+    add rsp, 8
+    mov [rsp], rax
+    call make_leaf_imperative
+    push rax
+    lea rdi, [dq_string]
+    lea rsi, [dq_string+6]
+    call make_leaf_imperative
+    pop rdi
+    mov rsi, rax
+    call make_internal_imperative
+    push rax
+    lea rdi, [newline_string]
+    lea rsi, [newline_string+1]
+    call make_leaf_imperative
+    pop rdi
+    mov rsi, rax
+    call make_internal_imperative
+    mov [rsp+8], rax
+    jmp runtime_call
+
 (parse_function: l r -> |1 add_func| l 1 |2 parse_func_cont1 [r]|)
 (parse_func_cont1: r l -> |1 read_whitespace_func| l r |1 parse_func_cont2|)
 (parse_func_cont2: l r -> |1 read_identifier_func| l r |1 parse_func_cont3|)
@@ -622,28 +654,19 @@ print_label:
     pop [function_name]
     pop [function_name+8]
     pop r8
-
+    
     push r8
 
     mov rdi, r8
     mov rsi, [flen]
     call read_identifier_list_imperative
-
-    pop r8
-    push r8
-
-    function_arg_loop:
-    call read_whitespace
-    cmpb [r8], "-"
-    je function_arg_loop_done
-    call read_identifier
+    push rax
+    |1 map_argument|
+    mov rsi, rax
+    pop rdi
+    call map_tree_imperative
     mov rdi, rax
-    mov rsi, rdx
-    call print_range
-    lea rdi, [dq_string]
-    lea rsi, [dq_string+6]
-    call print_range_line
-    jmp function_arg_loop
+    call print_tree_imperative
 
     function_arg_loop_done:
     mov rdi, [function_name]
