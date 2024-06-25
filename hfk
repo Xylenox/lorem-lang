@@ -131,10 +131,10 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (make_nil: cont -> cont |1 make_nil_lambda|)
 (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil)
 
-(make_leaf: cont l r -> cont |3 make_leaf_lambda [l] [r]|)
+(make_leaf: l r cont -> cont |3 make_leaf_lambda [l] [r]|)
 (make_leaf_lambda: l r cont_nil cont_leaf cont_internal -> cont_leaf l r)
 
-(make_internal: cont a b -> cont |3 make_internal_lambda [a] [b]|)
+(make_internal: a b cont -> cont |3 make_internal_lambda [a] [b]|)
 (make_internal_lambda: a b cont_nil cont_leaf cont_internal -> cont_internal a b)
 
 add_func:
@@ -146,18 +146,22 @@ add_func:
     push rax
     jmp runtime_call
 
-; make_nil_imperative:
-;     |1 make_nil_imperative_done|
-;     push rax
-;     jmp make_nil
-;     make_nil_imperative_done:
-;     pop rax
-;     ret
+make_nil_imperative:
+    |1 make_nil_imperative_done|
+    push rax
+    jmp make_nil
+    make_nil_imperative_done:
+    pop rax
+    ret
 make_leaf_imperative:
     push rsi
     push rdi
-    |1 make_leaf_imperative_done|
+    |1 make_internal_imperative_done|
+    pop rdi
+    pop rsi
     push rax
+    push rsi
+    push rdi
     jmp make_leaf
     make_leaf_imperative_done:
     pop rax
@@ -167,7 +171,11 @@ make_internal_imperative:
     push rsi
     push rdi
     |1 make_internal_imperative_done|
+    pop rdi
+    pop rsi
     push rax
+    push rsi
+    push rdi
     jmp make_internal
     make_internal_imperative_done:
     pop rax
@@ -215,8 +223,30 @@ print_range_function:
 
 (traverse_tree: tree action cont -> tree cont |3 traverse_leaf [action] [cont]| |3 traverse_internal [action] [cont]|)
 (traverse_leaf: action cont l r -> action l r cont)
-(traverse_internal: action cont a b -> |1 traverse_tree| |4 traverse_tree [b] [action] [cont]| a)
+(traverse_internal: action cont a b -> |1 traverse_tree| a action |4 traverse_tree [b] [action] [cont]|)
 
+; calls cont with new_tree
+(map_tree: tree action cont -> tree |2 map_nil [cont]| |3 map_leaf [action] [cont]| |3 map_internal [action] [cont]|)
+(map_nil: cont -> |1 make_nil| cont)
+(map_leaf: action cont l r -> action l r cont)
+(map_internal: action cont a b -> |1 map_tree| a action |4 map_internal_b [action] [cont] [b]|)
+(map_internal_b: action cont b new_a -> |1 map_tree| b action |4 map_internal_merge [action] [cont] [new_a]|)
+(map_internal_merge: action cont new_a new_b -> |1 make_internal| new_a new_b cont)
+
+map_id_imperative:
+    push rdi
+    |1 map_id_imperative_lambda|
+    pop rdi
+    push rax
+    push rdi
+    |1 make_leaf|
+    pop rdi
+    push rax
+    push rdi
+    jmp map_tree
+    map_id_imperative_lambda:
+        pop rax
+        ret
 
 print_tree_imperative:
     push rdi
@@ -384,12 +414,38 @@ read_identifier_func: ; (r8 flen cont)
     push rcx
     jmp runtime_call
 
-(read_identifier_list: l r cont -> |1 make_nil| |4 read_identifier_list_loop [l] [r] [cont]|) ; (l r cont) -> (cont tree l r)
-(read_identifier_list_loop: l r cont tree -> |1 read_identifier_func| l r |3 read_identifier_list_check [cont] [tree]|)
-(read_identifier_list_check: cont tree l r a b -> |1 compare| a b |5 read_identifier_list_return [tree] [l] [r] [cont]| |7 read_identifier_list_leaf [cont] [tree] [l] [r] [a] [b]|)
-(read_identifier_list_leaf: cont tree l r a b -> |1 make_leaf| a b |5 read_identifier_list_internal [cont] [tree] [l] [r]|)
-(read_identifier_list_internal: cont tree l r node -> |1 make_internal| tree node |4 read_identifier_list_loop [l] [r] [cont]|)
-(read_identifier_list_return: tree l r cont -> cont tree l r)
+read_identifier_list:
+    pop r8
+    pop [flen]
+    call make_nil_imperative
+    push rax
+
+    id_list_loop:
+    call read_whitespace
+    call read_identifier
+    cmp rax, rdx
+    je id_list_done
+
+    mov rdi, rax
+    mov rsi, rdx
+    call make_leaf_imperative
+    
+    pop rdi
+    mov rsi, rax
+    call make_internal_imperative
+    push rax
+
+    jmp id_list_loop
+
+    id_list_done:
+    pop rax
+    pop rdi
+    push [flen]
+    push r8
+    push rax
+    push rdi
+    jmp runtime_call
+
 read_identifier_list_imperative:
     push rsi
     push rdi
@@ -402,8 +458,8 @@ read_identifier_list_imperative:
     jmp read_identifier_list
     read_identifier_list_imperative_lambda:
         pop rax
-        pop rax
-        pop rax
+        pop r8
+        pop [flen]
         ret
 
 
