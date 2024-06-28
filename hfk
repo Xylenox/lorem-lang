@@ -590,7 +590,8 @@ closure_map_arg:
     push rax
     jmp runtime_call
 
-parse_closure:
+print_closure:
+    push rdi
     lea rdi, [newline_string]
     lea rsi, [newline_string+1]
     call make_leaf_imperative
@@ -600,9 +601,6 @@ parse_closure:
     lea rsi, [newline_string]
     call make_leaf_imperative
     mov [closure_tree], rax
-
-    add r8, 1
-
     
     jmp closure_header_end
     closure_header:
@@ -640,17 +638,21 @@ parse_closure:
     lea rsi, [closure_header+44]
     call print_range_line
 
-    mov rdi, r8
-    mov rsi, [flen]
-    call read_operand_list_imperative
-    push rax
-
     |1 closure_map_arg|
     mov rsi, rax
     pop rdi
     call map_tree_imperative
 
+    ret
+
+parse_closure:
     add r8, 1
+    mov rdi, r8
+    mov rsi, [flen]
+    call read_operand_list_imperative
+    add r8, 1
+    mov rdi, rax
+    call print_closure
     ret
 
 function_name:
