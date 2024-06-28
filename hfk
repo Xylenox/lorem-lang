@@ -470,6 +470,54 @@ read_identifier_list_imperative:
         pop [flen]
         ret
 
+read_operand_list:
+    pop r8
+    pop [flen]
+    call make_nil_imperative
+    push rax
+
+    op_list_loop:
+    call read_whitespace
+    call read_operand
+    cmp rax, rdx
+    je op_list_done
+
+    mov rdi, rax
+    mov rsi, rdx
+    call make_leaf_imperative
+    
+    pop rdi
+    mov rsi, rax
+    call make_internal_imperative
+    push rax
+
+    jmp op_list_loop
+
+    op_list_done:
+    pop rax
+    pop rdi
+    push [flen]
+    push r8
+    push rax
+    push rdi
+    jmp runtime_call
+
+read_operand_list_imperative:
+    push rsi
+    push rdi
+    |1 read_operand_list_imperative_lambda|
+    pop rdi
+    pop rsi
+    push rax
+    push rsi
+    push rdi
+    jmp read_operand_list
+    read_operand_list_imperative_lambda:
+        pop rax
+        pop r8
+        pop [flen]
+        ret
+
 
 read_operand:
     cmpb [r8], "\["
@@ -511,6 +559,37 @@ newline_leaf:
     dq 0
 closure_tree:
     dq 0
+
+closure_map_arg:
+    jmp suff_strings_end
+    mov_string:
+    dq "mov rcx,"
+    dq " "
+    mov_string_end:
+    suff_strings:
+    dq "mov [rdx"
+    dq "], rcx"
+    dq "add rdx,"
+    dq " 8"
+    suff_strings_end:
+    lea rdi, [mov_string]
+    lea rsi, [mov_string+9]
+    call print_range
+    pop rdi
+    pop rsi
+    call print_range_line
+    lea rdi, [suff_strings]
+    lea rsi, [suff_strings+14]
+    call print_range_line
+    lea rdi, [suff_strings+16]
+    lea rsi, [suff_strings+26]
+    call print_range_line
+
+    pop rax
+    push 0
+    push rax
+    jmp runtime_call
+
 parse_closure:
     lea rdi, [newline_string]
     lea rsi, [newline_string+1]
@@ -523,6 +602,7 @@ parse_closure:
     mov [closure_tree], rax
 
     add r8, 1
+
     
     jmp closure_header_end
     closure_header:
@@ -560,38 +640,16 @@ parse_closure:
     lea rsi, [closure_header+44]
     call print_range_line
 
-    closure_loop:
-    call read_whitespace
-    cmpb [r8], "\|"
-    je closure_loop_done
-    jmp suff_strings_end
-    mov_string:
-    dq "mov rcx,"
-    dq " "
-    mov_string_end:
-    suff_strings:
-    dq "mov [rdx"
-    dq "], rcx"
-    dq "add rdx,"
-    dq " 8"
-    suff_strings_end:
-    lea rdi, [mov_string]
-    lea rsi, [mov_string+9]
-    call print_range
-    call read_operand
-    mov rdi, rax
-    mov rsi, rdx
-    call print_range_line
-    lea rdi, [suff_strings]
-    lea rsi, [suff_strings+14]
-    call print_range_line
-    lea rdi, [suff_strings+16]
-    lea rsi, [suff_strings+26]
-    call print_range_line
+    mov rdi, r8
+    mov rsi, [flen]
+    call read_operand_list_imperative
+    push rax
 
-    jmp closure_loop
+    |1 closure_map_arg|
+    mov rsi, rax
+    pop rdi
+    call map_tree_imperative
 
-    closure_loop_done:
     add r8, 1
     ret
 
