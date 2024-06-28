@@ -555,6 +555,35 @@ read_id_or_closure:
     pop rax
     mov rdx, r8
     ret
+
+read_id_or_closure_or_function:
+    cmpb [r8], "\("
+    jne read_id_or_closure
+    push r8
+    mov rax, 0
+    id_or_closure_or_func_loop:
+    sub rcx, rcx
+    movb cl, [r8]
+    mov rdi, rcx
+    
+    cmp rcx, "\("
+    jne not_idocf_open
+    add rax, 1
+    not_idocf_open:
+    cmp rcx, "\)"
+    jne not_idocf_close
+    sub rax, 1
+    not_idocf_close:
+    cmp rax, 0
+    je id_or_closure_or_func_loop_done
+    add r8, 1
+    jmp id_or_closure_or_func_loop
+    id_or_closure_or_func_loop_done:
+    add r8, 1
+    pop rax
+    mov rdx, r8
+    ret
+
 newline_leaf:
     dq 0
 closure_tree:
@@ -705,6 +734,9 @@ map_argument: ; (l r cont)
     mov [rsp+8], rax
     jmp runtime_call
 
+jmp_end_string:
+    dq "jmp "
+    dq "_end:"
 (parse_function: l r -> |1 add_func| l 1 |2 parse_func_cont1 [r]|)
 (parse_func_cont1: r l -> |1 read_whitespace_func| l r |1 parse_func_cont2|)
 (parse_func_cont2: l r -> |1 read_identifier_func| l r |1 parse_func_cont3|)
@@ -715,6 +747,16 @@ map_argument: ; (l r cont)
     pop [function_name+8]
     pop r8
     
+    lea rdi, [jmp_end_string]
+    lea rsi, [jmp_end_string+4]
+    call print_range
+    mov rdi, [function_name]
+    mov rsi, [function_name+8]
+    call print_range    
+    lea rdi, [jmp_end_string+8]
+    lea rsi, [jmp_end_string+12]
+    call print_range_line
+
     push r8
 
     mov rdi, r8
@@ -728,7 +770,6 @@ map_argument: ; (l r cont)
     mov rdi, rax
     call print_tree_imperative
 
-    function_arg_loop_done:
     mov rdi, [function_name]
     mov rsi, [function_name+8]
     call print_label
@@ -761,7 +802,7 @@ map_argument: ; (l r cont)
     cmpb [r8], "\)"
     je function_body_loop_end
 
-    call read_id_or_closure
+    call read_id_or_closure_or_function
     mov rcx, [argument_buffer_end]
     mov [rcx], rax
     mov [rcx+8], rdx
@@ -826,6 +867,13 @@ map_argument: ; (l r cont)
     lea rsi, [runtime_call_string+16]
     call print_range_line
     
+    mov rdi, [function_name]
+    mov rsi, [function_name+8]
+    call print_range
+    lea rdi, [jmp_end_string+8]
+    lea rsi, [jmp_end_string+13]
+    call print_range_line
+
     push [flen]
     push r8
     jmp main_loop
