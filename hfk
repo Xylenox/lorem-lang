@@ -737,15 +737,17 @@ map_argument: ; (l r cont)
 jmp_end_string:
     dq "jmp "
     dq "_end:"
-(parse_function: l r -> |1 add_func| l 1 |2 parse_func_cont1 [r]|)
-(parse_func_cont1: r l -> |1 read_whitespace_func| l r |1 parse_func_cont2|)
-(parse_func_cont2: l r -> |1 read_identifier_func| l r |1 parse_func_cont3|)
-(parse_func_cont3: l r a b -> |1 add_func| l 1 |4 parse_func_cont4 [r] [a] [b]|)
+(parse_function: args l r -> |1 add_func| l 1 |3 parse_func_cont1 [args] [r]|)
+(parse_func_cont1: args r l -> |1 read_whitespace_func| l r |2 parse_func_cont2 [args]|)
+(parse_func_cont2: args l r -> |1 read_identifier_func| l r |2 parse_func_cont3 [args]|)
+(parse_func_cont3: args l r a b -> |1 add_func| l 1 |5 parse_func_cont4 [args] [r] [a] [b]|)
     parse_func_cont4:
+    pop rax
     pop [flen]
     pop [function_name]
     pop [function_name+8]
     pop r8
+    push rax
     
     lea rdi, [jmp_end_string]
     lea rsi, [jmp_end_string+4]
@@ -874,6 +876,10 @@ jmp_end_string:
     lea rsi, [jmp_end_string+13]
     call print_range_line
 
+    pop rax
+    mov rdi, rax
+    call print_closure
+
     push [flen]
     push r8
     jmp main_loop
@@ -910,7 +916,11 @@ dq 0
 argument_buffer_end:
 dq 0
 
+empty_tree:
+dq 0
 start:
+call make_nil_imperative
+mov [empty_tree], rax
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
@@ -976,7 +986,7 @@ jmp main_loop
 (main_loop: lo hi -> |1 compare| lo hi |1 exit| |4 parse_token [lo] [hi]|)
 
 (parse_token: lo hi -> |1 deref_byte| |3 check_function [lo] [hi]| lo)
-(check_function: lo hi c -> |1 compare| c 40 |3 parse_function [lo] [hi]| |4 check_closure [lo] [hi] [c]|)
+(check_function: lo hi c -> |1 compare| c 40 |4 parse_function [empty_tree] [lo] [hi]| |4 check_closure [lo] [hi] [c]|)
 (check_closure: lo hi c -> |1 compare| c 124 |3 parse_closure_function [lo] [hi]| |4 check_comment [lo] [hi] [c]|)
 (check_comment: lo hi c -> |1 compare| c 59 |3 parse_comment_function [lo] [hi]| |4 check_escape [lo] [hi] [c]|)
 (check_escape: lo hi c -> |1 compare| c 92 |3 parse_escape_function [lo] [hi]| |3 main_body [lo] [hi]|)
