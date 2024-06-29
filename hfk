@@ -4,20 +4,7 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-push start
-push 0
-|make_pair_test|
-push rax
-jmp make_pair
-make_pair_test:
-|call_start_with_pair|
-pop rcx
-push rax
-push rcx
-jmp runtime_call
-call_start_with_pair:
-pop rax
-ret
+jmp start
 
 constant_strings:
 push_string:
@@ -124,15 +111,6 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
         push rsi
         jmp runtime_call
 
-(bool_true: cont_true cont_false -> cont_true)
-(bool_false: cont_true cont_false -> cont_false)
-
-(make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
-
-(make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
-(make_leaf: l r cont -> cont (make_leaf_lambda: cont_nil cont_leaf cont_internal -> cont_leaf l r))
-(make_internal: a b cont -> cont (make_internal_lambda: cont_nil cont_leaf cont_internal -> cont_internal a b))
-
 add_func:
     pop rdi
     pop rsi
@@ -141,6 +119,15 @@ add_func:
     push rdi
     push rax
     jmp runtime_call
+
+(bool_true: cont_true cont_false -> cont_true)
+(bool_false: cont_true cont_false -> cont_false)
+
+(make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
+
+(make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
+(make_leaf: l r cont -> cont (make_leaf_lambda: cont_nil cont_leaf cont_internal -> cont_leaf l r))
+(make_internal: a b cont -> cont (make_internal_lambda: cont_nil cont_leaf cont_internal -> cont_internal a b))
 
 make_nil_imperative:
     |make_nil_imperative_done|
@@ -198,7 +185,6 @@ pop rcx
 pop rax
 ret
 
-
 scmp:
     cmp rdi, rsi
     je end_of_string
@@ -223,7 +209,7 @@ scmp:
     mov rax, -1
     ret
 
-end_of_string:
+    end_of_string:
     mov rax, 0
     cmp rdi, rsi
     jne not_first_shorter
@@ -233,6 +219,26 @@ end_of_string:
     jne not_second_shorter
     add rax, 1
     not_second_shorter:
+    ret
+
+cur_label:
+    dq 1
+gen_label:
+    |cur_label|
+    mov rdx, rax
+    mov rcx, [cur_label]
+    add [cur_label], 1
+    mov [rdx], "f"
+    add rdx, 1
+    gen_label_loop:
+    mov rbx, rcx
+    and rbx, 7
+    add rbx, "0"
+    movb [rdx], rbx
+    add rdx, 1
+    shr rcx, 3
+    cmp rcx, 0
+    jne gen_label_loop
     ret
 
 str_equal_func: ; (a b l r cont)
@@ -955,7 +961,7 @@ pop_start_string:
     dq "pop ["
 pop_end_string:
     dq "]"
-; (print_pop_arg: l r cont -> print_range_func [pop_start_string] [pop_start_string+5] (ppa: -> print_pop_args l r cont))
+(print_pop_arg: l r cont -> |print_string_func| pop_start_string 5 (ppa: -> |print_pop_args| l r cont))
 print_pop_args:
     mov rdi, [rsp]
     mov rsi, [rsp+8]
@@ -965,9 +971,6 @@ print_pop_args:
 
     push rdi
     push rsi
-    lea rdi, [pop_start_string]
-    lea rsi, [pop_start_string+5]
-    call print_range
     mov rdi, [prev_function_name]
     mov rsi, [prev_function_name+8]
     call print_range
@@ -986,14 +989,13 @@ jmp_end_string:
     dq "_end:"
 push_rax_string:
     dq "push rax"
-old_arg_list:
-    dq 0
-new_arg_list:
-    dq 0
+old_arg_list: dq 0
+new_arg_list: dq 0
+temp_r8: dq 0
 (parse_function: args l r cont -> |add_func| l 1
-(parse_func_cont1: l -> |read_whitespace_func| l r 
-(parse_func_cont2: l r -> |read_identifier_func| l r
-(parse_func_cont3: l r a b -> |add_func| l 1 (pfc3_l: l -> |parse_func_cont4| args r a b cont l)
+(l1 -> |read_whitespace_func| l1 r 
+(l r -> |read_identifier_func| l r
+(l r a b -> |add_func| l 1 (l -> |parse_func_cont4| args r a b cont l l1)
 ))))
     parse_func_cont4:
     pop [old_arg_list]
@@ -1012,7 +1014,15 @@ new_arg_list:
     pop [function_name+8]
     pop rcx
     pop r8
+    pop [temp_r8]
     push rcx
+    cmpb [r8-1], ":"
+    je has_label
+    mov r8, [temp_r8]
+    call gen_label
+    mov [function_name], rax
+    mov [function_name+8], rdx
+    has_label:
     push [old_arg_list]
     
     lea rdi, [jmp_end_string]
@@ -1046,7 +1056,7 @@ new_arg_list:
     call print_label
 
     
-    |print_pop_args|
+    |print_pop_arg|
     mov rsi, rax
     mov rdi, [rsp]
     call map_tree_imperative
