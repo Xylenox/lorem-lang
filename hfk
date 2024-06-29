@@ -737,16 +737,18 @@ map_argument: ; (l r cont)
 jmp_end_string:
     dq "jmp "
     dq "_end:"
-(parse_function: args l r -> |1 add_func| l 1 |3 parse_func_cont1 [args] [r]|)
-(parse_func_cont1: args r l -> |1 read_whitespace_func| l r |2 parse_func_cont2 [args]|)
-(parse_func_cont2: args l r -> |1 read_identifier_func| l r |2 parse_func_cont3 [args]|)
-(parse_func_cont3: args l r a b -> |1 add_func| l 1 |5 parse_func_cont4 [args] [r] [a] [b]|)
+(parse_function: args l r cont -> |1 add_func| l 1 |4 parse_func_cont1 [args] [r] [cont]|)
+(parse_func_cont1: args r cont l  -> |1 read_whitespace_func| l r |3 parse_func_cont2 [args] [cont]|)
+(parse_func_cont2: args cont l r -> |1 read_identifier_func| l r |3 parse_func_cont3 [args] [cont]|)
+(parse_func_cont3: args cont l r a b -> |1 add_func| l 1 |6 parse_func_cont4 [args] [r] [a] [b] [cont]|)
     parse_func_cont4:
     pop rax
     pop [flen]
     pop [function_name]
     pop [function_name+8]
+    pop rcx
     pop r8
+    push rcx
     push rax
     
     lea rdi, [jmp_end_string]
@@ -764,10 +766,13 @@ jmp_end_string:
     mov rdi, r8
     mov rsi, [flen]
     call read_identifier_list_imperative
+    mov rdi, [rsp+8]
+    mov rsi, rax
+    call make_internal_imperative
     push rax
     |1 map_argument|
     mov rsi, rax
-    pop rdi
+    mov rdi, [rsp]
     call map_tree_imperative
     mov rdi, rax
     call print_tree_imperative
@@ -777,7 +782,9 @@ jmp_end_string:
     call print_label
     call read_whitespace
 
+    pop rax
     pop r8
+    push rax
     
     function_arg_loop_2:
     call read_whitespace
@@ -830,6 +837,10 @@ jmp_end_string:
     jmp end_process_function_body
 
     not_body_closure:
+
+    cmpb [rdi], "\("
+    jne not_body_function
+    not_body_function:
     mov rcx, [argument_buffer_end]
     mov rdi, [rcx]
     movb dil, [rdi]
@@ -876,13 +887,28 @@ jmp_end_string:
     lea rsi, [jmp_end_string+13]
     call print_range_line
 
+    pop rax ; combined list
     pop rax
     mov rdi, rax
     call print_closure
-
+    
+    pop rcx
     push [flen]
     push r8
-    jmp main_loop
+    push rcx
+    jmp runtime_call
+    
+parse_function_help:
+    |1 main_loop|
+    pop rdi
+    pop rsi
+    pop rdx
+    push rax
+    push rdx
+    push rsi
+    push rdi
+    jmp parse_function
+
 
 parse_closure_function: ; takes (lo hi)
     pop r8
@@ -986,7 +1012,7 @@ jmp main_loop
 (main_loop: lo hi -> |1 compare| lo hi |1 exit| |4 parse_token [lo] [hi]|)
 
 (parse_token: lo hi -> |1 deref_byte| |3 check_function [lo] [hi]| lo)
-(check_function: lo hi c -> |1 compare| c 40 |4 parse_function [empty_tree] [lo] [hi]| |4 check_closure [lo] [hi] [c]|)
+(check_function: lo hi c -> |1 compare| c 40 |4 parse_function_help [empty_tree] [lo] [hi]| |4 check_closure [lo] [hi] [c]|)
 (check_closure: lo hi c -> |1 compare| c 124 |3 parse_closure_function [lo] [hi]| |4 check_comment [lo] [hi] [c]|)
 (check_comment: lo hi c -> |1 compare| c 59 |3 parse_comment_function [lo] [hi]| |4 check_escape [lo] [hi] [c]|)
 (check_escape: lo hi c -> |1 compare| c 92 |3 parse_escape_function [lo] [hi]| |3 main_body [lo] [hi]|)
