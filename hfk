@@ -6,11 +6,11 @@
 ;
 push start
 push 0
-|1 make_pair_test|
+|make_pair_test|
 push rax
 jmp make_pair
 make_pair_test:
-|1 call_start_with_pair|
+|call_start_with_pair|
 pop rcx
 push rax
 push rcx
@@ -124,17 +124,16 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
         push rsi
         jmp runtime_call
 
-(make_pair: cont a b -> cont |3 make_pair_lambda [a] [b]|)
+(make_pair: cont a b -> cont |make_pair_lambda [a] [b]|)
 (make_pair_lambda: a b cont -> cont a b)
 
-
-(make_nil: cont -> cont |1 make_nil_lambda|)
+(make_nil: cont -> cont |make_nil_lambda|)
 (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil)
 
-(make_leaf: l r cont -> cont |3 make_leaf_lambda [l] [r]|)
+(make_leaf: l r cont -> cont |make_leaf_lambda [l] [r]|)
 (make_leaf_lambda: l r cont_nil cont_leaf cont_internal -> cont_leaf l r)
 
-(make_internal: a b cont -> cont |3 make_internal_lambda [a] [b]|)
+(make_internal: a b cont -> cont |make_internal_lambda [a] [b]|)
 (make_internal_lambda: a b cont_nil cont_leaf cont_internal -> cont_internal a b)
 
 add_func:
@@ -147,7 +146,7 @@ add_func:
     jmp runtime_call
 
 make_nil_imperative:
-    |1 make_nil_imperative_done|
+    |make_nil_imperative_done|
     push rax
     jmp make_nil
     make_nil_imperative_done:
@@ -156,7 +155,7 @@ make_nil_imperative:
 make_leaf_imperative:
     push rsi
     push rdi
-    |1 make_internal_imperative_done|
+    |make_internal_imperative_done|
     pop rdi
     pop rsi
     push rax
@@ -170,7 +169,7 @@ make_leaf_imperative:
 make_internal_imperative:
     push rsi
     push rdi
-    |1 make_internal_imperative_done|
+    |make_internal_imperative_done|
     pop rdi
     pop rsi
     push rax
@@ -219,25 +218,25 @@ print_range_function:
     call print_range
     jmp runtime_call
 
-(print_tree: cont tree -> |1 traverse_tree| tree |1 print_range_function| cont)
+(print_tree: cont tree -> |traverse_tree| tree |print_range_function| cont)
 
-(traverse_tree: tree action cont -> tree cont |3 traverse_leaf [action] [cont]| |3 traverse_internal [action] [cont]|)
+(traverse_tree: tree action cont -> tree cont |traverse_leaf [action] [cont]| |traverse_internal [action] [cont]|)
 (traverse_leaf: action cont l r -> action l r cont)
-(traverse_internal: action cont a b -> |1 traverse_tree| a action |4 traverse_tree [b] [action] [cont]|)
+(traverse_internal: action cont a b -> |traverse_tree| a action |traverse_tree [b] [action] [cont]|)
 
 ; calls cont with new_tree
-(map_tree: tree action cont -> tree |2 map_nil [cont]| |3 map_leaf [action] [cont]| |3 map_internal [action] [cont]|)
-(map_nil: cont -> |1 make_nil| cont)
+(map_tree: tree action cont -> tree |map_nil [cont]| |map_leaf [action] [cont]| |map_internal [action] [cont]|)
+(map_nil: cont -> |make_nil| cont)
 (map_leaf: action cont l r -> action l r cont)
-(map_internal: action cont a b -> |1 map_tree| a action |4 map_internal_b [action] [cont] [b]|)
-(map_internal_b: action cont b new_a -> |1 map_tree| b action |4 map_internal_merge [action] [cont] [new_a]|)
-(map_internal_merge: action cont new_a new_b -> |1 make_internal| new_a new_b cont)
+(map_internal: action cont a b -> |map_tree| a action |map_internal_b [action] [cont] [b]|)
+(map_internal_b: action cont b new_a -> |map_tree| b action |map_internal_merge [action] [cont] [new_a]|)
+(map_internal_merge: action cont new_a new_b -> |make_internal| new_a new_b cont)
 
 map_tree_imperative:
     sub rsp, 24
     mov [rsp], rdi
     mov [rsp+8], rsi
-    |1 map_tree_imperative_lambda|
+    |map_tree_imperative_lambda|
     mov [rsp+16], rax
     jmp map_tree
     map_tree_imperative_lambda:
@@ -247,9 +246,9 @@ map_tree_imperative:
 map_id_imperative:
     sub rsp, 24
     mov [rsp], rdi
-    |1 make_leaf|
+    |make_leaf|
     mov [rsp+8], rax
-    |1 map_id_imperative_lambda|
+    |map_id_imperative_lambda|
     mov [rsp+16], rax
     jmp map_tree
     map_id_imperative_lambda:
@@ -258,7 +257,7 @@ map_id_imperative:
 
 print_tree_imperative:
     push rdi
-    |1 print_tree_imperative_done|
+    |print_tree_imperative_done|
     push rax
     jmp print_tree
     print_tree_imperative_done:
@@ -266,7 +265,7 @@ print_tree_imperative:
 
 print_range_pair:
     push rdi
-    |1 print_range_pair_lambda|
+    |print_range_pair_lambda|
     pop rdi
     push rax
     push rdi
@@ -280,7 +279,7 @@ print_range_pair:
 make_pair_imperative:
     push rsi
     push rdi
-    |1 make_pair_imperative_lambda|
+    |make_pair_imperative_lambda|
     push rax
     jmp make_pair
     make_pair_imperative_lambda:
@@ -295,7 +294,7 @@ print_ranges:
     ret
     print_ranges_continue:
     push rdi
-    |1 print_ranges_lambda|
+    |print_ranges_lambda|
     pop rdi
     push rax
     push rdi
@@ -457,7 +456,7 @@ read_identifier_list:
 read_identifier_list_imperative:
     push rsi
     push rdi
-    |1 read_identifier_list_imperative_lambda|
+    |read_identifier_list_imperative_lambda|
     pop rdi
     pop rsi
     push rax
@@ -505,7 +504,7 @@ read_operand_list:
 read_operand_list_imperative:
     push rsi
     push rdi
-    |1 read_operand_list_imperative_lambda|
+    |read_operand_list_imperative_lambda|
     pop rdi
     pop rsi
     push rax
@@ -639,8 +638,8 @@ print_closure:
     dq "call mal"
     dq "loc"
     
-    dq "mov rdx,"
-    dq " rax"
+    dq "lea rdx,"
+    dq " [rax+8]"
     closure_header_end:
     lea rdi, [newline_string]
     lea rsi, [newline_string+1]
@@ -664,15 +663,42 @@ print_closure:
     call print_tree_imperative
     call println
     lea rdi, [closure_header+32]
-    lea rsi, [closure_header+44]
+    lea rsi, [closure_header+48]
     call print_range_line
 
-    |1 closure_map_arg|
+    |closure_map_arg|
     mov rsi, rax
     pop rdi
     call map_tree_imperative
 
+    
+    lea rdi, [closure_footer]
+    lea rsi, [closure_footer+12]
+    call print_range_line
+    
+    lea rdi, [closure_footer+16]
+    lea rsi, [closure_footer+26]
+    call print_range_line
+    
+    lea rdi, [closure_footer+32]
+    lea rsi, [closure_footer+42]
+    call print_range_line
+    
+    lea rdi, [closure_footer+48]
+    lea rsi, [closure_footer+62]
+    call print_range_line
+
     ret
+
+closure_footer:
+    dq "sub rdx,"
+    dq " rax"
+    dq "shr rdx,"
+    dq " 3"
+    dq "sub rdx,"
+    dq " 1"
+    dq "mov [rax"
+    dq "], rdx"
 
 parse_closure:
     add r8, 1
@@ -737,10 +763,12 @@ map_argument: ; (l r cont)
 jmp_end_string:
     dq "jmp "
     dq "_end:"
-(parse_function: args l r cont -> |1 add_func| l 1 |4 parse_func_cont1 [args] [r] [cont]|)
-(parse_func_cont1: args r cont l  -> |1 read_whitespace_func| l r |3 parse_func_cont2 [args] [cont]|)
-(parse_func_cont2: args cont l r -> |1 read_identifier_func| l r |3 parse_func_cont3 [args] [cont]|)
-(parse_func_cont3: args cont l r a b -> |1 add_func| l 1 |6 parse_func_cont4 [args] [r] [a] [b] [cont]|)
+push_rax_string:
+    dq "push rax"
+(parse_function: args l r cont -> |add_func| l 1 |parse_func_cont1 [args] [r] [cont]|)
+(parse_func_cont1: args r cont l  -> |read_whitespace_func| l r |parse_func_cont2 [args] [cont]|)
+(parse_func_cont2: args cont l r -> |read_identifier_func| l r |parse_func_cont3 [args] [cont]|)
+(parse_func_cont3: args cont l r a b -> |add_func| l 1 |parse_func_cont4 [args] [r] [a] [b] [cont]|)
     parse_func_cont4:
     pop rax
     pop [flen]
@@ -770,7 +798,7 @@ jmp_end_string:
     mov rsi, rax
     call make_internal_imperative
     push rax
-    |1 map_argument|
+    |map_argument|
     mov rsi, rax
     mov rdi, [rsp]
     call map_tree_imperative
@@ -840,6 +868,29 @@ jmp_end_string:
 
     cmpb [rdi], "\("
     jne not_body_function
+    |body_function_cont [argument_buffer_begin] [argument_buffer_end] r8 [flen]|
+    push rax
+    mov rcx, [argument_buffer_end]
+    push [rcx+8]
+    push [rcx]
+    add rcx, 16
+    mov [argument_buffer_begin], rcx
+    mov [argument_buffer_end], rcx
+
+    call make_nil_imperative
+    push rax
+    jmp parse_function
+
+    body_function_cont:
+    pop [argument_buffer_begin]
+    pop [argument_buffer_end]
+    pop r8
+    pop [flen]
+    add rsp, 16
+    lea rdi, [push_rax_string]
+    lea rsi, [push_rax_string+8]
+    call print_range_line
+    jmp end_process_function_body
     not_body_function:
     mov rcx, [argument_buffer_end]
     mov rdi, [rcx]
@@ -897,9 +948,9 @@ jmp_end_string:
     push r8
     push rcx
     jmp runtime_call
-    
+
 parse_function_help:
-    |1 main_loop|
+    |main_loop|
     pop rdi
     pop rsi
     pop rdx
@@ -1009,13 +1060,13 @@ add [flen], r8
 push [flen]
 push r8
 jmp main_loop
-(main_loop: lo hi -> |1 compare| lo hi |1 exit| |4 parse_token [lo] [hi]|)
+(main_loop: lo hi -> |compare| lo hi |exit| |parse_token [lo] [hi]|)
 
-(parse_token: lo hi -> |1 deref_byte| |3 check_function [lo] [hi]| lo)
-(check_function: lo hi c -> |1 compare| c 40 |4 parse_function_help [empty_tree] [lo] [hi]| |4 check_closure [lo] [hi] [c]|)
-(check_closure: lo hi c -> |1 compare| c 124 |3 parse_closure_function [lo] [hi]| |4 check_comment [lo] [hi] [c]|)
-(check_comment: lo hi c -> |1 compare| c 59 |3 parse_comment_function [lo] [hi]| |4 check_escape [lo] [hi] [c]|)
-(check_escape: lo hi c -> |1 compare| c 92 |3 parse_escape_function [lo] [hi]| |3 main_body [lo] [hi]|)
+(parse_token: lo hi -> |deref_byte| |check_function [lo] [hi]| lo)
+(check_function: lo hi c -> |compare| c 40 |parse_function_help [empty_tree] [lo] [hi]| |check_closure [lo] [hi] [c]|)
+(check_closure: lo hi c -> |compare| c 124 |parse_closure_function [lo] [hi]| |check_comment [lo] [hi] [c]|)
+(check_comment: lo hi c -> |compare| c 59 |parse_comment_function [lo] [hi]| |check_escape [lo] [hi] [c]|)
+(check_escape: lo hi c -> |compare| c 92 |parse_escape_function [lo] [hi]| |main_body [lo] [hi]|)
     ; main loop
 main_body:
     pop r8

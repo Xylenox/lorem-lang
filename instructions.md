@@ -6,6 +6,7 @@
 | cmp      | y  | y  | y  | y  | y  |   |   |   |
 | mov      | y  | y  | y  | y  | y  |   |   |   |
 | movb     |    |    |    | y  | y  |   |   |   |
+| shr      | y  |    |    |    |    |   |   |   |
 | pop      |    |    |    |    |    | y | y |   |
 | push     |    |    |    |    |    | y | y | y |
 | jmp      |    |    |    |    |    | y | y | y |
