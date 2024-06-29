@@ -127,8 +127,7 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (make_pair: cont a b -> cont |make_pair_lambda [a] [b]|)
 (make_pair_lambda: a b cont -> cont a b)
 
-(make_nil: cont -> cont |make_nil_lambda|)
-(make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil)
+(make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
 
 (make_leaf: l r cont -> cont |make_leaf_lambda [l] [r]|)
 (make_leaf_lambda: l r cont_nil cont_leaf cont_internal -> cont_leaf l r)
@@ -690,6 +689,107 @@ print_closure:
 
     ret
 
+brackets_string:
+    dq "[]"
+eof_closure_map_arg:
+    lea rdi, [mov_string]
+    lea rsi, [mov_string+9]
+    call print_range
+    mov rdi, [rsp]
+    cmp rdi, [function_name]
+    je is_first_arg_in_closure
+    lea rdi, [brackets_string]
+    lea rsi, [brackets_string+1]
+    call print_range
+    mov rdi, [prev_function_name]
+    mov rsi, [prev_function_name+8]
+    call print_range
+    pop rdi
+    pop rsi
+    call print_range
+    lea rdi, [brackets_string+1]
+    lea rsi, [brackets_string+2]
+    call print_range_line
+    jmp isnt_first_arg
+    is_first_arg_in_closure:
+
+    pop rdi
+    pop rsi
+    call print_range_line
+    isnt_first_arg:
+    lea rdi, [suff_strings]
+    lea rsi, [suff_strings+14]
+    call print_range_line
+    lea rdi, [suff_strings+16]
+    lea rsi, [suff_strings+26]
+    call print_range_line
+
+    pop rax
+    push 0
+    push rax
+    jmp runtime_call
+
+print_closure_eof:
+    push rdi
+    lea rdi, [newline_string]
+    lea rsi, [newline_string+1]
+    call make_leaf_imperative
+    mov [newline_leaf], rax
+    
+    lea rdi, [newline_string]
+    lea rsi, [newline_string]
+    call make_leaf_imperative
+    mov [closure_tree], rax
+    
+    lea rdi, [newline_string]
+    lea rsi, [newline_string+1]
+    call make_pair_imperative
+    mov rdi, rax
+    mov rsi, 0
+    call make_pair_imperative
+    push rax
+    lea rdi, [closure_header]
+    lea rsi, [closure_header+12]
+    call make_pair_imperative
+    mov rdi, rax
+    pop rsi
+    call make_pair_imperative
+    mov rdi, rax
+    call print_ranges
+    lea rdi, [closure_header+16]
+    lea rsi, [closure_header+27]
+    call make_leaf_imperative
+    mov rdi, rax
+    call print_tree_imperative
+    call println
+    lea rdi, [closure_header+32]
+    lea rsi, [closure_header+48]
+    call print_range_line
+
+    |eof_closure_map_arg|
+    mov rsi, rax
+    pop rdi
+    call map_tree_imperative
+
+    
+    lea rdi, [closure_footer]
+    lea rsi, [closure_footer+12]
+    call print_range_line
+    
+    lea rdi, [closure_footer+16]
+    lea rsi, [closure_footer+26]
+    call print_range_line
+    
+    lea rdi, [closure_footer+32]
+    lea rsi, [closure_footer+42]
+    call print_range_line
+    
+    lea rdi, [closure_footer+48]
+    lea rsi, [closure_footer+62]
+    call print_range_line
+
+    ret
+
 closure_footer:
     dq "sub rdx,"
     dq " rax"
@@ -709,8 +809,23 @@ parse_closure:
     mov rdi, rax
     call print_closure
     ret
+parse_closure_outer:
+    mov [function_name], 0
+    mov [function_name+8], 0
+    mov [prev_function_name], 0
+    mov [prev_function_name+8], 0
+    call parse_closure
+    ret
 
 function_name:
+    dq 0
+    dq 0
+
+
+prev_prev_function_name:
+    dq 0
+    dq 0
+prev_function_name:
     dq 0
     dq 0
 label_end_string:
@@ -744,6 +859,13 @@ map_argument: ; (l r cont)
     mov [rsp], rax
     call make_leaf_imperative
     push rax
+    mov rdi, [prev_function_name]
+    mov rsi, [prev_function_name+8]
+    call make_leaf_imperative
+    mov rdi, rax
+    pop rsi
+    call make_internal_imperative
+    push rax
     lea rdi, [dq_string]
     lea rsi, [dq_string+6]
     call make_leaf_imperative
@@ -772,6 +894,9 @@ print_pop_args:
     lea rdi, [pop_start_string]
     lea rsi, [pop_start_string+5]
     call print_range
+    mov rdi, [prev_function_name]
+    mov rsi, [prev_function_name+8]
+    call print_range
     pop rsi
     pop rdi
     call print_range
@@ -798,6 +923,16 @@ new_arg_list:
     parse_func_cont4:
     pop [old_arg_list]
     pop [flen]
+    
+    mov rdi, [prev_function_name]
+    mov [prev_prev_function_name], rdi
+    mov rdi, [prev_function_name+8]
+    mov [prev_prev_function_name+8], rdi
+
+    mov rdi, [function_name]
+    mov [prev_function_name], rdi
+    mov rdi, [function_name+8]
+    mov [prev_function_name+8], rdi
     pop [function_name]
     pop [function_name+8]
     pop rcx
@@ -894,7 +1029,7 @@ new_arg_list:
     jne not_body_function
     mov rax, [rsp]
     mov [new_arg_list], rax
-    |body_function_cont [argument_buffer_begin] [argument_buffer_end] r8 [flen] [function_name] [function_name+8]|
+    |body_function_cont [argument_buffer_begin] [argument_buffer_end] r8 [flen] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8] [prev_prev_function_name] [prev_prev_function_name+8]|
     push rax
     mov rcx, [argument_buffer_end]
     push [rcx+8]
@@ -904,7 +1039,6 @@ new_arg_list:
     mov [argument_buffer_end], rcx
 
     push [new_arg_list]
-    ; call make_nil_imperative
     jmp parse_function
 
     body_function_cont:
@@ -914,6 +1048,10 @@ new_arg_list:
     pop [flen]
     pop [function_name]
     pop [function_name+8]
+    pop [prev_function_name]
+    pop [prev_function_name+8]
+    pop [prev_prev_function_name]
+    pop [prev_prev_function_name+8]
     add rsp, 16
     lea rdi, [push_rax_string]
     lea rsi, [push_rax_string+8]
@@ -941,6 +1079,9 @@ new_arg_list:
     body_identifier:
     lea rdi, [push_start_string]
     lea rsi, [push_start_string+6]
+    call print_range
+    mov rdi, [prev_function_name]
+    mov rsi, [prev_function_name+8]
     call print_range
     mov rcx, [argument_buffer_end]
     mov rdi, [rcx]
@@ -975,8 +1116,12 @@ new_arg_list:
     pop rsi ; old list
     call make_internal_imperative
     
+    mov rdi, [prev_prev_function_name]
+    mov [prev_function_name], rdi
+    mov rdi, [prev_prev_function_name+8]
+    mov [prev_function_name+8], rdi
     mov rdi, rax
-    call print_closure
+    call print_closure_eof
     
     pop rcx
     push [flen]
@@ -985,6 +1130,8 @@ new_arg_list:
     jmp runtime_call
 
 parse_function_help:
+    mov [function_name], 0
+    mov [function_name+8], 0
     |main_loop|
     pop rdi
     pop rsi
@@ -997,6 +1144,15 @@ parse_function_help:
 
 
 parse_closure_function: ; takes (lo hi)
+    pop r8
+    pop [flen]
+    call parse_closure
+    push [flen]
+    push r8
+    jmp main_loop
+
+
+parse_closure_outer_function: ; takes (lo hi)
     pop r8
     pop [flen]
     call parse_closure
@@ -1099,7 +1255,7 @@ jmp main_loop
 
 (parse_token: lo hi -> |deref_byte| |check_function [lo] [hi]| lo)
 (check_function: lo hi c -> |compare| c 40 |parse_function_help [empty_tree] [lo] [hi]| |check_closure [lo] [hi] [c]|)
-(check_closure: lo hi c -> |compare| c 124 |parse_closure_function [lo] [hi]| |check_comment [lo] [hi] [c]|)
+(check_closure: lo hi c -> |compare| c 124 |parse_closure_outer_function [lo] [hi]| |check_comment [lo] [hi] [c]|)
 (check_comment: lo hi c -> |compare| c 59 |parse_comment_function [lo] [hi]| |check_escape [lo] [hi] [c]|)
 (check_escape: lo hi c -> |compare| c 92 |parse_escape_function [lo] [hi]| |main_body [lo] [hi]|)
     ; main loop
