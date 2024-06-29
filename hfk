@@ -127,7 +127,8 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (make_pair: cont a b -> cont |make_pair_lambda [a] [b]|)
 (make_pair_lambda: a b cont -> cont a b)
 
-(make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
+(make_nil: cont -> cont |make_nil_lambda|)
+(make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil)
 
 (make_leaf: l r cont -> cont |make_leaf_lambda [l] [r]|)
 (make_leaf_lambda: l r cont_nil cont_leaf cont_internal -> cont_leaf l r)
@@ -902,9 +903,8 @@ new_arg_list:
     mov [argument_buffer_begin], rcx
     mov [argument_buffer_end], rcx
 
-    ; push [new_arg_list]
-    call make_nil_imperative
-    push rax
+    push [new_arg_list]
+    ; call make_nil_imperative
     jmp parse_function
 
     body_function_cont:
