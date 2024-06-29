@@ -6,6 +6,52 @@
 ;
 jmp start
 
+
+deref_byte: ; takes (cont ptr) and calls cont with *ptr
+    mov rax, [rsp+8]
+    sub rcx, rcx
+    movb rcx, [rax]
+    mov [rsp+8], rcx
+    jmp runtime_call
+
+
+load_func: ; (ptr cont) -> cont *ptr
+    pop rax
+    pop rdx
+    mov rax, [rax]
+    push rax
+    push rdx
+    jmp runtime_call
+
+store_func: ; (ptr x cont) -> *ptr = x; cont
+    pop rax
+    pop rdx
+    mov [rax], rdx
+    jmp runtime_call
+
+add_func:
+    pop rdi
+    pop rsi
+    pop rax
+    add rdi, rsi
+    push rdi
+    push rax
+    jmp runtime_call
+
+compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
+    pop rax
+    pop rcx
+    pop rdi
+    pop rsi
+    cmp rax, rcx
+    jne compare_fail
+    push rdi
+    jmp runtime_call
+
+    compare_fail:
+        push rsi
+        jmp runtime_call
+
 constant_strings:
 push_string:
 dq "push "
@@ -90,44 +136,14 @@ malloc:
     pop rcx
     ret
 
-deref_byte: ; takes (cont ptr) and calls cont with *ptr
-    mov rax, [rsp+8]
-    sub rcx, rcx
-    movb rcx, [rax]
-    mov [rsp+8], rcx
-    jmp runtime_call    
-
-compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
-    pop rax
-    pop rcx
-    pop rdi
-    pop rsi
-    cmp rax, rcx
-    jne compare_fail
-    push rdi
-    jmp runtime_call
-
-    compare_fail:
-        push rsi
-        jmp runtime_call
-
-add_func:
-    pop rdi
-    pop rsi
-    pop rax
-    add rdi, rsi
-    push rdi
-    push rax
-    jmp runtime_call
-
 (bool_true: cont_true cont_false -> cont_true)
 (bool_false: cont_true cont_false -> cont_false)
 
 (make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
 
-(make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
-(make_leaf: l r cont -> cont (make_leaf_lambda: cont_nil cont_leaf cont_internal -> cont_leaf l r))
-(make_internal: a b cont -> cont (make_internal_lambda: cont_nil cont_leaf cont_internal -> cont_internal a b))
+(make_nil: cont -> cont (cont_nil cont_leaf cont_internal -> cont_nil))
+(make_leaf: l r cont -> cont (cont_nil cont_leaf cont_internal -> cont_leaf l r))
+(make_internal: a b cont -> cont (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
 make_nil_imperative:
     |make_nil_imperative_done|
@@ -293,21 +309,15 @@ print_string_func:
 
 (print_tree: cont tree -> |traverse_tree| tree |print_range_func| cont)
 
-(traverse_tree: tree action cont -> tree cont (traverse_leaf: l r -> action l r cont) 
-(traverse_internal: a b -> |traverse_tree| a action (trav_int_b: -> |traverse_tree| b action cont)))
+(traverse_tree: tree action cont -> tree cont (l r -> action l r cont) 
+(traverse_internal: a b -> |traverse_tree| a action (-> |traverse_tree| b action cont)))
 
 ; calls cont with new_tree
-(map_tree: tree action cont -> tree (map_nil:-> |make_nil| cont) (map_leaf: l r -> action l r cont) 
-(map_internal: a b -> |map_tree| a action 
-(map_internal_b: new_a -> |map_tree| b action 
-(map_internal_merge: new_b -> |make_internal| new_a new_b cont)
-)))
+(map_tree: tree action cont -> tree (-> |make_nil| cont) (l r -> action l r cont) 
+(map_internal: a b -> |map_tree| a action (new_a -> |map_tree| b action (new_b -> |make_internal| new_a new_b cont))))
 
-(search_tree: tree l r cont -> tree (search_nil: -> cont |bool_false|)
-(search_leaf: a b -> |str_equal_func| l r a b cont)
-(search_internal: a b -> |search_tree| a l r 
-(search_internal_b: res -> res (res_true: -> cont |bool_true|) (res_false: -> |search_tree| b l r cont)))
-)
+(search_tree: tree l r cont -> tree (-> cont |bool_false|) (a b -> |str_equal_func| l r a b cont)
+(a b -> |search_tree| a l r (res -> res (-> cont |bool_true|) (-> |search_tree| b l r cont))))
 
 map_tree_imperative:
     sub rsp, 24
@@ -393,6 +403,11 @@ println:
     call prin
     add rsp, 8
     ret
+
+
+println_func:
+    call println
+    jmp runtime_call
 
 is_alpha:           ; is alpha
     cmp r7, "a"      ; a
@@ -961,28 +976,13 @@ pop_start_string:
     dq "pop ["
 pop_end_string:
     dq "]"
-(print_pop_arg: l r cont -> |print_string_func| pop_start_string 5 (ppa: -> |print_pop_args| l r cont))
-print_pop_args:
-    mov rdi, [rsp]
-    mov rsi, [rsp+8]
-    mov rax, [rsp+16]
-    add rsp, 8
-    mov [rsp], rax
-
-    push rdi
-    push rsi
-    mov rdi, [prev_function_name]
-    mov rsi, [prev_function_name+8]
-    call print_range
-    pop rsi
-    pop rdi
-    call print_range
-    lea rdi, [pop_end_string]
-    lea rsi, [pop_end_string+1]
-    call print_range_line
     
-    mov [rsp+8], rax
-    jmp runtime_call
+(print_pop_arg: l r cont -> |print_string_func| pop_start_string 5
+(-> |print_range_func| [prev_function_name] [prev_function_name+8]
+(-> |print_range_func| l r
+(-> |print_string_func| pop_end_string 1
+(-> |println_func|
+(-> cont 0))))))
 
 jmp_end_string:
     dq "jmp "
@@ -992,30 +992,25 @@ push_rax_string:
 old_arg_list: dq 0
 new_arg_list: dq 0
 temp_r8: dq 0
-(parse_function: args l r cont -> |add_func| l 1
+(parse_function: old_args p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont -> |add_func| l 1
 (l1 -> |read_whitespace_func| l1 r 
 (l r -> |read_identifier_func| l r
-(l r a b -> |add_func| l 1 (l -> |parse_func_cont4| args r a b cont l l1)
+(l r fname_l fname_r -> |add_func| l 1
+(l -> |parse_func_cont4| old_args fname_l fname_r p_fname_l p_fname_r pp_fname_l pp_fname_r l r l1 cont)
 ))))
     parse_func_cont4:
     pop [old_arg_list]
-    pop [flen]
-    
-    mov rdi, [prev_function_name]
-    mov [prev_prev_function_name], rdi
-    mov rdi, [prev_function_name+8]
-    mov [prev_prev_function_name+8], rdi
-
-    mov rdi, [function_name]
-    mov [prev_function_name], rdi
-    mov rdi, [function_name+8]
-    mov [prev_function_name+8], rdi
     pop [function_name]
     pop [function_name+8]
-    pop rcx
+    pop [prev_function_name]
+    pop [prev_function_name+8]
+    pop [prev_prev_function_name]
+    pop [prev_prev_function_name+8]
+
     pop r8
+    pop [flen]
     pop [temp_r8]
-    push rcx
+    
     cmpb [r8-1], ":"
     je has_label
     mov r8, [temp_r8]
@@ -1123,6 +1118,10 @@ temp_r8: dq 0
     mov [argument_buffer_begin], rcx
     mov [argument_buffer_end], rcx
 
+    push [prev_function_name+8]
+    push [prev_function_name]
+    push [function_name+8]
+    push [function_name]
     push [new_arg_list]
     jmp parse_function
 
@@ -1234,7 +1233,7 @@ temp_r8: dq 0
     push rcx
     jmp runtime_call
 
-parse_function_help:
+parse_function_help: ; args lo hi
     mov [function_name], 0
     mov [function_name+8], 0
     |main_loop|
@@ -1244,6 +1243,10 @@ parse_function_help:
     push rax
     push rdx
     push rsi
+    push 0
+    push 0
+    push 0
+    push 0
     push rdi
     jmp parse_function
 
