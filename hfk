@@ -632,7 +632,7 @@ print_closure:
     jmp closure_header_end
     closure_header:
     dq "mov rdi,"
-    dq " 80"
+    dq " 800"
     
     dq "call mal"
     dq "loc"
@@ -648,7 +648,7 @@ print_closure:
     call make_pair_imperative
     push rax
     lea rdi, [closure_header]
-    lea rsi, [closure_header+11]
+    lea rsi, [closure_header+12]
     call make_pair_imperative
     mov rdi, rax
     pop rsi
@@ -759,24 +759,50 @@ map_argument: ; (l r cont)
     mov [rsp+8], rax
     jmp runtime_call
 
+print_pop_args:
+    mov rdi, [rsp]
+    mov rsi, [rsp+8]
+    mov rax, [rsp+16]
+    add rsp, 8
+    mov [rsp], rax
+
+    push rdi
+    push rsi
+    lea rdi, [pop_start_string]
+    lea rsi, [pop_start_string+5]
+    call print_range
+    pop rsi
+    pop rdi
+    call print_range
+    lea rdi, [pop_end_string]
+    lea rsi, [pop_end_string+1]
+    call print_range_line
+    
+    mov [rsp+8], rax
+    jmp runtime_call
+
 jmp_end_string:
     dq "jmp "
     dq "_end:"
 push_rax_string:
     dq "push rax"
+old_arg_list:
+    dq 0
+new_arg_list:
+    dq 0
 (parse_function: args l r cont -> |add_func| l 1 |parse_func_cont1 [args] [r] [cont]|)
 (parse_func_cont1: args r cont l  -> |read_whitespace_func| l r |parse_func_cont2 [args] [cont]|)
 (parse_func_cont2: args cont l r -> |read_identifier_func| l r |parse_func_cont3 [args] [cont]|)
 (parse_func_cont3: args cont l r a b -> |add_func| l 1 |parse_func_cont4 [args] [r] [a] [b] [cont]|)
     parse_func_cont4:
-    pop rax
+    pop [old_arg_list]
     pop [flen]
     pop [function_name]
     pop [function_name+8]
     pop rcx
     pop r8
     push rcx
-    push rax
+    push [old_arg_list]
     
     lea rdi, [jmp_end_string]
     lea rsi, [jmp_end_string+4]
@@ -796,7 +822,7 @@ push_rax_string:
     mov rdi, [rsp+8]
     mov rsi, rax
     call make_internal_imperative
-    push rax
+    push rax    ; args + new_args
     |map_argument|
     mov rsi, rax
     mov rdi, [rsp]
@@ -807,6 +833,13 @@ push_rax_string:
     mov rdi, [function_name]
     mov rsi, [function_name+8]
     call print_label
+
+    
+    |print_pop_args|
+    mov rsi, rax
+    mov rdi, [rsp]
+    call map_tree_imperative
+
     call read_whitespace
 
     pop rax
@@ -817,16 +850,7 @@ push_rax_string:
     call read_whitespace
     cmpb [r8], "-"
     je function_arg_loop_done_2
-    lea rdi, [pop_start_string]
-    lea rsi, [pop_start_string+5]
-    call print_range
     call read_identifier
-    mov rdi, rax
-    mov rsi, rdx
-    call print_range
-    lea rdi, [pop_end_string]
-    lea rsi, [pop_end_string+1]
-    call print_range_line
     jmp function_arg_loop_2
     function_arg_loop_done_2:
     add r8, 2
@@ -867,6 +891,8 @@ push_rax_string:
 
     cmpb [rdi], "\("
     jne not_body_function
+    mov rax, [rsp]
+    mov [new_arg_list], rax
     |body_function_cont [argument_buffer_begin] [argument_buffer_end] r8 [flen] [function_name] [function_name+8]|
     push rax
     mov rcx, [argument_buffer_end]
@@ -876,6 +902,7 @@ push_rax_string:
     mov [argument_buffer_begin], rcx
     mov [argument_buffer_end], rcx
 
+    ; push [new_arg_list]
     call make_nil_imperative
     push rax
     jmp parse_function
@@ -945,7 +972,7 @@ push_rax_string:
     mov rdi, rax
 
     pop rax ; combined list
-    pop rsi
+    pop rsi ; old list
     call make_internal_imperative
     
     mov rdi, rax
