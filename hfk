@@ -124,6 +124,9 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
         push rsi
         jmp runtime_call
 
+(bool_true: cont_true cont_false -> cont_true)
+(bool_false: cont_true cont_false -> cont_false)
+
 (make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
 
 (make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
@@ -195,6 +198,66 @@ pop rcx
 pop rax
 ret
 
+
+scmp:
+    cmp rdi, rsi
+    je end_of_string
+    cmp rdx, rcx
+    je end_of_string
+
+    sub rax, rax
+    movb al, [rdi]
+    push rbx
+    sub rbx, rbx
+    movb bl, [rdx]
+    sub rax, rbx
+    pop rbx
+    add rdi, 1
+    add rdx, 1
+    cmp rax, 0
+    je scmp
+    jl less
+    mov rax, 1
+    ret
+    less:
+    mov rax, -1
+    ret
+
+end_of_string:
+    mov rax, 0
+    cmp rdi, rsi
+    jne not_first_shorter
+    add rax, -1
+    not_first_shorter:
+    cmp rdx, rcx
+    jne not_second_shorter
+    add rax, 1
+    not_second_shorter:
+    ret
+
+str_equal_func: ; (a b l r cont)
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    call scmp
+    cmp rax, 0
+    je str_equal_equal
+    
+    |bool_false|
+    pop rcx
+    push rax
+    push rcx
+    jmp runtime_call
+
+    str_equal_equal:
+    |bool_true|
+    pop rcx
+    push rax
+    push rcx
+    jmp runtime_call
+    
+
 print_range: ; FOLLOWS SYSTEM V ABI
     ; prints [rdi, rsi) to outf
     mov rdx, rsi        ; length of print
@@ -212,17 +275,33 @@ print_range_func:
     call print_range
     jmp runtime_call
 
+
+print_string_func:
+    ; takes l len cont and prints l r then calls cont
+    pop rdi
+    pop rsi
+    add rsi, rdi
+    call print_range
+    jmp runtime_call
+
+
 (print_tree: cont tree -> |traverse_tree| tree |print_range_func| cont)
 
 (traverse_tree: tree action cont -> tree cont (traverse_leaf: l r -> action l r cont) 
 (traverse_internal: a b -> |traverse_tree| a action (trav_int_b: -> |traverse_tree| b action cont)))
 
 ; calls cont with new_tree
-(map_tree: tree action cont -> tree (map_nil: -> |make_nil| cont) (map_leaf: l r -> action l r cont) 
+(map_tree: tree action cont -> tree (map_nil:-> |make_nil| cont) (map_leaf: l r -> action l r cont) 
 (map_internal: a b -> |map_tree| a action 
 (map_internal_b: new_a -> |map_tree| b action 
 (map_internal_merge: new_b -> |make_internal| new_a new_b cont)
 )))
+
+(search_tree: tree l r cont -> tree (search_nil: -> cont |bool_false|)
+(search_leaf: a b -> |str_equal_func| l r a b cont)
+(search_internal: a b -> |search_tree| a l r 
+(search_internal_b: res -> res (res_true: -> cont |bool_true|) (res_false: -> |search_tree| b l r cont)))
+)
 
 map_tree_imperative:
     sub rsp, 24
@@ -1061,7 +1140,7 @@ new_arg_list:
     call is_alpha
     cmp rax, 1
     je body_identifier
-    
+
     body_constant:
     lea rdi, [push_start_string]
     lea rsi, [push_start_string+5]
@@ -1073,6 +1152,26 @@ new_arg_list:
     jmp end_process_function_body
     
     body_identifier:
+    mov rax, [rsp]
+    mov [new_arg_list], rax
+    |body_identifier_check|
+    push rax
+    mov rcx, [argument_buffer_end]
+    push [rcx+8]
+    push [rcx]
+    push [new_arg_list]
+    jmp search_tree
+    body_identifier_check:
+    |body_constant|
+    pop rcx
+    push rax
+    push rcx
+    |body_identifier_real|
+    pop rcx
+    push rax
+    push rcx
+    jmp runtime_call
+    body_identifier_real:
     lea rdi, [push_start_string]
     lea rsi, [push_start_string+6]
     call print_range
