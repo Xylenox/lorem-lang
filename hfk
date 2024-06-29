@@ -127,8 +127,7 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (make_pair: cont a b -> cont |make_pair_lambda [a] [b]|)
 (make_pair_lambda: a b cont -> cont a b)
 
-(make_nil: cont -> cont |make_nil_lambda|)
-(make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil)
+(make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
 
 (make_leaf: l r cont -> cont |make_leaf_lambda [l] [r]|)
 (make_leaf_lambda: l r cont_nil cont_leaf cont_internal -> cont_leaf l r)
@@ -868,7 +867,7 @@ push_rax_string:
 
     cmpb [rdi], "\("
     jne not_body_function
-    |body_function_cont [argument_buffer_begin] [argument_buffer_end] r8 [flen]|
+    |body_function_cont [argument_buffer_begin] [argument_buffer_end] r8 [flen] [function_name] [function_name+8]|
     push rax
     mov rcx, [argument_buffer_end]
     push [rcx+8]
@@ -886,6 +885,8 @@ push_rax_string:
     pop [argument_buffer_end]
     pop r8
     pop [flen]
+    pop [function_name]
+    pop [function_name+8]
     add rsp, 16
     lea rdi, [push_rax_string]
     lea rsi, [push_rax_string+8]
@@ -938,8 +939,15 @@ push_rax_string:
     lea rsi, [jmp_end_string+13]
     call print_range_line
 
+    mov rdi, [function_name]
+    mov rsi, [function_name+8]
+    call make_leaf_imperative
+    mov rdi, rax
+
     pop rax ; combined list
-    pop rax
+    pop rsi
+    call make_internal_imperative
+    
     mov rdi, rax
     call print_closure
     
