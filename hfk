@@ -124,8 +124,7 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
         push rsi
         jmp runtime_call
 
-(make_pair: cont a b -> cont |make_pair_lambda [a] [b]|)
-(make_pair_lambda: a b cont -> cont a b)
+(make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
 
 (make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
 (make_leaf: l r cont -> cont (make_leaf_lambda: cont_nil cont_leaf cont_internal -> cont_leaf l r))
@@ -206,24 +205,24 @@ print_range: ; FOLLOWS SYSTEM V ABI
     syscall
     ret
 
-print_range_function:
+print_range_func:
     ; takes l r cont and prints l r then calls cont
     pop rdi
     pop rsi
     call print_range
     jmp runtime_call
 
-(print_tree: cont tree -> |traverse_tree| tree |print_range_function| cont)
+(print_tree: cont tree -> |traverse_tree| tree |print_range_func| cont)
 
-(traverse_tree: tree action cont -> tree cont |traverse_leaf [action] [cont]| |traverse_internal [action] [cont]|)
-(traverse_leaf: action cont l r -> action l r cont)
-(traverse_internal: action cont a b -> |traverse_tree| a action |traverse_tree [b] [action] [cont]|)
+(traverse_tree: tree action cont -> tree cont (traverse_leaf: l r -> action l r cont) 
+(traverse_internal: a b -> |traverse_tree| a action (trav_int_b: -> |traverse_tree| b action cont)))
 
 ; calls cont with new_tree
-(map_tree: tree action cont -> tree (map_nil: -> |make_nil| cont) (map_leaf: l r -> action l r cont) |map_internal [action] [cont]|)
-(map_internal: action cont a b -> |map_tree| a action |map_internal_b [action] [cont] [b]|)
-(map_internal_b: action cont b new_a -> |map_tree| b action |map_internal_merge [action] [cont] [new_a]|)
-(map_internal_merge: action cont new_a new_b -> |make_internal| new_a new_b cont)
+(map_tree: tree action cont -> tree (map_nil: -> |make_nil| cont) (map_leaf: l r -> action l r cont) 
+(map_internal: a b -> |map_tree| a action 
+(map_internal_b: new_a -> |map_tree| b action 
+(map_internal_merge: new_b -> |make_internal| new_a new_b cont)
+)))
 
 map_tree_imperative:
     sub rsp, 24
@@ -531,7 +530,7 @@ read_operand:
 
 read_id_or_closure:
     cmpb [r8], "\|"
-    jne read_identifier
+    jne read_operand
     push r8
     add r8, 1
     id_or_closure_loop:
@@ -826,10 +825,6 @@ label_end_string:
     dq ":"
 dq_string:
     dq ": dq 0"
-pop_start_string:
-    dq "pop ["
-pop_end_string:
-    dq "]"
 push_start_string:
     dq "push ["
 push_end_string:
@@ -876,6 +871,12 @@ map_argument: ; (l r cont)
     mov [rsp+8], rax
     jmp runtime_call
 
+
+pop_start_string:
+    dq "pop ["
+pop_end_string:
+    dq "]"
+; (print_pop_arg: l r cont -> print_range_func [pop_start_string] [pop_start_string+5] (ppa: -> print_pop_args l r cont))
 print_pop_args:
     mov rdi, [rsp]
     mov rsi, [rsp+8]
@@ -910,11 +911,11 @@ old_arg_list:
     dq 0
 new_arg_list:
     dq 0
-(parse_function: args l r cont -> |add_func| l 1 |parse_func_cont1 [args] [r] [cont]|)
-(parse_func_cont1: args r cont l  -> |read_whitespace_func| l r 
-(parse_func_cont2: l r -> |read_identifier_func| l r |parse_func_cont3 [args] [cont]|
-))
-(parse_func_cont3: args cont l r a b -> |add_func| l 1 |parse_func_cont4 [args] [r] [a] [b] [cont]|)
+(parse_function: args l r cont -> |add_func| l 1
+(parse_func_cont1: l -> |read_whitespace_func| l r 
+(parse_func_cont2: l r -> |read_identifier_func| l r
+(parse_func_cont3: l r a b -> |add_func| l 1 (pfc3_l: l -> |parse_func_cont4| args r a b cont l)
+))))
     parse_func_cont4:
     pop [old_arg_list]
     pop [flen]
