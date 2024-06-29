@@ -128,12 +128,8 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (make_pair_lambda: a b cont -> cont a b)
 
 (make_nil: cont -> cont (make_nil_lambda: cont_nil cont_leaf cont_internal -> cont_nil))
-
-(make_leaf: l r cont -> cont |make_leaf_lambda [l] [r]|)
-(make_leaf_lambda: l r cont_nil cont_leaf cont_internal -> cont_leaf l r)
-
-(make_internal: a b cont -> cont |make_internal_lambda [a] [b]|)
-(make_internal_lambda: a b cont_nil cont_leaf cont_internal -> cont_internal a b)
+(make_leaf: l r cont -> cont (make_leaf_lambda: cont_nil cont_leaf cont_internal -> cont_leaf l r))
+(make_internal: a b cont -> cont (make_internal_lambda: cont_nil cont_leaf cont_internal -> cont_internal a b))
 
 add_func:
     pop rdi
@@ -224,9 +220,7 @@ print_range_function:
 (traverse_internal: action cont a b -> |traverse_tree| a action |traverse_tree [b] [action] [cont]|)
 
 ; calls cont with new_tree
-(map_tree: tree action cont -> tree |map_nil [cont]| |map_leaf [action] [cont]| |map_internal [action] [cont]|)
-(map_nil: cont -> |make_nil| cont)
-(map_leaf: action cont l r -> action l r cont)
+(map_tree: tree action cont -> tree (map_nil: -> |make_nil| cont) (map_leaf: l r -> action l r cont) |map_internal [action] [cont]|)
 (map_internal: action cont a b -> |map_tree| a action |map_internal_b [action] [cont] [b]|)
 (map_internal_b: action cont b new_a -> |map_tree| b action |map_internal_merge [action] [cont] [new_a]|)
 (map_internal_merge: action cont new_a new_b -> |make_internal| new_a new_b cont)
@@ -917,8 +911,9 @@ old_arg_list:
 new_arg_list:
     dq 0
 (parse_function: args l r cont -> |add_func| l 1 |parse_func_cont1 [args] [r] [cont]|)
-(parse_func_cont1: args r cont l  -> |read_whitespace_func| l r |parse_func_cont2 [args] [cont]|)
-(parse_func_cont2: args cont l r -> |read_identifier_func| l r |parse_func_cont3 [args] [cont]|)
+(parse_func_cont1: args r cont l  -> |read_whitespace_func| l r 
+(parse_func_cont2: l r -> |read_identifier_func| l r |parse_func_cont3 [args] [cont]|
+))
 (parse_func_cont3: args cont l r a b -> |add_func| l 1 |parse_func_cont4 [args] [r] [a] [b] [cont]|)
     parse_func_cont4:
     pop [old_arg_list]
@@ -1251,9 +1246,8 @@ add [flen], r8
 push [flen]
 push r8
 jmp main_loop
-(main_loop: lo hi -> |compare| lo hi |exit| |parse_token [lo] [hi]|)
+(main_loop: lo hi -> |compare| lo hi |exit| (parse_token:-> |deref_byte| |check_function [lo] [hi]| lo))
 
-(parse_token: lo hi -> |deref_byte| |check_function [lo] [hi]| lo)
 (check_function: lo hi c -> |compare| c 40 |parse_function_help [empty_tree] [lo] [hi]| |check_closure [lo] [hi] [c]|)
 (check_closure: lo hi c -> |compare| c 124 |parse_closure_outer_function [lo] [hi]| |check_comment [lo] [hi] [c]|)
 (check_comment: lo hi c -> |compare| c 59 |parse_comment_function [lo] [hi]| |check_escape [lo] [hi] [c]|)
