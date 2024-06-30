@@ -7,11 +7,13 @@
 jmp start
 
 
-deref_byte: ; takes (cont ptr) and calls cont with *ptr
-    mov rax, [rsp+8]
+deref_byte: ; takes (ptr cont) and calls cont with *ptr
+    pop rax
     sub rcx, rcx
     movb rcx, [rax]
-    mov [rsp+8], rcx
+    pop rax
+    push rcx
+    push rax
     jmp runtime_call
 
 
@@ -257,6 +259,14 @@ gen_label:
     jne gen_label_loop
     ret
 
+gen_label_func: ; (cont) -> (cont l r)
+    call gen_label
+    pop rcx
+    push rdx
+    push rax
+    push rcx
+    jmp runtime_call
+
 str_equal_func: ; (a b l r cont)
     pop rdi
     pop rsi
@@ -279,6 +289,8 @@ str_equal_func: ; (a b l r cont)
     push rcx
     jmp runtime_call
     
+id_func:
+    jmp runtime_call
 
 print_range: ; FOLLOWS SYSTEM V ABI
     ; prints [rdi, rsi) to outf
@@ -295,6 +307,14 @@ print_range_func:
     pop rdi
     pop rsi
     call print_range
+    jmp runtime_call
+
+
+print_range_line_func:
+    ; takes l r cont and prints l r then calls cont
+    pop rdi
+    pop rsi
+    call print_range_line
     jmp runtime_call
 
 
@@ -993,11 +1013,14 @@ old_arg_list: dq 0
 new_arg_list: dq 0
 temp_r8: dq 0
 (parse_function: old_args p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont -> |add_func| l 1
-(l1 -> |read_whitespace_func| l1 r 
+(l_inner -> |read_whitespace_func| l_inner r 
 (l r -> |read_identifier_func| l r
-(l r fname_l fname_r -> |add_func| l 1
-(l -> |parse_func_cont4| old_args fname_l fname_r p_fname_l p_fname_r pp_fname_l pp_fname_r l r l1 cont)
-))))
+(l r fname_l fname_r -> (pf_cont -> |deref_byte| l (l_char -> |compare| l_char 58
+        (pf_has_label: -> |add_func| l 1 (l -> pf_cont fname_l fname_r l))
+        (pf_no_label: -> |gen_label_func| (fl fr -> pf_cont fl fr l_inner))))
+(fname_l fname_r l -> |id_func|
+(-> |parse_func_cont4| old_args fname_l fname_r p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont)))
+)))
     parse_func_cont4:
     pop [old_arg_list]
     pop [function_name]
@@ -1009,15 +1032,6 @@ temp_r8: dq 0
 
     pop r8
     pop [flen]
-    pop [temp_r8]
-    
-    cmpb [r8-1], ":"
-    je has_label
-    mov r8, [temp_r8]
-    call gen_label
-    mov [function_name], rax
-    mov [function_name+8], rdx
-    has_label:
     push [old_arg_list]
     
     lea rdi, [jmp_end_string]
@@ -1025,7 +1039,7 @@ temp_r8: dq 0
     call print_range
     mov rdi, [function_name]
     mov rsi, [function_name+8]
-    call print_range    
+    call print_range
     lea rdi, [jmp_end_string+8]
     lea rsi, [jmp_end_string+12]
     call print_range_line
@@ -1359,7 +1373,7 @@ add [flen], r8
 push [flen]
 push r8
 jmp main_loop
-(main_loop: lo hi -> |compare| lo hi |exit| (parse_token:-> |deref_byte| |check_function [lo] [hi]| lo))
+(main_loop: lo hi -> |compare| lo hi |exit| (parse_token:-> |deref_byte| lo |check_function [lo] [hi]|))
 
 (check_function: lo hi c -> |compare| c 40 |parse_function_help [empty_tree] [lo] [hi]| |check_closure [lo] [hi] [c]|)
 (check_closure: lo hi c -> |compare| c 124 |parse_closure_outer_function [lo] [hi]| |check_comment [lo] [hi] [c]|)
