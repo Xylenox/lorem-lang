@@ -1098,13 +1098,13 @@ temp_r8: dq 0
 (-> |print_substring_line_func| jmp_end_string 8 12
 (-> |read_identifier_list| l r 
 (new_args l r -> |make_internal| old_args new_args
-(comb_args -> |map_tree| comb_args (l r cont -> |map_argument| p_fname_l p_fname_r l r cont)
+(comb_args -> |map_tree| comb_args (l r cont -> |map_argument| fname_l fname_r l r cont)
 (extra_tree -> |print_label| fname_l fname_r
-(-> |map_tree| comb_args (l r cont -> |print_pop_arg| p_fname_l p_fname_r l r cont)
+(-> |map_tree| comb_args (l r cont -> |print_pop_arg| fname_l fname_r l r cont)
 (extra_tree -> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |id_func|
-(-> |parse_func_cont4| old_args new_args comb_args fname_l fname_r p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont))))))
+(-> |parse_func_cont4| old_args new_args comb_args fname_l fname_r fname_l fname_r p_fname_l p_fname_r l r cont))))))
 ))))))))
     parse_func_cont4:
         pop [old_arg_list]
