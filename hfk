@@ -326,6 +326,33 @@ print_string_func:
     call print_range
     jmp runtime_call
 
+print_substring_func:
+    ; takes l a b cont and prints (l+a, l+b) then calls cont
+    pop rax
+    pop rdi
+    pop rsi
+    add rdi, rax
+    add rsi, rax
+    call print_range
+    jmp runtime_call
+
+print_substring_line_func:
+    ; takes l a b cont and prints (l+a, l+b) then calls cont
+    pop rax
+    pop rdi
+    pop rsi
+    add rdi, rax
+    add rsi, rax
+    call print_range_line
+    jmp runtime_call
+
+print_string_line_func:
+    ; takes l len cont and prints l r then calls cont
+    pop rdi
+    pop rsi
+    add rsi, rdi
+    call print_range_line
+    jmp runtime_call
 
 (print_tree: cont tree -> |traverse_tree| tree |print_range_func| cont)
 
@@ -335,6 +362,10 @@ print_string_func:
 ; calls cont with new_tree
 (map_tree: tree action cont -> tree (-> |make_nil| cont) (l r -> action l r cont) 
 (map_internal: a b -> |map_tree| a action (new_a -> |map_tree| b action (new_b -> |make_internal| new_a new_b cont))))
+
+(reverse_tree: tree cont -> tree (-> |make_nil| cont) ( l r -> |make_leaf| l r cont)
+(a b -> |reverse_tree| a (new_a -> |reverse_tree| b (new_b -> |make_internal| new_b new_a cont)))
+)
 
 (search_tree: tree l r cont -> tree (-> cont |bool_false|) (a b -> |str_equal_func| l r a b cont)
 (a b -> |search_tree| a l r (res -> res (-> cont |bool_true|) (-> |search_tree| b l r cont))))
@@ -557,6 +588,39 @@ read_identifier_list:
     jmp id_list_loop
 
     id_list_done:
+    pop rax
+    pop rdi
+    push [flen]
+    push r8
+    push rax
+    push rdi
+    jmp runtime_call
+
+
+read_func_operand_list:
+    pop r8
+    pop [flen]
+    call make_nil_imperative
+    push rax
+
+    func_op_list_loop:
+    call read_whitespace
+    call read_id_or_closure_or_function
+    cmp rax, rdx
+    je func_op_list_done
+
+    mov rdi, rax
+    mov rsi, rdx
+    call make_leaf_imperative
+    
+    pop rdi
+    mov rsi, rax
+    call make_internal_imperative
+    push rax
+
+    jmp func_op_list_loop
+
+    func_op_list_done:
     pop rax
     pop rdi
     push [flen]
@@ -955,12 +1019,16 @@ runtime_call_string:
 push_rax_string:
     dq "push rax"
 print_label:
+    pop rdi
+    pop rsi
     call print_range
     lea rdi, [label_end_string]
     lea rsi, [label_end_string+1]
     call print_range_line
-    ret
-map_argument: ; (l r cont)
+    jmp runtime_call
+map_argument: ; (pfname_l pfname_r l r cont)
+    pop [prev_function_name]
+    pop [prev_function_name+8]
     mov rdi, [rsp]
     mov rsi, [rsp+8]
     mov rax, [rsp+16]
@@ -989,6 +1057,8 @@ map_argument: ; (l r cont)
     mov rsi, rax
     call make_internal_imperative
     mov [rsp+8], rax
+    mov rdi, rax
+    call print_tree_imperative
     jmp runtime_call
 
 
@@ -997,8 +1067,8 @@ pop_start_string:
 pop_end_string:
     dq "]"
     
-(print_pop_arg: l r cont -> |print_string_func| pop_start_string 5
-(-> |print_range_func| [prev_function_name] [prev_function_name+8]
+(print_pop_arg: p_fname_l p_fname_r l r cont -> |print_string_func| pop_start_string 5
+(-> |print_range_func| p_fname_l p_fname_r
 (-> |print_range_func| l r
 (-> |print_string_func| pop_end_string 1
 (-> |println_func|
@@ -1011,79 +1081,48 @@ push_rax_string:
     dq "push rax"
 old_arg_list: dq 0
 new_arg_list: dq 0
+comb_arg_list: dq 0
 temp_r8: dq 0
-(parse_function: old_args p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont -> |add_func| l 1
-(l_inner -> |read_whitespace_func| l_inner r 
+
+(parse_label: pl pr cont -> |read_whitespace_func| pl pr 
 (l r -> |read_identifier_func| l r
-(l r fname_l fname_r -> (pf_cont -> |deref_byte| l (l_char -> |compare| l_char 58
-        (pf_has_label: -> |add_func| l 1 (l -> pf_cont fname_l fname_r l))
-        (pf_no_label: -> |gen_label_func| (fl fr -> pf_cont fl fr l_inner))))
-(fname_l fname_r l -> |id_func|
-(-> |parse_func_cont4| old_args fname_l fname_r p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont)))
-)))
+(l r fl fr -> |read_whitespace_func| l r 
+(l r -> |deref_byte| l (l_char -> |compare| l_char 58
+    (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr))
+    (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr)))))))
+
+(parse_function: old_args p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont -> |add_func| l 1
+(l_inner -> |parse_label| l_inner r 
+(l r fname_l fname_r -> |print_string_func| jmp_end_string 4
+(-> |print_range_func| fname_l fname_r
+(-> |print_substring_line_func| jmp_end_string 8 12
+(-> |read_identifier_list| l r 
+(new_args l r -> |make_internal| old_args new_args
+(comb_args -> |map_tree| comb_args (l r cont -> |map_argument| p_fname_l p_fname_r l r cont)
+(extra_tree -> |print_label| fname_l fname_r
+(-> |map_tree| comb_args (l r cont -> |print_pop_arg| p_fname_l p_fname_r l r cont)
+(extra_tree -> |read_whitespace_func| l r
+(l r -> |add_func| l 2
+(l -> |id_func|
+(-> |parse_func_cont4| old_args new_args comb_args fname_l fname_r p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont))))))
+))))))))
     parse_func_cont4:
-    pop [old_arg_list]
-    pop [function_name]
-    pop [function_name+8]
-    pop [prev_function_name]
-    pop [prev_function_name+8]
-    pop [prev_prev_function_name]
-    pop [prev_prev_function_name+8]
+        pop [old_arg_list]
+        pop [new_arg_list]
+        pop [comb_arg_list]
+        pop [function_name]
+        pop [function_name+8]
+        pop [prev_function_name]
+        pop [prev_function_name+8]
+        pop [prev_prev_function_name]
+        pop [prev_prev_function_name+8]
+        pop r8
+        pop [flen]
+    ; end_pop
 
-    pop r8
-    pop [flen]
     push [old_arg_list]
-    
-    lea rdi, [jmp_end_string]
-    lea rsi, [jmp_end_string+4]
-    call print_range
-    mov rdi, [function_name]
-    mov rsi, [function_name+8]
-    call print_range
-    lea rdi, [jmp_end_string+8]
-    lea rsi, [jmp_end_string+12]
-    call print_range_line
+    push [comb_arg_list]
 
-    push r8
-
-    mov rdi, r8
-    mov rsi, [flen]
-    call read_identifier_list_imperative
-    mov rdi, [rsp+8]
-    mov rsi, rax
-    call make_internal_imperative
-    push rax    ; args + new_args
-    |map_argument|
-    mov rsi, rax
-    mov rdi, [rsp]
-    call map_tree_imperative
-    mov rdi, rax
-    call print_tree_imperative
-
-    mov rdi, [function_name]
-    mov rsi, [function_name+8]
-    call print_label
-
-    
-    |print_pop_arg|
-    mov rsi, rax
-    mov rdi, [rsp]
-    call map_tree_imperative
-
-    call read_whitespace
-
-    pop rax
-    pop r8
-    push rax
-    
-    function_arg_loop_2:
-    call read_whitespace
-    cmpb [r8], "-"
-    je function_arg_loop_done_2
-    call read_identifier
-    jmp function_arg_loop_2
-    function_arg_loop_done_2:
-    add r8, 2
 
     mov rax, [argument_buffer_begin]
     mov [argument_buffer_end], rax
@@ -1373,12 +1412,13 @@ add [flen], r8
 push [flen]
 push r8
 jmp main_loop
-(main_loop: lo hi -> |compare| lo hi |exit| (parse_token:-> |deref_byte| lo |check_function [lo] [hi]|))
-
-(check_function: lo hi c -> |compare| c 40 |parse_function_help [empty_tree] [lo] [hi]| |check_closure [lo] [hi] [c]|)
-(check_closure: lo hi c -> |compare| c 124 |parse_closure_outer_function [lo] [hi]| |check_comment [lo] [hi] [c]|)
-(check_comment: lo hi c -> |compare| c 59 |parse_comment_function [lo] [hi]| |check_escape [lo] [hi] [c]|)
-(check_escape: lo hi c -> |compare| c 92 |parse_escape_function [lo] [hi]| |main_body [lo] [hi]|)
+(main_loop: lo hi -> |compare| lo hi |exit|
+(parse_token:-> |deref_byte| lo
+(check_function: c -> |compare| c 40 (-> |make_nil| (empty -> |parse_function_help| empty lo hi))
+(check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
+(check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
+(check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
+(-> |main_body| lo hi)))))))
     ; main loop
 main_body:
     pop r8
