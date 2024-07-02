@@ -370,6 +370,16 @@ print_string_line_func:
 (search_tree: tree l r cont -> tree (-> cont |bool_false|) (a b -> |str_equal_func| l r a b cont)
 (a b -> |search_tree| a l r (res -> res (-> cont |bool_true|) (-> |search_tree| b l r cont))))
 
+reverse_tree_imperative:
+    sub rsp, 16
+    mov [rsp], rdi
+    |reverse_tree_lambda|
+    mov [rsp+8], rax
+    jmp reverse_tree
+    reverse_tree_lambda:
+        pop rax
+        ret
+
 map_tree_imperative:
     sub rsp, 24
     mov [rsp], rdi
@@ -640,6 +650,22 @@ read_identifier_list_imperative:
     push rdi
     jmp read_identifier_list
     read_identifier_list_imperative_lambda:
+        pop rax
+        pop r8
+        pop [flen]
+        ret
+
+read_func_operand_list_imperative:
+    push rsi
+    push rdi
+    |read_func_operand_list_imperative_lambda|
+    pop rdi
+    pop rsi
+    push rax
+    push rsi
+    push rdi
+    jmp read_func_operand_list
+    read_func_operand_list_imperative_lambda:
         pop rax
         pop r8
         pop [flen]
@@ -1083,6 +1109,7 @@ old_arg_list: dq 0
 new_arg_list: dq 0
 comb_arg_list: dq 0
 temp_r8: dq 0
+operand_list: dq 0
 
 (parse_label: pl pr cont -> |read_whitespace_func| pl pr 
 (l r -> |read_identifier_func| l r
@@ -1123,26 +1150,44 @@ temp_r8: dq 0
     push [old_arg_list]
     push [comb_arg_list]
 
+    push r8
+    mov rdi, r8
+    mov rsi, [flen]
+    call read_func_operand_list_imperative
+    mov rdi, rax
+    call reverse_tree_imperative
+    mov [operand_list], rax
+    pop r8
+
 
     mov rax, [argument_buffer_begin]
     mov [argument_buffer_end], rax
-    function_body_loop:
-    call read_whitespace
-    cmpb [r8], "\)"
-    je function_body_loop_end
 
-    call read_id_or_closure_or_function
-    mov rcx, [argument_buffer_end]
-    mov [rcx], rax
-    mov [rcx+8], rdx
-    add [argument_buffer_end], 16
     jmp function_body_loop
+    arg_l: dq 0
+    arg_r: dq 0
+    function_body_loop:
+        call read_whitespace
+        cmpb [r8], "\)"
+        je function_body_loop_end
+
+        call read_id_or_closure_or_function
+        mov rcx, [argument_buffer_end]
+        mov [rcx], rax
+        mov [rcx+8], rdx
+        add [argument_buffer_end], 16
+        jmp function_body_loop
     function_body_loop_end:
     add r8, 1
     function_body_reverse_loop:
     sub [argument_buffer_end], 16
     mov rcx, [argument_buffer_end]
-    mov rdi, [rcx]
+    mov rax, [rcx]
+    mov rdx, [rcx+8]
+    mov [arg_l], rax
+    mov [arg_r], rdx
+    
+    mov rdi, [arg_l]
     cmpb [rdi], "\|"
     jne not_body_closure
 
@@ -1162,11 +1207,11 @@ temp_r8: dq 0
     jne not_body_function
     mov rax, [rsp]
     mov [new_arg_list], rax
-    |body_function_cont [argument_buffer_begin] [argument_buffer_end] r8 [flen] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8] [prev_prev_function_name] [prev_prev_function_name+8]|
+    |body_function_cont [argument_buffer_begin] [argument_buffer_end] [operand_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8] [prev_prev_function_name] [prev_prev_function_name+8]|
     push rax
     mov rcx, [argument_buffer_end]
-    push [rcx+8]
-    push [rcx]
+    push [arg_r]
+    push [arg_l]
     add rcx, 16
     mov [argument_buffer_begin], rcx
     mov [argument_buffer_end], rcx
@@ -1181,8 +1226,11 @@ temp_r8: dq 0
     body_function_cont:
     pop [argument_buffer_begin]
     pop [argument_buffer_end]
+    pop [operand_list]
     pop r8
     pop [flen]
+    pop [arg_l]
+    pop [arg_r]
     pop [function_name]
     pop [function_name+8]
     pop [prev_function_name]
@@ -1195,8 +1243,7 @@ temp_r8: dq 0
     call print_range_line
     jmp end_process_function_body
     not_body_function:
-    mov rcx, [argument_buffer_end]
-    mov rdi, [rcx]
+    mov rdi, [arg_l]
     movb dil, [rdi]
     and rdi, 0xFF
     call is_alpha
@@ -1207,9 +1254,8 @@ temp_r8: dq 0
     lea rdi, [push_start_string]
     lea rsi, [push_start_string+5]
     call print_range
-    mov rcx, [argument_buffer_end]
-    mov rdi, [rcx]
-    mov rsi, [rcx+8]
+    mov rdi, [arg_l]
+    mov rsi, [arg_r]
     call print_range_line
     jmp end_process_function_body
     
@@ -1218,9 +1264,8 @@ temp_r8: dq 0
     mov [new_arg_list], rax
     |body_identifier_check|
     push rax
-    mov rcx, [argument_buffer_end]
-    push [rcx+8]
-    push [rcx]
+    push [arg_r]
+    push [arg_l]
     push [new_arg_list]
     jmp search_tree
     body_identifier_check:
@@ -1240,9 +1285,8 @@ temp_r8: dq 0
     mov rdi, [prev_function_name]
     mov rsi, [prev_function_name+8]
     call print_range
-    mov rcx, [argument_buffer_end]
-    mov rdi, [rcx]
-    mov rsi, [rcx+8]
+    mov rdi, [arg_l]
+    mov rsi, [arg_r]
     call print_range
     lea rdi, [push_end_string]
     lea rsi, [push_end_string+1]
