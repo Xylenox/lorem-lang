@@ -1130,13 +1130,16 @@ operand_list: dq 0
 (-> |map_tree| comb_args (l r cont -> |print_pop_arg| fname_l fname_r l r cont)
 (extra_tree -> |read_whitespace_func| l r
 (l r -> |add_func| l 2
-(l -> |id_func|
-(-> |parse_func_cont4| old_args new_args comb_args fname_l fname_r fname_l fname_r p_fname_l p_fname_r l r cont))))))
-))))))))
+(l -> |read_func_operand_list| l r
+(op_list l r -> |reverse_tree| op_list
+(op_list -> |id_func|
+(-> |parse_func_cont4| old_args new_args comb_args op_list fname_l fname_r fname_l fname_r p_fname_l p_fname_r l r cont))))))
+))))))))))
     parse_func_cont4:
         pop [old_arg_list]
         pop [new_arg_list]
         pop [comb_arg_list]
+        pop [operand_list]
         pop [function_name]
         pop [function_name+8]
         pop [prev_function_name]
@@ -1150,21 +1153,10 @@ operand_list: dq 0
     push [old_arg_list]
     push [comb_arg_list]
 
-    mov rdi, r8
-    mov rsi, [flen]
-    call read_func_operand_list_imperative
-    mov rdi, rax
-    call reverse_tree_imperative
-    mov [operand_list], rax
-
-    push rax
     |function_body_reverse_loop|
     mov rsi, rax
-    pop rdi
+    mov rdi, [operand_list]
     call map_tree_imperative
-
-    mov rax, [argument_buffer_begin]
-    mov [argument_buffer_end], rax
 
     jmp function_body_loop
     arg_l: dq 0
@@ -1172,13 +1164,42 @@ operand_list: dq 0
     function_body_loop:
     add r8, 1
     jmp function_done
+    
+    function_done:
+    
+    lea rdi, [runtime_call_string]
+    lea rsi, [runtime_call_string+16]
+    call print_range_line
+    
+    mov rdi, [function_name]
+    mov rsi, [function_name+8]
+    call print_range
+    lea rdi, [jmp_end_string+8]
+    lea rsi, [jmp_end_string+13]
+    call print_range_line
+
+    mov rdi, [function_name]
+    mov rsi, [function_name+8]
+    call make_leaf_imperative
+    mov rdi, rax
+
+    pop rax ; combined list
+    pop rsi ; old list
+    call make_internal_imperative
+    
+    mov rdi, [prev_prev_function_name]
+    mov [prev_function_name], rdi
+    mov rdi, [prev_prev_function_name+8]
+    mov [prev_function_name+8], rdi
+    mov rdi, rax
+    call print_closure_eof
+    
+    pop rcx
+    push [flen]
+    push r8
+    push rcx
+    jmp runtime_call
     function_body_reverse_loop:
-    ; sub [argument_buffer_end], 16
-    ; mov rcx, [argument_buffer_end]
-    ; mov rax, [rcx]
-    ; mov rdx, [rcx+8]
-    ; mov [arg_l], rax
-    ; mov [arg_r], rdx
     pop [arg_l]
     pop [arg_r]
 
@@ -1201,14 +1222,10 @@ operand_list: dq 0
     jne not_body_function
     mov rax, [comb_arg_list]
     mov [new_arg_list], rax
-    |body_function_cont [argument_buffer_begin] [argument_buffer_end] [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8] [prev_prev_function_name] [prev_prev_function_name+8]|
+    |body_function_cont [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8] [prev_prev_function_name] [prev_prev_function_name+8]|
     push rax
-    mov rcx, [argument_buffer_end]
     push [arg_r]
     push [arg_l]
-    add rcx, 16
-    mov [argument_buffer_begin], rcx
-    mov [argument_buffer_end], rcx
 
     push [prev_function_name+8]
     push [prev_function_name]
@@ -1218,8 +1235,6 @@ operand_list: dq 0
     jmp parse_function
 
     body_function_cont:
-    pop [argument_buffer_begin]
-    pop [argument_buffer_end]
     pop [operand_list]
     pop [comb_arg_list]
     pop r8
@@ -1292,40 +1307,6 @@ operand_list: dq 0
     push rax
     push rdi
     jmp runtime_call
-    function_done:
-    
-    lea rdi, [runtime_call_string]
-    lea rsi, [runtime_call_string+16]
-    call print_range_line
-    
-    mov rdi, [function_name]
-    mov rsi, [function_name+8]
-    call print_range
-    lea rdi, [jmp_end_string+8]
-    lea rsi, [jmp_end_string+13]
-    call print_range_line
-
-    mov rdi, [function_name]
-    mov rsi, [function_name+8]
-    call make_leaf_imperative
-    mov rdi, rax
-
-    pop rax ; combined list
-    pop rsi ; old list
-    call make_internal_imperative
-    
-    mov rdi, [prev_prev_function_name]
-    mov [prev_function_name], rdi
-    mov rdi, [prev_prev_function_name+8]
-    mov [prev_function_name+8], rdi
-    mov rdi, rax
-    call print_closure_eof
-    
-    pop rcx
-    push [flen]
-    push r8
-    push rcx
-    jmp runtime_call
 
 parse_function_help: ; args lo hi
     mov [function_name], 0
@@ -1381,11 +1362,6 @@ parse_escape_function: ; takes (lo hi)
     push r8
     jmp main_loop
 
-argument_buffer_begin:
-dq 0
-argument_buffer_end:
-dq 0
-
 empty_tree:
 dq 0
 start:
@@ -1439,8 +1415,6 @@ mov r0, 9               ; mmap
 syscall
 pop r8                  ; restore r8
 mov r14, r0             ; save instruction location array end
-mov [argument_buffer_begin], rax
-mov [argument_buffer_end], rax
 mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
