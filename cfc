@@ -422,6 +422,14 @@ reas:           ; read string
     movb al, [r8]
     cmp r0, 34        ; "
     je sdon
+    cmp rax, "\\"
+    jne not_newline
+    cmpb [r8+1], "n"
+    jne not_newline
+    mov rax, 10
+    add r8, 1
+
+    not_newline:
     add r8, 1
     mul r1
     add r5, r0

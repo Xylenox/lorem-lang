@@ -367,8 +367,8 @@ print_string_line_func:
 (a b -> |reverse_tree| a (new_a -> |reverse_tree| b (new_b -> |make_internal| new_b new_a cont)))
 )
 
-(search_tree: tree l r cont -> tree (-> cont |bool_false|) (a b -> |str_equal_func| l r a b cont)
-(a b -> |search_tree| a l r (res -> res (-> cont |bool_true|) (-> |search_tree| b l r cont))))
+(search_tree: tree l r cont -> tree (-> cont (a b -> |bool_false| a b)) (a b -> |str_equal_func| l r a b cont)
+(a b -> |search_tree| a l r (res -> res (-> cont (a b -> |bool_true| a b)) (-> |search_tree| b l r cont))))
 
 reverse_tree_imperative:
     sub rsp, 16
@@ -798,7 +798,7 @@ closure_map_arg:
     mov_string_end:
     suff_strings:
     dq "mov [rdx"
-    dq "], rcx"
+    dq "], rcx\\n"
     dq "add rdx,"
     dq " 8"
     suff_strings_end:
@@ -809,8 +809,8 @@ closure_map_arg:
     pop rsi
     call print_range_line
     lea rdi, [suff_strings]
-    lea rsi, [suff_strings+14]
-    call print_range_line
+    lea rsi, [suff_strings+15]
+    call print_range
     lea rdi, [suff_strings+16]
     lea rsi, [suff_strings+26]
     call print_range_line
@@ -1199,6 +1199,8 @@ operand_list: dq 0
     push r8
     push rcx
     jmp runtime_call
+
+    
     function_body_reverse_loop:
     pop [arg_l]
     pop [arg_r]
