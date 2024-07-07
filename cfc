@@ -432,12 +432,56 @@ reas:           ; read string
     not_newline:
     add r8, 1
     mul r1
-    add r5, r0
+    add rbp, r0
     mov r0, r1
     mov r1, 256
     mul r1
     mov r1, r0
     jmp sloo
+
+    sdon:
+    add r8, 1
+    mov r0, r5
+    pop r5
+    pop r1
+    ret
+
+print_string:           ; read string
+    push r1
+    push r5
+    ; read string
+    add r8, 1
+    mov r5, 0           ; token output
+    mov r1, 1           ; power of 256
+    print_string_loop:
+    sub r0, r0
+    movb al, [r8]
+    cmp r0, 34        ; "
+    je sdon
+    cmp rax, "\\"
+    jne print_string_not_newline
+    cmpb [r8+1], "n"
+    jne print_string_not_newline
+    mov rax, 10
+    add r8, 1
+
+    print_string_not_newline:
+    push rdi
+    push rbp
+    push rax
+    mov rdi, 1
+    call prin
+    pop rax
+    pop rbp
+    pop rdi
+    add r8, 1
+    mul r1
+    add r5, r0
+    mov r0, r1
+    mov r1, 256
+    mul r1
+    mov r1, r0
+    jmp print_string_loop
 
     sdon:
     add r8, 1
@@ -1350,6 +1394,13 @@ parse_instruction:
     pop r0
     ret
     nsys:                   ; not sys
+
+    cmp rax, "db"
+    jne not_db
+    call read_whitespace
+    call print_string
+    ret
+    not_db:
 
     ; 1-operandsdsddddddd
 

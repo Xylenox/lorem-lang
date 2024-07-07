@@ -798,9 +798,9 @@ closure_map_arg:
     mov_string_end:
     suff_strings:
     dq "mov [rdx"
-    dq "], rcx\\n"
-    dq "add rdx,"
-    dq " 8"
+    dq "], rcx\\na"
+    dq "dd rdx, "
+    dq "8\\n"
     suff_strings_end:
     lea rdi, [mov_string]
     lea rsi, [mov_string+9]
@@ -809,11 +809,8 @@ closure_map_arg:
     pop rsi
     call print_range_line
     lea rdi, [suff_strings]
-    lea rsi, [suff_strings+15]
-    call print_range
-    lea rdi, [suff_strings+16]
     lea rsi, [suff_strings+26]
-    call print_range_line
+    call print_range
 
     pop rax
     push 0
@@ -921,11 +918,8 @@ eof_closure_map_arg:
     call print_range_line
     isnt_first_arg:
     lea rdi, [suff_strings]
-    lea rsi, [suff_strings+14]
-    call print_range_line
-    lea rdi, [suff_strings+16]
     lea rsi, [suff_strings+26]
-    call print_range_line
+    call print_range
 
     pop rax
     push 0
