@@ -1297,36 +1297,22 @@ test_format_end:
     push [arg_l]
     push [new_arg_list]
     jmp search_tree
-    body_identifier_check:
-    |body_constant|
-    pop rcx
-    push rax
-    push rcx
-    |body_identifier_real|
-    pop rcx
-    push rax
-    push rcx
-    jmp runtime_call
+    (body_identifier_check: bool -> bool (-> |body_identifier_real|) (-> |body_constant|))
+    body_identifier_real_string:
+    db "push [{}{}]\\n"
+
     body_identifier_real:
+    push [arg_r]
+    push [arg_l]
+    push [prev_function_name+8]
+    push [prev_function_name]
+    jmp body_identifier_real_help
 
+    (body_identifier_real_help: pfname_l pfname_r l r cont ->|format_substring| body_identifier_real_string 0 12
+    (fmt -> fmt pfname_l pfname_r (fmt -> fmt l r
+    (fmt -> |print_tree| fmt (-> cont 0)))))
 
-    lea rdi, [push_start_string]
-    lea rsi, [push_start_string+6]
-    call print_range
-    mov rdi, [prev_function_name]
-    mov rsi, [prev_function_name+8]
-    call print_range
-    mov rdi, [arg_l]
-    mov rsi, [arg_r]
-    call print_range
-    lea rdi, [push_end_string]
-    lea rsi, [push_end_string+1]
-    call print_range_line
-    end_process_function_body:
-    pop rdi
-    push rax
-    push rdi
-    jmp runtime_call
+    (end_process_function_body: cont -> cont 0)
 
 parse_function_help: ; args lo hi
     mov [function_name], 0
