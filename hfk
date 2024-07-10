@@ -354,7 +354,7 @@ print_string_line_func:
     call print_range_line
     jmp runtime_call
 
-(print_tree: cont tree -> |traverse_tree| tree |print_range_func| cont)
+(print_tree: tree cont -> |traverse_tree| tree |print_range_func| cont)
 
 (traverse_tree: tree action cont -> tree cont (l r -> action l r cont) 
 (traverse_internal: a b -> |traverse_tree| a action (-> |traverse_tree| b action cont)))
@@ -404,9 +404,10 @@ map_id_imperative:
         ret
 
 print_tree_imperative:
-    push rdi
+    sub rsp, 16
+    mov [rsp], rdi
     |print_tree_imperative_done|
-    push rax
+    mov [rsp+8], rax
     jmp print_tree
     print_tree_imperative_done:
     ret
@@ -606,6 +607,30 @@ read_identifier_list:
     push rdi
     jmp runtime_call
 
+(format_string: l r cont -> |make_nil| (tree ->
+    |format_string_helper| tree l l r cont)
+)
+(format_substring: base l r cont -> |add_func| base l (l -> |add_func| base r (r -> |format_string| l r cont)))
+
+(format_string_helper: tree l mid r cont -> |compare| mid r
+    (-> |make_leaf| l mid (leaf -> |make_internal| tree leaf (tree -> cont tree)))
+    (-> |deref_byte| mid
+        (mid_b -> |compare| mid_b 123
+            (-> |make_leaf| l mid
+                (leaf -> |make_internal| tree leaf
+                    (tree -> |add_func| mid 2
+                        (new_mid -> cont
+                            (lb rb cont2 -> |make_leaf| lb rb (leaf -> |make_internal| tree leaf
+                                (tree -> |format_string_helper| tree new_mid new_mid r cont2)
+                            ))
+                        )
+                    )
+                )
+            )
+            (-> |add_func| mid 1 (new_mid -> |format_string_helper| tree l new_mid r cont))
+        )
+    )
+)
 
 read_func_operand_list:
     pop r8
@@ -793,14 +818,10 @@ closure_tree:
 closure_map_arg:
     jmp suff_strings_end
     mov_string:
-    dq "mov rcx,"
-    dq " "
+    db "mov rcx, "
     mov_string_end:
     suff_strings:
-    dq "mov [rdx"
-    dq "], rcx\\na"
-    dq "dd rdx, "
-    dq "8\\n"
+    db "mov [rdx], rcx\\nadd rdx, 8\\n"
     suff_strings_end:
     lea rdi, [mov_string]
     lea rsi, [mov_string+9]
@@ -1095,8 +1116,10 @@ pop_end_string:
 (-> cont 0))))))
 
 jmp_end_string:
-    dq "jmp "
-    dq "_end:"
+    db "jmp {}_end\\n"
+    
+end_label_string:
+    db "_end:"
 push_rax_string:
     dq "push rax"
 old_arg_list: dq 0
@@ -1112,11 +1135,10 @@ operand_list: dq 0
     (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr))
     (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr)))))))
 
+test_format_end:
 (parse_function: old_args p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
-(l r fname_l fname_r -> |print_string_func| jmp_end_string 4
-(-> |print_range_func| fname_l fname_r
-(-> |print_substring_line_func| jmp_end_string 8 12
+(l r fname_l fname_r -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
 (-> |read_identifier_list| l r 
 (new_args l r -> |make_internal| old_args new_args
 (comb_args -> |map_tree| comb_args (l r cont -> |map_argument| fname_l fname_r l r cont)
@@ -1168,8 +1190,8 @@ operand_list: dq 0
     mov rdi, [function_name]
     mov rsi, [function_name+8]
     call print_range
-    lea rdi, [jmp_end_string+8]
-    lea rsi, [jmp_end_string+13]
+    lea rdi, [end_label_string]
+    lea rsi, [end_label_string+5]
     call print_range_line
 
     mov rdi, [function_name]
@@ -1286,6 +1308,8 @@ operand_list: dq 0
     push rcx
     jmp runtime_call
     body_identifier_real:
+
+
     lea rdi, [push_start_string]
     lea rsi, [push_start_string+6]
     call print_range
