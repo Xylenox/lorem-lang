@@ -1039,10 +1039,6 @@ function_name:
     dq 0
     dq 0
 
-
-prev_prev_function_name:
-    dq 0
-    dq 0
 prev_function_name:
     dq 0
     dq 0
@@ -1068,8 +1064,8 @@ print_label:
     call print_range_line
     jmp runtime_call
 map_argument: ; (pfname_l pfname_r l r cont)
-    pop [prev_function_name]
-    pop [prev_function_name+8]
+    pop [function_name]
+    pop [function_name+8]
     mov rdi, [rsp]
     mov rsi, [rsp+8]
     mov rax, [rsp+16]
@@ -1077,8 +1073,8 @@ map_argument: ; (pfname_l pfname_r l r cont)
     mov [rsp], rax
     call make_leaf_imperative
     push rax
-    mov rdi, [prev_function_name]
-    mov rsi, [prev_function_name+8]
+    mov rdi, [function_name]
+    mov rsi, [function_name+8]
     call make_leaf_imperative
     mov rdi, rax
     pop rsi
@@ -1149,7 +1145,7 @@ test_format_end:
 (l -> |read_func_operand_list| l r
 (op_list l r -> |reverse_tree| op_list
 (op_list -> |id_func|
-(-> |parse_func_cont4| old_args new_args comb_args op_list fname_l fname_r fname_l fname_r p_fname_l p_fname_r l r cont))))))
+(-> |parse_func_cont4| old_args new_args comb_args op_list fname_l fname_r p_fname_l p_fname_r l r cont))))))
 ))))))))))
     parse_func_cont4:
         pop [old_arg_list]
@@ -1160,8 +1156,6 @@ test_format_end:
         pop [function_name+8]
         pop [prev_function_name]
         pop [prev_function_name+8]
-        pop [prev_prev_function_name]
-        pop [prev_prev_function_name+8]
         pop r8
         pop [flen]
     ; end_pop
@@ -1203,10 +1197,6 @@ test_format_end:
     pop rsi ; old list
     call make_internal_imperative
     
-    mov rdi, [prev_prev_function_name]
-    mov [prev_function_name], rdi
-    mov rdi, [prev_prev_function_name+8]
-    mov [prev_function_name+8], rdi
     mov rdi, rax
     call print_closure_eof
     
@@ -1240,7 +1230,7 @@ test_format_end:
     jne not_body_function
     mov rax, [comb_arg_list]
     mov [new_arg_list], rax
-    |body_function_cont [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8] [prev_prev_function_name] [prev_prev_function_name+8]|
+    |body_function_cont [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8]|
     push rax
     push [arg_r]
     push [arg_l]
@@ -1263,8 +1253,6 @@ test_format_end:
     pop [function_name+8]
     pop [prev_function_name]
     pop [prev_function_name+8]
-    pop [prev_prev_function_name]
-    pop [prev_prev_function_name+8]
     add rsp, 16
     lea rdi, [push_rax_string]
     lea rsi, [push_rax_string+8]
@@ -1278,39 +1266,30 @@ test_format_end:
     cmp rax, 1
     je body_identifier
 
-    body_constant:
-    lea rdi, [push_start_string]
-    lea rsi, [push_start_string+5]
-    call print_range
-    mov rdi, [arg_l]
-    mov rsi, [arg_r]
-    call print_range_line
-    jmp end_process_function_body
+    push [arg_r]
+    push [arg_l]
+    jmp body_constant
+
+    (body_constant: l r cont -> |format_substring| body_constant_string 0 8
+        (fmt -> fmt l r
+        (fmt -> |print_tree| fmt (-> cont 0))))
+    body_constant_string:
+    dq "push {}\\n"
     
     body_identifier:
-
-    mov rax, [comb_arg_list]
-    mov [new_arg_list], rax
-    |body_identifier_check|
+    |body_indentifier_help [comb_arg_list] [arg_l] [arg_r] [function_name] [function_name+8]|
     push rax
-    push [arg_r]
-    push [arg_l]
-    push [new_arg_list]
-    jmp search_tree
-    (body_identifier_check: bool -> bool (-> |body_identifier_real|) (-> |body_constant|))
+    jmp runtime_call
+    (body_indentifier_help: comb_args l r pfname_l pfname_r cont -> |search_tree| comb_args l r
+        (bool -> bool
+            (is_identifier: -> |body_identifier_real| pfname_l pfname_r l r cont)
+            (is_global: -> |body_constant| l r cont)))
+        
+    (body_identifier_real: pfname_l pfname_r l r cont -> |format_substring| body_identifier_real_string 0 12
+        (fmt -> fmt pfname_l pfname_r (fmt -> fmt l r
+        (fmt -> |print_tree| fmt (-> cont 0)))))
     body_identifier_real_string:
     db "push [{}{}]\\n"
-
-    body_identifier_real:
-    push [arg_r]
-    push [arg_l]
-    push [prev_function_name+8]
-    push [prev_function_name]
-    jmp body_identifier_real_help
-
-    (body_identifier_real_help: pfname_l pfname_r l r cont ->|format_substring| body_identifier_real_string 0 12
-    (fmt -> fmt pfname_l pfname_r (fmt -> fmt l r
-    (fmt -> |print_tree| fmt (-> cont 0)))))
 
     (end_process_function_body: cont -> cont 0)
 
