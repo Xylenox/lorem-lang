@@ -1120,7 +1120,7 @@ pop_end_string:
 (-> cont 0))))))
 
 jmp_end_string:
-  db "jmp {}_end\\n"
+  db "jmp \{}_end\\n"
   
 end_label_string:
   db "_end:"
@@ -1302,23 +1302,19 @@ test_format_end:
 
 
   body_constant_string:
-  dq "push {}\\n"
+  dq "push \{}\\n"
     
   body_identifier_real_string:
-  db "push [{}{}]\\n"
+  db "push [\{}\{}]\\n"
 
   (end_process_function_body: cont -> cont 0)
 
-parse_function_help: ; args lo hi
+parse_function_help: ; lo hi cont
+  call make_nil_imperative
+  push rax
   mov [function_name], 0
   mov [function_name+8], 0
-  |main_loop|
   pop rdi
-  pop rsi
-  pop rdx
-  push rax
-  push rdx
-  push rsi
   push 0
   push 0
   push 0
@@ -1362,7 +1358,13 @@ parse_escape_function: ; takes (lo hi)
   push [flen]
   push r8
   jmp main_loop
-
+  
+{
+  (parse_body_function: l r -> |add_func| l 1
+  (l -> |read_whitespace_func| l r
+  (l r -> |parse_function_help| l r
+  (l r -> |read_whitespace_func| l r (l r -> |add_func| l 1 (l -> |main_loop| l r))))))
+}
 empty_tree:
 dq 0
 start:
@@ -1430,11 +1432,12 @@ push r8
 jmp main_loop
 (main_loop: lo hi -> |compare| lo hi |exit|
 (parse_token:-> |deref_byte| lo
-(check_function: c -> |compare| c 40 (-> |make_nil| (empty -> |parse_function_help| empty lo hi))
+(check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (l r -> |main_loop| l r))
 (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
 (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
+(check_body: -> |compare| c 123 (-> |parse_body_function| lo hi)
 (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
-(-> |main_body| lo hi)))))))
+(-> |main_body| lo hi))))))))
   ; main loop
 main_body:
   pop r8
@@ -1446,9 +1449,6 @@ main_body:
   call prin
   pop rax
   add r8, 1
-  jmp main_body_done
-
-  main_body_done:
   push [flen]
   push r8
   jmp main_loop
