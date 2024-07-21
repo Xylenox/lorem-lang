@@ -571,7 +571,7 @@ read_identifier: ; read identifier and return start and end pointers
   mov rdx, r8
   ret
 
-read_identifier_func: ; (r8 flen cont)
+read_identifier_func: ; (r8 flen cont -> r8 flen l r)
   pop r8
   pop [flen]
   call read_identifier
@@ -1140,7 +1140,7 @@ operand_list: dq 0
   (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr)))))))
 
 test_format_end:
-(parse_function: old_args p_fname_l p_fname_r pp_fname_l pp_fname_r l r cont -> |add_func| l 1
+(parse_function: old_args p_fname_l p_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
 (l r fname_l fname_r -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
 (-> |read_identifier_list| l r 
@@ -1268,8 +1268,6 @@ test_format_end:
   push [arg_r]
   push [arg_l]
 
-  push [prev_function_name+8]
-  push [prev_function_name]
   push [function_name+8]
   push [function_name]
   push [new_arg_list]
@@ -1317,8 +1315,6 @@ parse_function_help: ; lo hi cont
   pop rdi
   push 0
   push 0
-  push 0
-  push 0
   push rdi
   jmp parse_function
 
@@ -1360,9 +1356,12 @@ parse_escape_function: ; takes (lo hi)
   jmp main_loop
   
 {
+  (parse_expression: l r cont -> |parse_function_help| l r cont)
+}
+{
   (parse_body_function: l r -> |add_func| l 1
   (l -> |read_whitespace_func| l r
-  (l r -> |parse_function_help| l r
+  (l r -> |parse_expression| l r
   (l r -> |read_whitespace_func| l r (l r -> |add_func| l 1 (l -> |main_loop| l r))))))
 }
 empty_tree:
@@ -1430,14 +1429,16 @@ add [flen], r8
 push [flen]
 push r8
 jmp main_loop
-(main_loop: lo hi -> |compare| lo hi |exit|
-(parse_token:-> |deref_byte| lo
-(check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (l r -> |main_loop| l r))
-(check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
-(check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
-(check_body: -> |compare| c 123 (-> |parse_body_function| lo hi)
-(check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
-(-> |main_body| lo hi))))))))
+{
+  (main_loop: lo hi -> |compare| lo hi |exit|
+  (parse_token:-> |deref_byte| lo
+  (check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (l r -> |main_loop| l r))
+  (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
+  (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
+  (check_body: -> |compare| c 123 (-> |parse_body_function| lo hi)
+  (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
+  (-> |main_body| lo hi))))))))
+}
   ; main loop
 main_body:
   pop r8
