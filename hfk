@@ -920,13 +920,11 @@ print_closure:
 
 brackets_string:
   dq "[]"
-eof_closure_map_arg:
-  lea rdi, [mov_string]
-  lea rsi, [mov_string+9]
-  call print_range
-  mov rdi, [rsp]
-  cmp rdi, [function_name]
-  je is_first_arg_in_closure
+
+(eof_closure_map_arg: fname_l fname_r l r cont -> |print_string_line_func| mov_string 9
+(-> |compare| l fname_l (-> |is_first_arg_in_closure| l r cont) (-> |isnt_first_arg_help| l r cont)))
+eof_closure_map_arg_help:
+  isnt_first_arg_help:
   lea rdi, [brackets_string]
   lea rsi, [brackets_string+1]
   call print_range
@@ -941,7 +939,6 @@ eof_closure_map_arg:
   call print_range_line
   jmp isnt_first_arg
   is_first_arg_in_closure:
-
   pop rdi
   pop rsi
   call print_range_line
@@ -992,7 +989,7 @@ print_closure_eof:
   lea rsi, [closure_header+48]
   call print_range_line
 
-  |eof_closure_map_arg|
+  |eof_closure_map_arg [function_name] [function_name+8]|
   mov rsi, rax
   pop rdi
   call map_tree_imperative
@@ -1144,25 +1141,26 @@ operand_list: dq 0
 (new_context -> cont new_context l r)))
 
 (print_function_storage: context fname_l fname_r cont -> |map_tree| context 
-(l r cont -> |map_argument| fname_l fname_r l r cont) cont)
+(l r cont -> |map_argument| fname_l fname_r l r cont) (extra_tree -> cont))
+
+(print_function_init: context fname_l fname_r cont -> |print_label| fname_l fname_r
+(-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> cont)))
 
 (parse_function: old_context p_fname_l p_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
 (l r fname_l fname_r -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
 (-> |read_new_context| old_context l r 
 (new_context l r -> |print_function_storage| new_context fname_l fname_r
-(extra_tree -> |print_label| fname_l fname_r
-(-> |map_tree| new_context (l r cont -> |print_pop_arg| fname_l fname_r l r cont)
-(extra_tree -> |read_whitespace_func| l r
+(-> |print_function_init| new_context fname_l fname_r
+(-> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_func_operand_list| l r
 (op_list l r -> |reverse_tree| op_list
 (op_list -> |id_func|
-(-> |parse_func_cont4| old_context new_args new_context op_list fname_l fname_r p_fname_l p_fname_r l r cont))))))
-)))))))))
+(-> |parse_func_cont4| old_context new_context op_list fname_l fname_r p_fname_l p_fname_r l r cont))))))
+))))))))
   parse_func_cont4:
     pop [old_arg_list]
-    pop [new_arg_list]
     pop [comb_arg_list]
     pop [operand_list]
     pop [function_name]
@@ -1174,7 +1172,6 @@ operand_list: dq 0
   ; end_pop
 
   push [old_arg_list]
-  push [comb_arg_list]
 
   |function_body_reverse_loop [comb_arg_list] [function_name] [function_name+8]|
   mov rsi, rax
@@ -1206,7 +1203,6 @@ operand_list: dq 0
   call make_leaf_imperative
   mov rdi, rax
 
-  pop rax ; combined list
   pop rsi ; old list
   call make_internal_imperative
   
@@ -1269,8 +1265,6 @@ operand_list: dq 0
 ))
 
   not_body_closure_help:
-  mov rax, [comb_arg_list]
-  mov [new_arg_list], rax
   |body_function_cont [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8]|
   push rax
   push [arg_r]
@@ -1278,7 +1272,8 @@ operand_list: dq 0
 
   push [function_name+8]
   push [function_name]
-  push [new_arg_list]
+  mov rax, [comb_arg_list]
+  push rax
   jmp parse_function
 
   body_function_cont:
