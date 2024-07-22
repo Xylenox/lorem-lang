@@ -1139,22 +1139,27 @@ operand_list: dq 0
   (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr))
   (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr)))))))
 
-test_format_end:
-(parse_function: old_args p_fname_l p_fname_r l r cont -> |add_func| l 1
+(read_new_context: old_context l r cont -> |read_identifier_list| l r 
+(new_args l r -> |make_internal| old_context new_args
+(new_context -> cont new_context l r)))
+
+(print_function_storage: context fname_l fname_r cont -> |map_tree| context 
+(l r cont -> |map_argument| fname_l fname_r l r cont) cont)
+
+(parse_function: old_context p_fname_l p_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
 (l r fname_l fname_r -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-(-> |read_identifier_list| l r 
-(new_args l r -> |make_internal| old_args new_args
-(comb_args -> |map_tree| comb_args (l r cont -> |map_argument| fname_l fname_r l r cont)
+(-> |read_new_context| old_context l r 
+(new_context l r -> |print_function_storage| new_context fname_l fname_r
 (extra_tree -> |print_label| fname_l fname_r
-(-> |map_tree| comb_args (l r cont -> |print_pop_arg| fname_l fname_r l r cont)
+(-> |map_tree| new_context (l r cont -> |print_pop_arg| fname_l fname_r l r cont)
 (extra_tree -> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_func_operand_list| l r
 (op_list l r -> |reverse_tree| op_list
 (op_list -> |id_func|
-(-> |parse_func_cont4| old_args new_args comb_args op_list fname_l fname_r p_fname_l p_fname_r l r cont))))))
-))))))))))
+(-> |parse_func_cont4| old_context new_args new_context op_list fname_l fname_r p_fname_l p_fname_r l r cont))))))
+)))))))))
   parse_func_cont4:
     pop [old_arg_list]
     pop [new_arg_list]
@@ -1171,7 +1176,7 @@ test_format_end:
   push [old_arg_list]
   push [comb_arg_list]
 
-  |function_body_reverse_loop|
+  |function_body_reverse_loop [comb_arg_list] [function_name] [function_name+8]|
   mov rsi, rax
   mov rdi, [operand_list]
   call map_tree_imperative
@@ -1216,6 +1221,9 @@ test_format_end:
 
   
   function_body_reverse_loop:
+  pop [comb_arg_list]
+  pop [function_name]
+  pop [function_name+8]
   pop [arg_l]
   pop [arg_r]
 
@@ -1356,7 +1364,15 @@ parse_escape_function: ; takes (lo hi)
   jmp main_loop
   
 {
-  (parse_expression: l r cont -> |parse_function_help| l r cont)
+  let (parse_let: l r cont -> |add_func| l 3
+  (l -> |read_whitespace_func| l r
+  (l r -> |parse_function_help| l r
+  (l -> |read_whitespace_func| l r
+  (l r -> |add_func| l 2
+  (l -> |read_whitespace_func| l r 
+  (l r -> |parse_function_help| l r cont)))))))
+  in
+  (parse_expression: l r cont -> |deref_byte| l (b -> |compare| b 108 (-> |parse_let| l r cont) (-> |parse_function_help| l r cont)))
 }
 {
   (parse_body_function: l r -> |add_func| l 1
