@@ -919,46 +919,20 @@ print_closure:
   ret
 
 brackets_string:
-  dq "[]"
-
-(eof_closure_map_arg: fname_l fname_r l r cont -> |print_string_line_func| mov_string 9
-(-> |compare| l fname_l (-> |is_first_arg_in_closure| l r cont) (-> |isnt_first_arg_help| l r cont)))
-eof_closure_map_arg_help:
-  isnt_first_arg_help:
-  lea rdi, [brackets_string]
-  lea rsi, [brackets_string+1]
-  call print_range
-  mov rdi, [prev_function_name]
-  mov rsi, [prev_function_name+8]
-  call print_range
-  pop rdi
-  pop rsi
-  call print_range
-  lea rdi, [brackets_string+1]
-  lea rsi, [brackets_string+2]
-  call print_range_line
-  jmp isnt_first_arg
-  is_first_arg_in_closure:
-  pop rdi
-  pop rsi
-  call print_range_line
-  isnt_first_arg:
-  lea rdi, [suff_strings]
-  lea rsi, [suff_strings+26]
-  call print_range
-
-  pop rax
-  push 0
-  push rax
-  jmp runtime_call
+  dq "[\{}\{}]\\n"
+brackets_string_2:
+  db "[]"
+(eof_closure_map_arg: fname_l fname_r pfname_l pfname_r l r cont -> |print_string_line_func| mov_string 9
+(-> |compare| l fname_l
+  (-> |print_range_line_func| l r (-> |print_string_func| suff_strings 26 (-> cont 0)))
+  (-> |format_substring| brackets_string 0 7 
+    (fmt -> fmt pfname_l pfname_r
+    (fmt -> fmt l r
+    (fmt -> |print_tree| fmt (-> |print_string_func| suff_strings 26 (-> cont 0))))))
+))
 
 print_closure_eof:
   push rdi
-  lea rdi, [newline_string]
-  lea rsi, [newline_string+1]
-  call make_leaf_imperative
-  mov [newline_leaf], rax
-  
   lea rdi, [newline_string]
   lea rsi, [newline_string]
   call make_leaf_imperative
@@ -989,7 +963,7 @@ print_closure_eof:
   lea rsi, [closure_header+48]
   call print_range_line
 
-  |eof_closure_map_arg [function_name] [function_name+8]|
+  |eof_closure_map_arg [function_name] [function_name+8] [prev_function_name] [prev_function_name+8]|
   mov rsi, rax
   pop rdi
   call map_tree_imperative
@@ -1157,66 +1131,49 @@ operand_list: dq 0
 (l -> |read_func_operand_list| l r
 (op_list l r -> |reverse_tree| op_list
 (op_list -> |id_func|
-(-> |parse_func_cont4| old_context new_context op_list fname_l fname_r p_fname_l p_fname_r l r cont))))))
+(-> |parse_cexp| new_context op_list fname_l fname_r l r
+(-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r cont)))))))
 ))))))))
-  parse_func_cont4:
-    pop [old_arg_list]
-    pop [comb_arg_list]
-    pop [operand_list]
-    pop [function_name]
-    pop [function_name+8]
-    pop [prev_function_name]
-    pop [prev_function_name+8]
-    pop r8
-    pop [flen]
-  ; end_pop
 
-  push [old_arg_list]
-
-  |function_body_reverse_loop [comb_arg_list] [function_name] [function_name+8]|
-  mov rsi, rax
-  mov rdi, [operand_list]
-  call map_tree_imperative
-
-  jmp function_body_loop
-  arg_l: dq 0
-  arg_r: dq 0
-  function_body_loop:
-  add r8, 1
-  jmp function_done
-  
-  function_done:
-  
-  lea rdi, [runtime_call_string]
-  lea rsi, [runtime_call_string+16]
-  call print_range_line
-  
-  mov rdi, [function_name]
-  mov rsi, [function_name+8]
-  call print_range
-  lea rdi, [end_label_string]
-  lea rsi, [end_label_string+5]
-  call print_range_line
-
-  mov rdi, [function_name]
-  mov rsi, [function_name+8]
-  call make_leaf_imperative
-  mov rdi, rax
-
-  pop rsi ; old list
-  call make_internal_imperative
-  
-  mov rdi, rax
+(function_done: old_context fname_l fname_r p_fname_l p_fname_r cont -> |format_substring| function_done_string 0 25
+  (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
+  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| p_fname_l p_fname_r helper_tree cont))))))
+  function_done_string:
+  db "jmp runtime_call\\n\{}_end:\\n"
+  function_done_help:
+  pop [prev_function_name]
+  pop [prev_function_name+8]
+  pop rdi
   call print_closure_eof
   
   pop rcx
   push [flen]
+  add r8, 1
   push r8
   push rcx
   jmp runtime_call
 
+arg_l: dq 0
+arg_r: dq 0
+(parse_cexp: new_context op_list fname_l fname_r l r cont ->
+  |parse_func_cont4| new_context op_list fname_l fname_r l r cont)
+  parse_func_cont4:
+    pop [comb_arg_list]
+    pop [operand_list]
+    pop [function_name]
+    pop [function_name+8]
+    pop r8
+    pop [flen]
+  ; end_pop
+
+  |function_body_op_map [comb_arg_list] [function_name] [function_name+8]|
+  mov rsi, rax
+  mov rdi, [operand_list]
+  call map_tree_imperative
+
+  jmp runtime_call
   
-  function_body_reverse_loop:
+  function_body_op_map:
   pop [comb_arg_list]
   pop [function_name]
   pop [function_name+8]
@@ -1265,7 +1222,7 @@ operand_list: dq 0
 ))
 
   not_body_closure_help:
-  |body_function_cont [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8] [prev_function_name] [prev_function_name+8]|
+  |body_function_cont [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8]|
   push rax
   push [arg_r]
   push [arg_l]
@@ -1285,8 +1242,6 @@ operand_list: dq 0
   pop [arg_r]
   pop [function_name]
   pop [function_name+8]
-  pop [prev_function_name]
-  pop [prev_function_name+8]
   add rsp, 16
   lea rdi, [push_rax_string]
   lea rsi, [push_rax_string+8]
