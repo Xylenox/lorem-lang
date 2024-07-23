@@ -1128,16 +1128,13 @@ operand_list: dq 0
 (-> |print_function_init| new_context fname_l fname_r
 (-> |read_whitespace_func| l r
 (l r -> |add_func| l 2
-(l -> |read_func_operand_list| l r
-(op_list l r -> |reverse_tree| op_list
-(op_list -> |id_func|
-(-> |parse_cexp| new_context op_list fname_l fname_r l r
-(-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r cont)))))))
-))))))))
+(l -> |read_cexp| new_context fname_l fname_r l r
+(l r -> |function_done| old_context fname_l fname_r p_fname_l p_fname_r l r cont)))))))
+)))))
 
-(function_done: old_context fname_l fname_r p_fname_l p_fname_r cont -> |format_substring| function_done_string 0 25
+(function_done: old_context fname_l fname_r p_fname_l p_fname_r l r cont -> |format_substring| function_done_string 0 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| p_fname_l p_fname_r helper_tree cont))))))
+  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| p_fname_l p_fname_r helper_tree l r cont))))))
   function_done_string:
   db "jmp runtime_call\\n\{}_end:\\n"
   function_done_help:
@@ -1145,6 +1142,9 @@ operand_list: dq 0
   pop [prev_function_name+8]
   pop rdi
   call print_closure_eof
+
+  pop r8
+  pop [flen]
   
   pop rcx
   push [flen]
@@ -1155,21 +1155,27 @@ operand_list: dq 0
 
 arg_l: dq 0
 arg_r: dq 0
-(parse_cexp: new_context op_list fname_l fname_r l r cont ->
-  |parse_func_cont4| new_context op_list fname_l fname_r l r cont)
+(read_cexp: new_context fname_l fname_r l r cont -> |read_func_operand_list| l r
+(op_list l r -> |reverse_tree| op_list
+(op_list -> |parse_func_cont4| new_context op_list fname_l fname_r l r cont)))
   parse_func_cont4:
     pop [comb_arg_list]
     pop [operand_list]
     pop [function_name]
     pop [function_name+8]
-    pop r8
-    pop [flen]
   ; end_pop
 
   |function_body_op_map [comb_arg_list] [function_name] [function_name+8]|
   mov rsi, rax
   mov rdi, [operand_list]
   call map_tree_imperative
+
+  pop r8
+  pop [flen]
+  pop rcx
+  push [flen]
+  push r8
+  push rcx
 
   jmp runtime_call
   
