@@ -770,6 +770,19 @@ read_id_or_closure_or_function:
   mov rdx, r8
   ret
 
+read_id_or_closure_or_function_func: ; (l r -> a b l r)
+  pop r8
+  pop [flen]
+
+  call read_id_or_closure_or_function
+  pop rcx
+  push [flen]
+  push r8
+  push rdx
+  push rax
+  push rcx
+  jmp runtime_call
+
 newline_leaf:
   dq 0
 closure_tree:
@@ -1109,7 +1122,25 @@ arg_l: dq 0
 arg_r: dq 0
 
 
+(read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
+(a b l r -> |compare| a b (-> cont 0 l r) (-> cont (-> |parse_aexp| context fname_l fname_r a b) l r)))
+
+read_aexp_imp:
+  |read_aexp_imp_lambda|
+  push rax
+  |read_aexp [comb_arg_list] [function_name] [function_name+8] r8 [flen]|
+  push rax
+  jmp runtime_call
+  read_aexp_imp_lambda:
+    pop rax
+    pop r8
+    pop [flen]
+    ret
+
 read_func_operand_list:
+  pop [comb_arg_list]
+  pop [function_name]
+  pop [function_name+8]
   pop r8
   pop [flen]
   call make_nil_imperative
@@ -1117,17 +1148,14 @@ read_func_operand_list:
 
   func_op_list_loop:
   call read_whitespace
-  call read_id_or_closure_or_function
-  cmp rax, rdx
+  call read_aexp_imp
+  cmp rax, 0
   je func_op_list_done
 
   mov rdi, rax
   mov rsi, rdx
-  call make_pair_imperative
-
-  mov rdi, rax
   call make_leaf_imperative
-  
+
   pop rdi
   mov rsi, rax
   call make_internal_imperative
@@ -1143,21 +1171,15 @@ read_func_operand_list:
   push rax
   push rdi
   jmp runtime_call
-(read_cexp: new_context fname_l fname_r l r cont -> |read_whitespace_func| l r (l r -> |read_func_operand_list| l r
+(read_cexp: new_context fname_l fname_r l r cont -> |read_whitespace_func| l r (l r -> |read_func_operand_list| new_context fname_l fname_r l r
 (op_list l r -> |reverse_tree| op_list
-(op_list -> |map_tree| op_list (l r cont -> l (a b -> |make_leaf| a b cont))
-(op_list -> |parse_func_cont4| new_context op_list fname_l fname_r l r cont)))))
+(op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
+(new_op_list -> |parse_func_cont4| new_context op_list fname_l fname_r l r cont)))))
   parse_func_cont4:
     pop [comb_arg_list]
     pop [operand_list]
     pop [function_name]
     pop [function_name+8]
-  ; end_pop
-
-  |function_body_op_map [comb_arg_list] [function_name] [function_name+8]|
-  mov rsi, rax
-  mov rdi, [operand_list]
-  call map_tree_imperative
 
   pop r8
   pop [flen]
@@ -1168,8 +1190,8 @@ read_func_operand_list:
 
   jmp runtime_call
   
-  (function_body_op_map: context fname_l fname_r l r -> |function_body_op_map_help| context fname_l fname_r l r)
-  function_body_op_map_help:
+  (parse_aexp: context fname_l fname_r l r -> |parse_aexp_help| context fname_l fname_r l r) ; reads aexp and puts it on stack
+  parse_aexp_help:
   pop [comb_arg_list]
   pop [function_name]
   pop [function_name+8]
