@@ -1177,7 +1177,8 @@ read_func_operand_list_help:
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
 (read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
 (l r -> |deref_byte| l (lb -> |compare| lb 36
-  (-> |add_func| l 1 (l -> |read_aexp| context fname_l fname_r l r (aexp l r -> aexp (-> |read_cexp| context fname_l fname_r l r cont))))
+  (-> |add_func| l 1 (l -> |read_aexp| context fname_l fname_r l r
+    (aexp l r -> aexp (-> |read_whitespace_func| l r (l r -> |add_func| l 1 (l -> |read_cexp| context fname_l fname_r l r cont))))))
   (-> |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> |reverse_tree| op_list
     (op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
