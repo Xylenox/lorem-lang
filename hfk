@@ -91,6 +91,9 @@ runtime_call:
   
   ret     ; fake ret lol
 
+value_call:
+  
+
 page_pointer:
 dq 0
 memory_left:
@@ -1123,7 +1126,7 @@ arg_r: dq 0
 
 
 (read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
-(a b l r -> |compare| a b (-> cont 0 l r) (-> cont (-> |parse_aexp| context fname_l fname_r a b) l r)))
+(a b l r -> |compare| a b (-> cont 0 l r) (-> cont (cont2 -> |parse_aexp| context fname_l fname_r a b cont2) l r)))
 
 read_aexp_imp:
   |read_aexp_imp_lambda|
@@ -1137,14 +1140,14 @@ read_aexp_imp:
     pop [flen]
     ret
 
-read_func_operand_list:
+(read_func_operand_list: context fname_l fname_r l r cont -> |make_nil|
+(tree -> |read_func_operand_list_help| context fname_l fname_r l r tree cont))
+read_func_operand_list_help:
   pop [comb_arg_list]
   pop [function_name]
   pop [function_name+8]
   pop r8
   pop [flen]
-  call make_nil_imperative
-  push rax
 
   func_op_list_loop:
   call read_whitespace
@@ -1171,10 +1174,14 @@ read_func_operand_list:
   push rax
   push rdi
   jmp runtime_call
-(read_cexp: new_context fname_l fname_r l r cont -> |read_whitespace_func| l r (l r -> |read_func_operand_list| new_context fname_l fname_r l r
-(op_list l r -> |reverse_tree| op_list
-(op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
-(new_op_list -> |parse_func_cont4| new_context op_list fname_l fname_r l r cont)))))
+(add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
+(read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
+(l r -> |deref_byte| l (lb -> |compare| lb 36
+  (-> |add_func| l 1 (l -> |read_aexp| context fname_l fname_r l r (aexp l r -> aexp (-> |read_cexp| context fname_l fname_r l r cont))))
+  (-> |read_func_operand_list| context fname_l fname_r l r
+    (op_list l r -> |reverse_tree| op_list
+    (op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
+    (new_op_list -> |parse_func_cont4| context op_list fname_l fname_r l r cont)))))))
   parse_func_cont4:
     pop [comb_arg_list]
     pop [operand_list]
@@ -1190,7 +1197,7 @@ read_func_operand_list:
 
   jmp runtime_call
   
-  (parse_aexp: context fname_l fname_r l r -> |parse_aexp_help| context fname_l fname_r l r) ; reads aexp and puts it on stack
+  (parse_aexp: context fname_l fname_r l r cont -> |parse_aexp_help| context fname_l fname_r l r cont) ; reads aexp and puts it on stack
   parse_aexp_help:
   pop [comb_arg_list]
   pop [function_name]
@@ -1428,7 +1435,6 @@ main_body:
   pop r8
   pop [flen]
 
-  
   push [r8]
   mov rdi, 1
   call prin
