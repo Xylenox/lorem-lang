@@ -1339,23 +1339,6 @@ parse_escape_function: ; takes (lo hi)
   push r8
   jmp main_loop
   
-{
-  let (parse_let: l r cont -> |add_func| l 3
-  (l -> |read_whitespace_func| l r
-  (l r -> |parse_function_help| l r
-  (l -> |read_whitespace_func| l r
-  (l r -> |add_func| l 2
-  (l -> |read_whitespace_func| l r 
-  (l r -> |parse_function_help| l r cont)))))))
-  in
-  (parse_expression: l r cont -> |deref_byte| l (b -> |compare| b 108 (-> |parse_let| l r cont) (-> |parse_function_help| l r cont)))
-}
-{
-  (parse_body_function: l r -> |add_func| l 1
-  (l -> |read_whitespace_func| l r
-  (l r -> |parse_expression| l r
-  (l r -> |read_whitespace_func| l r (l r -> |add_func| l 1 (l -> |main_loop| l r))))))
-}
 empty_tree:
 dq 0
 start:
@@ -1421,16 +1404,13 @@ add [flen], r8
 push [flen]
 push r8
 jmp main_loop
-{
   (main_loop: lo hi -> |compare| lo hi |exit|
   (parse_token:-> |deref_byte| lo
   (check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (l r -> |main_loop| l r))
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
   (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
-  (check_body: -> |compare| c 123 (-> |parse_body_function| lo hi)
   (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
-  (-> |main_body| lo hi))))))))
-}
+  (-> |main_body| lo hi)))))))
   ; main loop
 main_body:
   pop r8
