@@ -1075,11 +1075,13 @@ temp_r8: dq 0
 operand_list: dq 0
 
 (parse_label: pl pr cont -> |read_whitespace_func| pl pr 
-(l r -> |read_identifier_func| l r
-(l r fl fr -> |read_whitespace_func| l r 
-(l r -> |deref_byte| l (l_char -> |compare| l_char 58
-  (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr))
-  (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr)))))))
+(l r -> (rest_label -> |deref_byte| l (lb -> |compare| lb 33 (-> |add_func| l 1 (l -> rest_label l r (a b -> a))) (-> rest_label l r (a b -> b))))
+  (l r is_returning -> |read_identifier_func| l r
+  (l r fl fr -> |read_whitespace_func| l r 
+  (l r -> |deref_byte| l (l_char -> |compare| l_char 58
+    (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr is_returning))
+    (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr is_returning))))))
+  ))
 
 (read_new_context: old_context l r cont -> |read_identifier_list| l r 
 (new_args l r -> |make_internal| old_context new_args
@@ -1097,7 +1099,7 @@ db "pop rax\\npush rax\\n"
 
 (parse_function: old_context p_fname_l p_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
-(l r fname_l fname_r -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
+(l r fname_l fname_r is_returning -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
 (-> |read_new_context| old_context l r 
 (new_context l r -> |print_function_storage| new_context fname_l fname_r
 (-> |print_function_init| new_context fname_l fname_r
