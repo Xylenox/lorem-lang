@@ -1248,7 +1248,7 @@ read_func_operand_list_help:
 ))
 
   not_body_closure_help:
-  |body_function_cont [operand_list] [comb_arg_list] r8 [flen] [arg_l] [arg_r] [function_name] [function_name+8]|
+  |body_function_cont|
   push rax
   push [arg_r]
   push [arg_l]
@@ -1260,14 +1260,6 @@ read_func_operand_list_help:
   jmp parse_function
 
   body_function_cont:
-  pop [operand_list]
-  pop [comb_arg_list]
-  pop r8
-  pop [flen]
-  pop [arg_l]
-  pop [arg_r]
-  pop [function_name]
-  pop [function_name+8]
   add rsp, 16
   lea rdi, [push_rax_string]
   lea rsi, [push_rax_string+8]
@@ -1293,14 +1285,10 @@ read_func_operand_list_help:
 
 parse_function_help: ; lo hi cont
   call make_nil_imperative
+  push 0
+  push 0
   push rax
-  mov [function_name], 0
-  mov [function_name+8], 0
-  pop rdi
-  push 0
-  push 0
-  push rdi
-  jmp parse_function
+  jmp read_aexp
 
 
 parse_closure_function: ; takes (lo hi)
@@ -1406,7 +1394,7 @@ push r8
 jmp main_loop
   (main_loop: lo hi -> |compare| lo hi |exit|
   (parse_token:-> |deref_byte| lo
-  (check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (l r -> |main_loop| l r))
+  (check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (func l r -> func (-> |main_loop| l r)))
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
   (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
   (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
