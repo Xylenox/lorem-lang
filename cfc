@@ -924,6 +924,8 @@ ops1:
     dq 0xC08F
     dq "jmp"
     dq 0xE0FF
+    dq "call"
+    dq 0xD0FF
     register_only_array_end:
     push rdx
     push rsi
