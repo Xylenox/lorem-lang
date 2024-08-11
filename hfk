@@ -1093,16 +1093,16 @@ operand_list: dq 0
 
 function_storage_end:
 db "pop rax\\npush rax\\n"
-(print_function_init: context fname_l fname_r cont -> |print_label| fname_l fname_r
-(-> |print_string_func| function_storage_end 0
-(-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> cont))))
+(print_function_init: context fname_l fname_r is_returning cont -> |print_label| fname_l fname_r
+(rest_of_init -> is_returning (-> |print_string_func| function_storage_end 8 rest_of_init) rest_of_init)
+(-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> is_returning (-> |print_substring_func| function_storage_end 8 17 cont) cont)))
 
 (parse_function: old_context p_fname_l p_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
 (l r fname_l fname_r is_returning -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
 (-> |read_new_context| old_context l r 
 (new_context l r -> |print_function_storage| new_context fname_l fname_r
-(-> |print_function_init| new_context fname_l fname_r
+(-> |print_function_init| new_context fname_l fname_r is_returning
 (-> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_cexp| new_context fname_l fname_r l r
