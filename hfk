@@ -54,6 +54,8 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     push rsi
     jmp runtime_call
 
+(compare_bool: a b cont -> compare a b (-> cont (equal_cont diff_cont -> equal_cont)) (-> cont (equal_cont diff_cont -> diff_cont)))
+
 constant_strings:
 push_string:
 dq "push "
