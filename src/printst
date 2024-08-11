@@ -1,7 +1,0 @@
-REX.WB
-mov r7, r1
-REX.W
-mov r6, r4
-mov r2, 0
-mov r0, 1
-syscall
