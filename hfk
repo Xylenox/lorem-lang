@@ -1106,8 +1106,7 @@ db "pop rax\\npush rax\\n"
 (-> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_cexp| new_context fname_l fname_r l r
-(l r -> |function_done| old_context fname_l fname_r p_fname_l p_fname_r l r cont)))))))
-)))))
+(l r -> |function_done| old_context fname_l fname_r p_fname_l p_fname_r l r cont))))))))))))
 
 (function_done: old_context fname_l fname_r p_fname_l p_fname_r l r cont -> |format_substring| function_done_string 0 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
@@ -1188,10 +1187,12 @@ read_func_operand_list_help:
 (l r -> |deref_byte| l (lb -> |compare| lb 36
   (-> |add_func| l 1 (l -> |read_aexp| context fname_l fname_r l r
     (aexp l r -> aexp (-> |read_whitespace_func| l r (l r -> |add_func| l 1 (l -> |read_cexp| context fname_l fname_r l r cont))))))
-  (-> |read_func_operand_list| context fname_l fname_r l r
+  (-> |read_function_application| context fname_l fname_r l r cont)
+  )))
+(read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> |reverse_tree| op_list
     (op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
-    (new_op_list -> |parse_func_cont4| context op_list fname_l fname_r l r cont)))))))
+    (new_op_list -> |parse_func_cont4| context op_list fname_l fname_r l r cont))))
   parse_func_cont4:
     pop [comb_arg_list]
     pop [operand_list]
