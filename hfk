@@ -89,7 +89,8 @@ runtime_call:
   cmp rcx, 0
   jne runtime_call_loop
   
-  ret     ; fake ret lol
+  pop rax
+  jmp rax
 
 value_call:
   
@@ -1082,11 +1083,15 @@ operand_list: dq 0
 (new_args l r -> |make_internal| old_context new_args
 (new_context -> cont new_context l r)))
 
-(print_function_storage: context fname_l fname_r cont -> |map_tree| context 
-(l r cont -> |map_argument| fname_l fname_r l r cont) (extra_tree -> cont))
+(print_function_storage: context fname_l fname_r cont ->
+(-> |map_tree| context  (l r cont -> |map_argument| fname_l fname_r l r cont) (extra_tree -> cont)))
 
+
+function_storage_end:
+db "pop rax\\npush rax\\n"
 (print_function_init: context fname_l fname_r cont -> |print_label| fname_l fname_r
-(-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> cont)))
+(-> |print_string_func| function_storage_end 0
+(-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> cont))))
 
 (parse_function: old_context p_fname_l p_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
@@ -1265,15 +1270,6 @@ read_func_operand_list_help:
   lea rsi, [push_rax_string+8]
   call print_range_line
   jmp end_process_function_body
-
-  not_body_function:
-  push [function_name+8]
-  push [function_name]
-  push [arg_r]
-  push [arg_l]
-  push [comb_arg_list]
-  jmp not_body_help
-
 
   body_constant_string:
   dq "push \{}\\n"
