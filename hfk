@@ -1027,9 +1027,12 @@ print_label:
   jmp runtime_call
 
 map_arg_string:
-db "{}{}: dq 0\\n"
-(map_argument: fname_l fname_r l r cont -> |format_substring| map_arg_string 0 11
-(fmt -> fmt fname_l fname_r (fmt -> fmt l r (fmt -> |print_tree| fmt (-> cont 0)))))
+db "jmp {}{}_end\\n{}{}: dq 0\\n{}{}_end:\\n"
+(map_argument: fname_l fname_r l r cont -> |format_substring| map_arg_string 0 34
+(fmt -> fmt fname_l fname_r (fmt -> fmt l r
+(fmt -> fmt fname_l fname_r (fmt -> fmt l r
+(fmt -> fmt fname_l fname_r (fmt -> fmt l r
+(fmt -> |print_tree| fmt (-> cont 0)))))))))
 
 pop_start_string:
   dq "pop ["
