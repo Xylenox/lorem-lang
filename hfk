@@ -181,32 +181,19 @@ malloc:
 (make_internal: a b cont -> cont (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
 (!make_nil_ret: -> |return| (cont_nil cont_leaf cont_internal -> cont_nil))
+(!make_leaf_ret: l r -> |return| (cont_nil cont_leaf cont_internal -> cont_leaf l r))
+(!make_internal_ret: a b -> |return| (cont_nil cont_leaf cont_internal -> cont_internal a b))
+
 make_leaf_imperative:
   push rsi
   push rdi
-  |make_internal_imperative_done|
-  pop rdi
-  pop rsi
-  push rax
-  push rsi
-  push rdi
-  jmp make_leaf
-  make_leaf_imperative_done:
-  pop rax
+  call make_leaf_ret
   ret
   
 make_internal_imperative:
   push rsi
   push rdi
-  |make_internal_imperative_done|
-  pop rdi
-  pop rsi
-  push rax
-  push rsi
-  push rdi
-  jmp make_internal
-  make_internal_imperative_done:
-  pop rax
+  call make_internal_ret
   ret
 
 prin:                   ; printst
