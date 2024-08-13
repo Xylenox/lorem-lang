@@ -1091,7 +1091,11 @@ db "pop rax\\npush rax\\n"
 (-> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_cexp| new_context fname_l fname_r l r
-(l r -> |function_done| old_context fname_l fname_r p_fname_l p_fname_r l r is_returning cont))))))))))))
+(l r -> |add_func| l 1
+(l -> |print_function| old_context fname_l fname_r p_fname_l p_fname_r is_returning (-> cont l r))))))))))))))
+
+(print_function: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
+|function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)
 
 function_done_string:
 db "jmp runtime_call\\n\{}_end:\\n"
@@ -1099,26 +1103,17 @@ function_ret_done_string:
 db "call runtime_call_ret\\nret\\n"
 ret_string:
 db "ret\\n"
-(function_done: old_context fname_l fname_r p_fname_l p_fname_r l r is_returning cont ->
+(function_done: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
   (rest_of_done -> is_returning (-> |print_string_func| function_ret_done_string 26 rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| p_fname_l p_fname_r helper_tree l r cont)))))))
+  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| p_fname_l p_fname_r helper_tree cont)))))))
 
   function_done_help:
   pop [prev_function_name]
   pop [prev_function_name+8]
   pop rdi
   call print_closure_eof
-
-  pop r8
-  pop [flen]
-  
-  pop rcx
-  push [flen]
-  add r8, 1
-  push r8
-  push rcx
   jmp runtime_call
 
 arg_l: dq 0
