@@ -94,6 +94,27 @@ runtime_call:
   pop rax
   jmp rax
 
+runtime_call_ret:
+  ; first input is closure containing \| number of operands including function, function, environment \|
+  pop rbp
+  mov rdx, [rsp]
+  mov rcx, [rdx]
+  shl rcx, 3
+  add rdx, 8
+  add rsp, 8
+  sub rsp, rcx
+
+  runtime_call_ret_loop:
+  sub rcx, 8
+  mov rax, [rdx+rcx]
+  mov [rsp+rcx], rax
+  cmp rcx, 0
+  jne runtime_call_ret_loop
+  
+  pop rax
+  push rbp
+  jmp rax
+
 value_call:
   
 
@@ -1110,10 +1131,12 @@ db "pop rax\\npush rax\\n"
 
 function_done_string:
 db "jmp runtime_call\\n\{}_end:\\n"
+function_ret_done_string:
+db "call runtime_call_ret\\nret\\n"
 ret_string:
 db "ret\\n"
-(function_done: old_context fname_l fname_r p_fname_l p_fname_r l r is_returning cont -> |print_string_func| function_done_string 17
-  (rest_of_done -> is_returning (-> |print_string_func| ret_string 4 rest_of_done) rest_of_done)
+(function_done: old_context fname_l fname_r p_fname_l p_fname_r l r is_returning cont ->
+  (rest_of_done -> is_returning (-> |print_string_func| function_ret_done_string 26 rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
   (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| p_fname_l p_fname_r helper_tree l r cont)))))))
