@@ -17,6 +17,12 @@ deref_byte: ; takes (ptr cont) and calls cont with *ptr
   jmp runtime_call
 
 
+return:
+  pop rcx
+  pop rax
+  push rcx
+  ret
+
 load_func: ; (ptr cont) -> cont *ptr
   pop rax
   pop rdx
