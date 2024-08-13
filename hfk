@@ -1025,41 +1025,11 @@ print_label:
   lea rsi, [label_end_string+1]
   call print_range_line
   jmp runtime_call
-map_argument: ; (pfname_l pfname_r l r cont)
-  pop [function_name]
-  pop [function_name+8]
-  mov rdi, [rsp]
-  mov rsi, [rsp+8]
-  mov rax, [rsp+16]
-  add rsp, 8
-  mov [rsp], rax
-  call make_leaf_imperative
-  push rax
-  mov rdi, [function_name]
-  mov rsi, [function_name+8]
-  call make_leaf_imperative
-  mov rdi, rax
-  pop rsi
-  call make_internal_imperative
-  push rax
-  lea rdi, [dq_string]
-  lea rsi, [dq_string+6]
-  call make_leaf_imperative
-  pop rdi
-  mov rsi, rax
-  call make_internal_imperative
-  push rax
-  lea rdi, [newline_string]
-  lea rsi, [newline_string+1]
-  call make_leaf_imperative
-  pop rdi
-  mov rsi, rax
-  call make_internal_imperative
-  mov [rsp+8], rax
-  mov rdi, rax
-  call print_tree_imperative
-  jmp runtime_call
 
+map_arg_string:
+db "{}{}: dq 0\\n"
+(map_argument: fname_l fname_r l r cont -> |format_substring| map_arg_string 0 11
+(fmt -> fmt fname_l fname_r (fmt -> fmt l r (fmt -> |print_tree| fmt (-> cont 0)))))
 
 pop_start_string:
   dq "pop ["
