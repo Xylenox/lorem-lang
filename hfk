@@ -1119,22 +1119,6 @@ db "ret\\n"
 arg_l: dq 0
 arg_r: dq 0
 
-
-(read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
-(a b l r -> |compare| a b (-> cont 0 l r) (-> cont (cont2 -> |parse_aexp| context fname_l fname_r a b cont2) l r)))
-
-read_aexp_imp:
-  |read_aexp_imp_lambda|
-  push rax
-  |read_aexp [comb_arg_list] [function_name] [function_name+8] r8 [flen]|
-  push rax
-  jmp runtime_call
-  read_aexp_imp_lambda:
-    pop rax
-    pop r8
-    pop [flen]
-    ret
-
 (read_func_operand_list: context fname_l fname_r l r cont -> |make_nil|
 (tree -> |read_func_operand_list_help| context fname_l fname_r l r tree cont))
 read_func_operand_list_help:
@@ -1170,9 +1154,9 @@ read_func_operand_list_help:
   push rdi
   jmp runtime_call
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
+
 (read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
 (l r -> |read_function_application| context fname_l fname_r l r cont))
-
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> |reverse_tree| op_list
     (op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
@@ -1191,9 +1175,23 @@ read_func_operand_list_help:
   push rcx
 
   jmp runtime_call
+
+(read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
+(a b l r -> |compare| a b (-> cont 0 l r) (-> cont (cont2 -> |parse_aexp| context fname_l fname_r a b cont2) l r)))
+read_aexp_imp:
+  |read_aexp_imp_lambda|
+  push rax
+  |read_aexp [comb_arg_list] [function_name] [function_name+8] r8 [flen]|
+  push rax
+  jmp runtime_call
+  read_aexp_imp_lambda:
+    pop rax
+    pop r8
+    pop [flen]
+    ret
   
-  (parse_aexp: context fname_l fname_r l r cont -> |parse_aexp_help| context fname_l fname_r l r cont) ; reads aexp and puts it on stack
-  parse_aexp_help:
+(parse_aexp: context fname_l fname_r l r cont -> |parse_aexp_help| context fname_l fname_r l r cont) ; reads aexp and puts it on stack
+parse_aexp_help:
   pop [comb_arg_list]
   pop [function_name]
   pop [function_name+8]
