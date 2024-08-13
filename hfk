@@ -121,8 +121,12 @@ runtime_call_ret:
   push rbp
   jmp rax
 
-value_call:
-  
+compute: ; (a b -> b (a)) execs a and gets value
+  call runtime_call_ret
+  pop rcx
+  push rax
+  push rcx
+  jmp runtime_call
 
 page_pointer:
 dq 0
@@ -1084,7 +1088,7 @@ operand_list: dq 0
 
 (parse_label: pl pr cont -> |read_whitespace_func| pl pr 
 (l r -> (rest_label -> |deref_byte| l (lb -> |compare| lb 33 (-> |add_func| l 1 (l -> rest_label l r (a b -> a))) (-> rest_label l r (a b -> b))))
-  (l r is_returning -> |read_identifier_func| l r
+  (pl pr is_returning -> |read_identifier_func| pl pr
   (l r fl fr -> |read_whitespace_func| l r 
   (l r -> |deref_byte| l (l_char -> |compare| l_char 58
     (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr is_returning))
