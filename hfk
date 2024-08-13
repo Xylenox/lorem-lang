@@ -378,7 +378,7 @@ print_string_line_func:
 (traverse_internal: a b -> |traverse_tree| a action (-> |traverse_tree| b action cont)))
 
 ; calls cont with new_tree
-(map_tree: tree action cont -> tree (-> |make_nil| cont) (l r -> action l r cont) 
+(map_tree: tree action cont -> tree (-> |compute| (!-> |make_nil_ret|) cont) (l r -> action l r cont) 
 (map_internal: a b -> |map_tree| a action (new_a -> |map_tree| b action (new_b -> |make_internal| new_a new_b cont))))
 
 (reverse_tree: tree cont -> tree (-> |make_nil| cont) ( l r -> |make_leaf| l r cont)
