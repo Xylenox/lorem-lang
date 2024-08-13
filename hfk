@@ -180,13 +180,7 @@ malloc:
 (make_leaf: l r cont -> cont (cont_nil cont_leaf cont_internal -> cont_leaf l r))
 (make_internal: a b cont -> cont (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
-make_nil_imperative:
-  |make_nil_imperative_done|
-  push rax
-  jmp make_nil
-  make_nil_imperative_done:
-  pop rax
-  ret
+(!make_nil_ret: -> |return| (cont_nil cont_leaf cont_internal -> cont_nil))
 make_leaf_imperative:
   push rsi
   push rdi
@@ -619,7 +613,7 @@ read_identifier_func: ; (r8 flen cont -> r8 flen l r)
 read_identifier_list:
   pop r8
   pop [flen]
-  call make_nil_imperative
+  call make_nil_ret
   push rax
 
   id_list_loop:
@@ -692,7 +686,7 @@ read_identifier_list_imperative:
 read_operand_list:
   pop r8
   pop [flen]
-  call make_nil_imperative
+  call make_nil_ret
   push rax
 
   op_list_loop:
@@ -1319,7 +1313,7 @@ read_func_operand_list_help:
   (end_process_function_body: cont -> cont 0)
 
 parse_function_help: ; lo hi cont
-  call make_nil_imperative
+  call make_nil_ret
   push 0
   push 0
   push rax
@@ -1365,7 +1359,7 @@ parse_escape_function: ; takes (lo hi)
 empty_tree:
 dq 0
 start:
-call make_nil_imperative
+call make_nil_ret
 mov [empty_tree], rax
 ; open input
 mov r6, 0x0             ; READ_ONLY
