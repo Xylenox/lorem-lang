@@ -1094,10 +1094,10 @@ db "pop rax\\npush rax\\n"
 (new_context l r -> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_cexp| new_context fname_l fname_r l r
-(l r new_context cexp -> |add_func| l 1
+(l r extra_context cexp -> |add_func| l 1
 (l ->
   (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-    (-> |print_function_storage| new_context fname_l fname_r
+    (-> |print_function_storage| extra_context fname_l fname_r
     (-> |print_function_init| new_context fname_l fname_r is_returning
     (-> cexp
     (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))
@@ -1226,7 +1226,6 @@ parse_aexp_help:
   jmp not_body_closure_compare
   (not_body_closure_compare: comb_args l r fname_l fname_r cont -> |deref_byte| l
   (dig -> |compare| dig 40 (-> |not_body_closure_help| cont) 
-
     (not_body: ->
     (constant -> |deref_byte| l
       (lb -> |is_alpha_func| lb (res -> |compare| res 1
