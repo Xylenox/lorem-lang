@@ -589,15 +589,15 @@ read_identifier: ; read identifier and return start and end pointers
   mov rdx, r8
   ret
 
-read_identifier_func: ; (r8 flen cont -> r8 flen l r)
+read_identifier_func: ; (r8 flen cont ->  l r r8 flen)
   pop r8
   pop [flen]
   call read_identifier
   pop rcx
-  push rdx
-  push rax
   push [flen]
   push r8
+  push rdx
+  push rax
   push rcx
   jmp runtime_call
 
@@ -1068,7 +1068,7 @@ operand_list: dq 0
 (parse_label: pl pr cont -> |read_whitespace_func| pl pr 
 (l r -> (rest_label -> |deref_byte| l (lb -> |compare| lb 33 (-> |add_func| l 1 (l -> rest_label l r (a b -> a))) (-> rest_label l r (a b -> b))))
   (pl pr is_returning -> |read_identifier_func| pl pr
-  (l r fl fr -> |read_whitespace_func| l r 
+  (fl fr l r -> |read_whitespace_func| l r 
   (l r -> |deref_byte| l (l_char -> |compare| l_char 58
     (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr is_returning))
     (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr is_returning))))))
