@@ -1091,8 +1091,9 @@ db "pop rax\\npush rax\\n"
 (-> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_cexp| new_context fname_l fname_r l r
-(l r -> |add_func| l 1
-(l -> |print_function| old_context fname_l fname_r p_fname_l p_fname_r is_returning (-> cont l r))))))))))))))
+(l r cexp -> cexp
+(-> |add_func| l 1
+(l -> |print_function| old_context fname_l fname_r p_fname_l p_fname_r is_returning (-> cont l r)))))))))))))))
 
 (print_function: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
 |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)
@@ -1160,9 +1161,10 @@ read_func_operand_list_help:
 (read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
 (l r -> |read_function_application| context fname_l fname_r l r cont))
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
-    (op_list l r -> |reverse_tree| op_list
-    (op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
-    (new_op_list -> cont l r))))
+    (op_list l r -> cont l r (cont2 -> |print_cexp| op_list cont2)))
+(print_cexp: aexp_list cont -> |reverse_tree| aexp_list
+  (aexp_list ->|map_tree| aexp_list (aexp r cont -> aexp cont)
+  (aexp_list -> cont)))
 
 (read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
 (a b l r -> |compare| a b (-> cont 0 l r) (-> cont (cont2 -> |parse_aexp| context fname_l fname_r a b cont2) l r)))
