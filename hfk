@@ -1084,19 +1084,19 @@ db "pop rax\\npush rax\\n"
 
 (parse_function: old_context p_fname_l p_fname_r l r cont -> |add_func| l 1
 (l_inner -> |parse_label| l_inner r 
-(l r fname_l fname_r is_returning -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-(-> |read_new_context| old_context l r 
-(new_context l r -> |print_function_storage| new_context fname_l fname_r
-(-> |print_function_init| new_context fname_l fname_r is_returning
-(-> |read_whitespace_func| l r
+(l r fname_l fname_r is_returning -> |read_new_context| old_context l r 
+(new_context l r -> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_cexp| new_context fname_l fname_r l r
-(l r cexp -> cexp
-(-> |add_func| l 1
-(l -> |print_function| old_context fname_l fname_r p_fname_l p_fname_r is_returning (-> cont l r)))))))))))))))
+(l r cexp -> |add_func| l 1
+(l ->
+  (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
+    (-> |print_function_storage| new_context fname_l fname_r
+    (-> |print_function_init| new_context fname_l fname_r is_returning
+    (-> cexp
+    (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))
+  (-> cont l r)))))))))
 
-(print_function: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
-|function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)
 
 function_done_string:
 db "jmp runtime_call\\n\{}_end:\\n"
