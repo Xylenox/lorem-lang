@@ -1107,9 +1107,11 @@ db "ret\\n"
   (rest_of_done -> is_returning (-> |print_string_func| function_ret_done_string 26 rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| p_fname_l p_fname_r helper_tree cont)))))))
+  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| fname_l fname_r p_fname_l p_fname_r helper_tree cont)))))))
 
   function_done_help:
+  pop [function_name]
+  pop [function_name+8]
   pop [prev_function_name]
   pop [prev_function_name+8]
   pop rdi
@@ -1160,21 +1162,7 @@ read_func_operand_list_help:
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> |reverse_tree| op_list
     (op_list -> |map_tree| op_list (aexp r cont -> aexp cont)
-    (new_op_list -> |parse_func_cont4| context op_list fname_l fname_r l r cont))))
-  parse_func_cont4:
-    pop [comb_arg_list]
-    pop [operand_list]
-    pop [function_name]
-    pop [function_name+8]
-
-  pop r8
-  pop [flen]
-  pop rcx
-  push [flen]
-  push r8
-  push rcx
-
-  jmp runtime_call
+    (new_op_list -> cont l r))))
 
 (read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
 (a b l r -> |compare| a b (-> cont 0 l r) (-> cont (cont2 -> |parse_aexp| context fname_l fname_r a b cont2) l r)))
