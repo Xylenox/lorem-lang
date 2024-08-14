@@ -915,6 +915,11 @@ brackets_string_2:
 ))
 
 print_closure_eof:
+  pop [function_name]
+  pop [function_name+8]
+  pop [prev_function_name]
+  pop [prev_function_name+8]
+  pop rdi
   push rdi
   lea rdi, [newline_string]
   lea rsi, [newline_string]
@@ -968,6 +973,7 @@ print_closure_eof:
   lea rsi, [closure_footer+62]
   call print_range_line
 
+  jmp runtime_call
   ret
 
 closure_footer:
@@ -1108,16 +1114,8 @@ db "ret\\n"
   (rest_of_done -> is_returning (-> |print_string_func| function_ret_done_string 26 rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context (helper_tree -> |function_done_help| fname_l fname_r p_fname_l p_fname_r helper_tree cont)))))))
-
-  function_done_help:
-  pop [function_name]
-  pop [function_name+8]
-  pop [prev_function_name]
-  pop [prev_function_name+8]
-  pop rdi
-  call print_closure_eof
-  jmp runtime_call
+  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context
+  (helper_tree -> |print_closure_eof| fname_l fname_r p_fname_l p_fname_r helper_tree cont)))))))
 
 arg_l: dq 0
 arg_r: dq 0
