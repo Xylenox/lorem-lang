@@ -1094,7 +1094,7 @@ db "pop rax\\npush rax\\n"
 (new_context l r -> |read_whitespace_func| l r
 (l r -> |add_func| l 2
 (l -> |read_cexp| new_context fname_l fname_r l r
-(l r cexp -> |add_func| l 1
+(l r new_context cexp -> |add_func| l 1
 (l ->
   (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
     (-> |print_function_storage| new_context fname_l fname_r
@@ -1156,10 +1156,26 @@ read_func_operand_list_help:
   jmp runtime_call
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
 
+; returns l r cexp
 (read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
-(l r -> |read_function_application| context fname_l fname_r l r cont))
+(l r -> |deref_byte| l (lb -> |compare| lb 36
+  (-> |add_func| l 1 (l -> |read_whitespace_func| l r
+    (l r -> |read_identifier_func| l r
+    (il ir l r -> |add_to_context| context il ir
+    (context -> |read_whitespace_func| l r
+    (l r -> |add_func| l 1
+    (l -> |read_whitespace_func| l r
+    (l r -> |read_aexp| context fname_l fname_r l r
+    (aexp l r -> |read_whitespace_func| l r
+    (l r -> |add_func| l 1
+    (l -> |read_cexp| context fname_l fname_r l r
+    (l r context cexp -> cont l r context 
+        (cont -> aexp
+        (-> |print_pop_arg| fname_l fname_r il ir (a -> cexp cont)))))))))))))))
+  (-> |read_function_application| context fname_l fname_r l r cont))))
+
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
-    (op_list l r -> cont l r (cont2 -> |print_cexp| op_list cont2)))
+    (op_list l r -> cont l r context (cont2 -> |print_cexp| op_list cont2)))
 (print_cexp: aexp_list cont -> |reverse_tree| aexp_list
   (aexp_list ->|map_tree| aexp_list (aexp r cont -> aexp (-> cont 0))
   (aexp_list -> cont)))
