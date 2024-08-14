@@ -1161,9 +1161,10 @@ read_func_operand_list_help:
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> cont l r (cont2 -> |print_cexp| op_list cont2)))
 (print_cexp: aexp_list cont -> |reverse_tree| aexp_list
-  (aexp_list ->|map_tree| aexp_list (aexp r cont -> aexp cont)
+  (aexp_list ->|map_tree| aexp_list (aexp r cont -> aexp (-> cont 0))
   (aexp_list -> cont)))
 
+; returns aexp l r
 (read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
 (a b l r -> |compare| a b (-> cont 0 l r) (-> cont (cont2 -> |parse_aexp| context fname_l fname_r a b cont2) l r)))
 read_aexp_imp:
@@ -1217,13 +1218,13 @@ parse_aexp_help:
         (bool -> bool
           (body_identifier_real: -> |format_substring| body_identifier_real_string 0 12
             (fmt -> fmt fname_l fname_r (fmt -> fmt l r
-            (fmt -> |print_tree| fmt (-> cont 0)))))
+            (fmt -> |print_tree| fmt (-> cont)))))
           constant))
       constant
     )))  
     (body_constant: -> |format_substring| body_constant_string 0 8
       (fmt -> fmt l r
-      (fmt -> |print_tree| fmt (-> cont 0))))
+      (fmt -> |print_tree| fmt (-> cont))))
   )
 ))
 
@@ -1252,7 +1253,7 @@ parse_aexp_help:
   body_identifier_real_string:
   db "push [\{}\{}]\\n"
 
-  (end_process_function_body: cont -> cont 0)
+  (end_process_function_body: cont -> cont)
 
 parse_function_help: ; lo hi cont
   call make_nil_ret
