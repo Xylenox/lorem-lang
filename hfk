@@ -1349,17 +1349,13 @@ parse_comment_function: ; takes (lo hi)
   push r8
   jmp main_loop
 
-parse_escape_function: ; takes (lo hi)
-  pop r8
-  pop [flen]
-  lea rdi, [r8+1]
-  lea rsi, [r8+2]
-  call print_range
-  add r8, 2
-  push [flen]
-  push r8
-  jmp main_loop
-  
+(parse_escape: l r ->
+  $a = {|add_func| l 1};
+  $b = {|add_func| l 2};
+  |print_range_func| a b
+  (-> |main_loop| b r)
+)
+
 empty_tree:
 dq 0
 start:
@@ -1430,7 +1426,7 @@ jmp main_loop
   (check_function: -> |compare| c 40 (-> |parse_function_help| lo hi (l r func -> func (-> |main_loop| l r)))
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
   (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
-  (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
+  (check_escape: -> |compare| c 92 (-> |parse_escape| lo hi)
   (-> |print_char| lo hi)))))))
 
 (print_char: lo hi ->
