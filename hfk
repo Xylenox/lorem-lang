@@ -1162,13 +1162,18 @@ read_func_operand_list_help:
     (-> |read_block| context fname_l fname_r l r cont)
     (-> |read_aexp| context fname_l fname_r l r cont)))
 
+
+function_ret_and_push_string:
+db "call runtime_call_ret\\npush rax\\n"
 (read_block: context fname_l fname_r l r cont ->
   |add_func| l 1
   (l -> |read_whitespace_func| l r
   (l r -> |read_cexp| context fname_l fname_r l r
   (l r context cexp -> |read_whitespace_func| l r
   (l r -> |add_func| l 1
-  (l -> cont l r (-> cexp))))))
+  (l -> cont l r
+    (cont -> cexp 
+    (-> |print_string_func| function_ret_and_push_string 31 cont)))))))
 )
 
 ; returns l r context cexp
