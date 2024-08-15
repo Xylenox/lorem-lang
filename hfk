@@ -16,6 +16,7 @@ deref_byte: ; takes (ptr cont) and calls cont with *ptr
   push rax
   jmp runtime_call
 
+(!deref_byte_ret: l -> |callcc| (cont -> |deref_byte| l cont))
 
 return:
   pop rcx
@@ -127,6 +128,19 @@ compute: ; (a b -> b (a)) execs a and gets value
   push rax
   push rcx
   jmp runtime_call
+
+callcc: ; takes (cont -> ..) and returns the value that cont recieves
+  |callcc_cont|
+  pop rcx ; ret
+  pop rbx ; f
+  push rcx
+  push rax
+  push rbx
+  jmp runtime_call
+
+  callcc_cont:
+    pop rax
+    ret
 
 page_pointer:
 dq 0
@@ -378,7 +392,10 @@ print_string_line_func:
 (traverse_internal: a b -> |traverse_tree| a action (-> |traverse_tree| b action cont)))
 
 ; calls cont with new_tree
-(map_tree: tree action cont -> tree (-> |compute| (!-> |make_nil_ret|) cont) (l r -> action l r cont) 
+(map_tree: tree action cont -> tree
+  (-> $nil = { |make_nil_ret| };
+      cont nil)
+  (l r -> action l r cont) 
 (map_internal: a b -> |map_tree| a action (new_a -> |map_tree| b action (new_b -> |make_internal| new_a new_b cont))))
 
 (reverse_tree: tree cont -> tree (-> |make_nil| cont) ( l r -> |make_leaf| l r cont)
@@ -1157,10 +1174,11 @@ read_func_operand_list_help:
   jmp runtime_call
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
 
-(read_texp: context fname_l fname_r l r cont -> |deref_byte| l
-  (lb -> |compare| lb 123
-    (-> |read_block| context fname_l fname_r l r cont)
-    (-> |read_aexp| context fname_l fname_r l r cont)))
+(read_texp: context fname_l fname_r l r cont ->
+  (-> $lb = { |deref_byte_ret| l };
+      |compare| lb 123
+      (-> |read_block| context fname_l fname_r l r cont)
+      (-> |read_aexp| context fname_l fname_r l r cont)))
 
 
 function_ret_and_push_string:
