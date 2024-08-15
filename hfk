@@ -7,16 +7,13 @@
 jmp start
 
 
-deref_byte: ; takes (ptr cont) and calls cont with *ptr
+deref_byte: ; takes (ptr) and returns *ptr
+  pop rdx
   pop rax
-  sub rcx, rcx
-  movb rcx, [rax]
-  pop rax
-  push rcx
-  push rax
-  jmp runtime_call
-
-(!deref_byte_ret: l -> |callcc| (cont -> |deref_byte| l cont))
+  push rdx
+  movb rax, [rax]
+  and rax, 0xFF
+  ret
 
 return:
   pop rcx
@@ -657,8 +654,8 @@ read_identifier_list:
 
 (format_string_helper: tree l mid r cont -> |compare| mid r
   (-> |make_leaf| l mid (leaf -> |make_internal| tree leaf (tree -> cont tree)))
-  (-> |deref_byte| mid
-    (mid_b -> |compare| mid_b 123
+  (-> $mid_b = { |deref_byte| mid };
+    |compare| mid_b 123
       (-> |make_leaf| l mid
         (leaf -> |make_internal| tree leaf
           (tree -> |add_func| mid 2
@@ -671,7 +668,6 @@ read_identifier_list:
         )
       )
       (-> |add_func| mid 1 (new_mid -> |format_string_helper| tree l new_mid r cont))
-    )
   )
 )
 
@@ -1083,12 +1079,14 @@ temp_r8: dq 0
 operand_list: dq 0
 
 (parse_label: pl pr cont -> |read_whitespace_func| pl pr 
-(l r -> (rest_label -> |deref_byte| l (lb -> |compare| lb 33 (-> |add_func| l 1 (l -> rest_label l r (a b -> a))) (-> rest_label l r (a b -> b))))
+(l r -> (rest_label -> $lb = {|deref_byte| l};
+  |compare| lb 33 (-> |add_func| l 1 (l -> rest_label l r (a b -> a))) (-> rest_label l r (a b -> b)))
   (pl pr is_returning -> |read_identifier_func| pl pr
   (fl fr l r -> |read_whitespace_func| l r 
-  (l r -> |deref_byte| l (l_char -> |compare| l_char 58
+  (l r -> $l_char = { |deref_byte| l };
+    |compare| l_char 58
     (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr is_returning))
-    (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr is_returning))))))
+    (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr is_returning)))))
   ))
 
 (read_new_context: old_context l r cont -> |read_identifier_list| l r 
@@ -1175,7 +1173,7 @@ read_func_operand_list_help:
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
 
 (read_texp: context fname_l fname_r l r cont ->
-  (-> $lb = { |deref_byte_ret| l };
+  (-> $lb = { |deref_byte| l };
       |compare| lb 123
       (-> |read_block| context fname_l fname_r l r cont)
       (-> |read_aexp| context fname_l fname_r l r cont)))
@@ -1196,7 +1194,8 @@ db "call runtime_call_ret\\npush rax\\n"
 
 ; returns l r context cexp
 (read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
-(l r -> |deref_byte| l (lb -> |compare| lb 36
+(l r -> $lb = { |deref_byte| l };
+     |compare| lb 36
   (-> |add_func| l 1 (l -> |read_whitespace_func| l r
     (l r -> |read_identifier_func| l r
     (il ir l r -> |add_to_context| context il ir
@@ -1210,7 +1209,7 @@ db "call runtime_call_ret\\npush rax\\n"
     (l r context cexp -> cont l r context 
         (cont -> aexp
         (-> |print_pop_arg| fname_l fname_r il ir (a -> cexp cont)))))))))))))))
-  (-> |read_function_application| context fname_l fname_r l r cont))))
+  (-> |read_function_application| context fname_l fname_r l r cont)))
 
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> cont l r context (cont2 -> |print_cexp| op_list cont2)))
@@ -1262,11 +1261,11 @@ parse_aexp_help:
   push [arg_l]
   push [comb_arg_list]
   jmp not_body_closure_compare
-  (not_body_closure_compare: comb_args l r fname_l fname_r cont -> |deref_byte| l
-  (dig -> |compare| dig 40 (-> |not_body_closure_help| cont) 
+  (not_body_closure_compare: comb_args l r fname_l fname_r cont -> $dig = { |deref_byte| l };
+   |compare| dig 40 (-> |not_body_closure_help| cont) 
     (not_body: ->
-    (constant -> |deref_byte| l
-      (lb -> |is_alpha_func| lb (res -> |compare| res 1
+    (constant -> $lb = { |deref_byte| l };
+       |is_alpha_func| lb (res -> |compare| res 1
       (body_indentifier: -> |search_tree| comb_args l r
         (bool -> bool
           (body_identifier_real: -> |format_substring| body_identifier_real_string 0 12
@@ -1274,12 +1273,12 @@ parse_aexp_help:
             (fmt -> |print_tree| fmt (-> cont)))))
           constant))
       constant
-    )))  
+    ))  
     (body_constant: -> |format_substring| body_constant_string 0 8
       (fmt -> fmt l r
       (fmt -> |print_tree| fmt (-> cont))))
   )
-))
+)
 
   not_body_closure_help:
   |body_function_cont|
@@ -1418,8 +1417,8 @@ push [flen]
 push r8
 jmp main_loop
   (main_loop: lo hi -> |compare| lo hi |exit|
-  (parse_token:-> |deref_byte| lo
-  (check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (l r func -> func (-> |main_loop| l r)))
+  (parse_token:-> $c = {|deref_byte| lo};
+  (check_function: -> |compare| c 40 (-> |parse_function_help| lo hi (l r func -> func (-> |main_loop| l r)))
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
   (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
   (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
