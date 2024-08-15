@@ -1110,8 +1110,9 @@ function_ret_done_string:
 db "call runtime_call_ret\\nret\\n"
 ret_string:
 db "ret\\n"
+(print_runtime_call_ret: cont -> |print_string_func| function_ret_done_string 26 cont)
 (function_done: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
-  (rest_of_done -> is_returning (-> |print_string_func| function_ret_done_string 26 rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
+  (rest_of_done -> is_returning (-> |print_runtime_call_ret| rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
   (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context
@@ -1156,7 +1157,21 @@ read_func_operand_list_help:
   jmp runtime_call
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
 
-; returns l r cexp
+(read_texp: context fname_l fname_r l r cont -> |deref_byte| l
+  (lb -> |compare| lb 123
+    (-> |read_block| context fname_l fname_r l r (l r block -> cont block l r))
+    (-> |read_aexp| context fname_l fname_r l r (l r aexp -> cont aexp l r))))
+
+(read_block: context fname_l fname_r l r cont ->
+  |add_func| l 1
+  (l -> |read_whitespace_func| l r
+  (l r -> |read_cexp| context fname_l fname_r l r
+  (l r context cexp -> |read_whitespace_func| l r
+  (l r -> |add_func| l 1
+  (l -> cont l r (-> cexp))))))
+)
+
+; returns l r context cexp
 (read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
 (l r -> |deref_byte| l (lb -> |compare| lb 36
   (-> |add_func| l 1 (l -> |read_whitespace_func| l r
@@ -1165,7 +1180,7 @@ read_func_operand_list_help:
     (context -> |read_whitespace_func| l r
     (l r -> |add_func| l 1
     (l -> |read_whitespace_func| l r
-    (l r -> |read_aexp| context fname_l fname_r l r
+    (l r -> |read_texp| context fname_l fname_r l r
     (aexp l r -> |read_whitespace_func| l r
     (l r -> |add_func| l 1
     (l -> |read_cexp| context fname_l fname_r l r
@@ -1180,9 +1195,9 @@ read_func_operand_list_help:
   (aexp_list ->|map_tree| aexp_list (aexp r cont -> aexp (-> cont 0))
   (aexp_list -> cont)))
 
-; returns aexp l r
+; returns l r aexp
 (read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
-(a b l r -> |compare| a b (-> cont 0 l r) (-> cont (cont2 -> |parse_aexp| context fname_l fname_r a b cont2) l r)))
+(a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |parse_aexp| context fname_l fname_r a b cont2))))
 read_aexp_imp:
   |read_aexp_imp_lambda|
   push rax
@@ -1190,9 +1205,9 @@ read_aexp_imp:
   push rax
   jmp runtime_call
   read_aexp_imp_lambda:
-    pop rax
     pop r8
     pop [flen]
+    pop rax
     ret
   
 (parse_aexp: context fname_l fname_r l r cont -> |parse_aexp_help| context fname_l fname_r l r cont) ; reads aexp and puts it on stack
@@ -1381,7 +1396,7 @@ push r8
 jmp main_loop
   (main_loop: lo hi -> |compare| lo hi |exit|
   (parse_token:-> |deref_byte| lo
-  (check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (func l r -> func (-> |main_loop| l r)))
+  (check_function: c -> |compare| c 40 (-> |parse_function_help| lo hi (l r func -> func (-> |main_loop| l r)))
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
   (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
   (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
