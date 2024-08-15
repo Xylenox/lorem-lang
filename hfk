@@ -1159,8 +1159,8 @@ read_func_operand_list_help:
 
 (read_texp: context fname_l fname_r l r cont -> |deref_byte| l
   (lb -> |compare| lb 123
-    (-> |read_block| context fname_l fname_r l r (l r block -> cont block l r))
-    (-> |read_aexp| context fname_l fname_r l r (l r aexp -> cont aexp l r))))
+    (-> |read_block| context fname_l fname_r l r cont)
+    (-> |read_aexp| context fname_l fname_r l r cont)))
 
 (read_block: context fname_l fname_r l r cont ->
   |add_func| l 1
@@ -1181,7 +1181,7 @@ read_func_operand_list_help:
     (l r -> |add_func| l 1
     (l -> |read_whitespace_func| l r
     (l r -> |read_texp| context fname_l fname_r l r
-    (aexp l r -> |read_whitespace_func| l r
+    (l r aexp -> |read_whitespace_func| l r
     (l r -> |add_func| l 1
     (l -> |read_cexp| context fname_l fname_r l r
     (l r context cexp -> cont l r context 
