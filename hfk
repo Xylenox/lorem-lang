@@ -35,16 +35,7 @@ store_func: ; (ptr x cont) -> *ptr = x; cont
   mov [rax], rdx
   jmp runtime_call
 
-add_func:
-  pop rdi
-  pop rsi
-  pop rax
-  add rdi, rsi
-  push rdi
-  push rax
-  jmp runtime_call
-
-add_func_ret: ; takes (ret a b) and returns a+b
+add_func: ; takes (ret a b) and returns a+b
   pop rbx
   pop rax
   pop rcx
@@ -658,7 +649,11 @@ read_identifier_list:
 (format_string: l r cont -> |make_nil| (tree ->
   |format_string_helper| tree l l r cont)
 )
-(format_substring: base l r cont -> |add_func| base l (l -> |add_func| base r (r -> |format_string| l r cont)))
+(format_substring: base l r cont ->
+  $l = {|add_func| base l};
+  $r = {|add_func| base r};
+  |format_string| l r cont
+)
 
 (format_string_helper: tree l mid r cont -> |compare| mid r
   (-> |make_leaf| l mid (leaf -> |make_internal| tree leaf (tree -> cont tree)))
@@ -666,16 +661,19 @@ read_identifier_list:
     |compare| mid_b 123
       (-> |make_leaf| l mid
         (leaf -> |make_internal| tree leaf
-          (tree -> |add_func| mid 2
-            (new_mid -> cont
-              (lb rb cont2 -> |make_leaf| lb rb (leaf -> |make_internal| tree leaf
-                (tree -> |format_string_helper| tree new_mid new_mid r cont2)
-              ))
+          (tree ->
+            $new_mid = {|add_func| mid 2};
+            cont
+            (lb rb cont2 -> |make_leaf| lb rb (leaf -> |make_internal| tree leaf
+              (tree -> |format_string_helper| tree new_mid new_mid r cont2))
             )
           )
         )
       )
-      (-> |add_func| mid 1 (new_mid -> |format_string_helper| tree l new_mid r cont))
+      (->
+        $new_mid = {|add_func| mid 1};
+        |format_string_helper| tree l new_mid r cont
+      )
   )
 )
 
@@ -1088,12 +1086,15 @@ operand_list: dq 0
 
 (parse_label: pl pr cont -> |read_whitespace_func| pl pr 
 (l r -> (rest_label -> $lb = {|deref_byte| l};
-  |compare| lb 33 (-> |add_func| l 1 (l -> rest_label l r (a b -> a))) (-> rest_label l r (a b -> b)))
+  |compare| lb 33 (-> $l = {|add_func| l 1};
+                  rest_label l r (a b -> a))
+                  (-> rest_label l r (a b -> b)))
   (pl pr is_returning -> |read_identifier_func| pl pr
   (fl fr l r -> |read_whitespace_func| l r 
   (l r -> $l_char = { |deref_byte| l };
     |compare| l_char 58
-    (pl_has_label: -> |add_func| l 1 (l -> cont l r fl fr is_returning))
+    (pl_has_label: -> $l = {|add_func| l 1};
+     cont l r fl fr is_returning)
     (pl_no_label: -> |gen_label_func| (fl fr -> cont pl pr fl fr is_returning)))))
   ))
 
@@ -1111,20 +1112,19 @@ db "pop rax\\npush rax\\n"
 (rest_of_init -> is_returning (-> |print_string_func| function_storage_end 8 rest_of_init) rest_of_init)
 (-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> is_returning (-> |print_substring_func| function_storage_end 8 17 cont) cont)))
 
-(parse_function: old_context p_fname_l p_fname_r l r cont -> |add_func| l 1
-(l_inner -> |parse_label| l_inner r 
-(l r fname_l fname_r is_returning -> |read_new_context| old_context l r 
-(new_context l r -> |read_whitespace_func| l r
-(l r -> |add_func| l 2
-(l -> |read_cexp| new_context fname_l fname_r l r
-(l r extra_context cexp -> |add_func| l 1
-(l ->
+(parse_function: old_context p_fname_l p_fname_r l r cont ->
+  $l_inner = {|add_func| l 1}; |parse_label| l_inner r 
+  (l r fname_l fname_r is_returning -> |read_new_context| old_context l r 
+  (new_context l r -> |read_whitespace_func| l r
+  (l r -> $l = {|add_func| l 2};
+  |read_cexp| new_context fname_l fname_r l r
+  (l r extra_context cexp -> $l = {|add_func| l 1};
   (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
     (-> |print_function_storage| extra_context fname_l fname_r
     (-> |print_function_init| new_context fname_l fname_r is_returning
     (-> cexp
     (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))
-  (-> cont l r)))))))))
+  (-> cont l r))))))
 
 
 function_done_string:
@@ -1190,33 +1190,34 @@ read_func_operand_list_help:
 function_ret_and_push_string:
 db "call runtime_call_ret\\npush rax\\n"
 (read_block: context fname_l fname_r l r cont ->
-  |add_func| l 1
-  (l -> |read_whitespace_func| l r
+  $l = {|add_func| l 1};
+  |read_whitespace_func| l r
   (l r -> |read_cexp| context fname_l fname_r l r
   (l r context cexp -> |read_whitespace_func| l r
-  (l r -> |add_func| l 1
-  (l -> cont l r
-    (cont -> cexp 
-    (-> |print_string_func| function_ret_and_push_string 31 cont)))))))
+  (l r -> $l = {|add_func| l 1};
+  cont l r
+    (cont -> cexp
+    (-> |print_string_func| function_ret_and_push_string 31 cont)))))
 )
 
 ; returns l r context cexp
 (read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
 (l r -> $lb = { |deref_byte| l };
      |compare| lb 36
-  (-> |add_func| l 1 (l -> |read_whitespace_func| l r
+  (-> $l = {|add_func| l 1};
+  |read_whitespace_func| l r
     (l r -> |read_identifier_func| l r
     (il ir l r -> |add_to_context| context il ir
     (context -> |read_whitespace_func| l r
-    (l r -> |add_func| l 1
-    (l -> |read_whitespace_func| l r
+    (l r -> $l = {|add_func| l 1};
+    |read_whitespace_func| l r
     (l r -> |read_texp| context fname_l fname_r l r
     (l r aexp -> |read_whitespace_func| l r
-    (l r -> |add_func| l 1
-    (l -> |read_cexp| context fname_l fname_r l r
+    (l r -> $l = {|add_func| l 1};
+    |read_cexp| context fname_l fname_r l r
     (l r context cexp -> cont l r context 
         (cont -> aexp
-        (-> |print_pop_arg| fname_l fname_r il ir (a -> cexp cont)))))))))))))))
+        (-> |print_pop_arg| fname_l fname_r il ir (a -> cexp cont))))))))))))
   (-> |read_function_application| context fname_l fname_r l r cont)))
 
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
@@ -1433,7 +1434,7 @@ jmp main_loop
   (-> |print_char| lo hi)))))))
 
 (print_char: lo hi ->
-  $mid = {|add_func_ret| lo 1};
+  $mid = {|add_func| lo 1};
   |print_range_func| lo mid
   (-> |main_loop| mid hi)
 )
