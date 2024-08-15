@@ -44,6 +44,14 @@ add_func:
   push rax
   jmp runtime_call
 
+add_func_ret: ; takes (ret a b) and returns a+b
+  pop rbx
+  pop rax
+  pop rcx
+  push rbx
+  add rax, rcx
+  ret
+
 compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
   pop rax
   pop rcx
@@ -1422,17 +1430,10 @@ jmp main_loop
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
   (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
   (check_escape: -> |compare| c 92 (-> |parse_escape_function| lo hi)
-  (-> |main_body| lo hi)))))))
-  ; main loop
-main_body:
-  pop r8
-  pop [flen]
+  (-> |print_char| lo hi)))))))
 
-  push [r8]
-  mov rdi, 1
-  call prin
-  pop rax
-  add r8, 1
-  push [flen]
-  push r8
-  jmp main_loop
+(print_char: lo hi ->
+  $mid = {|add_func_ret| lo 1};
+  |print_range_func| lo mid
+  (-> |main_loop| mid hi)
+)
