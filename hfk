@@ -1,11 +1,4 @@
-; register layout
-; ----------------
-; r4 = pointer to input
-; r9 = output file descriptor
-; r10 = characters remaining in input
-;
 jmp start
-
 
 deref_byte: ; takes (ptr) and returns *ptr
   pop rdx
@@ -57,8 +50,9 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     push rsi
     jmp runtime_call
 
-(compare_bool: a b cont -> compare a b (-> cont (equal_cont diff_cont -> equal_cont)) (-> cont (equal_cont diff_cont -> diff_cont)))
-
+(!compare_bool: a b ->
+  |callcc| (ret -> |compare| a b (-> ret (x y -> x)) (-> ret (x y -> y)))
+)
 constant_strings:
 push_string:
 dq "push "
@@ -532,19 +526,6 @@ is_digit:           ; is alpha
   ret
   not_digit:
   mov r0, 0
-  ret
-
-parse_comment:
-  call peek_character
-  cmp rax, 0x3B
-  jne done_comment
-  coml:
-  call peek_character
-  cmp rax, 10
-  je done_comment
-  add r8, 1
-  jmp coml
-  done_comment:
   ret
 
 peek_character:
@@ -1341,13 +1322,16 @@ parse_closure_outer_function: ; takes (lo hi)
   push r8
   jmp main_loop
 
-parse_comment_function: ; takes (lo hi)
-  pop r8
-  pop [flen]
-  call parse_comment
-  push [flen]
-  push r8
-  jmp main_loop
+(parse_comment: lo hi -> |compare| lo hi (-> |main_loop| lo hi)
+  (->
+    $lb = {|deref_byte| lo};
+    |compare| lb 10 (-> |main_loop| lo hi)
+    (-> 
+      $lo = {|add_func| lo 1};
+      |parse_comment| lo hi
+    )
+  )
+)
 
 (parse_escape: l r ->
   $a = {|add_func| l 1};
@@ -1356,11 +1340,22 @@ parse_comment_function: ; takes (lo hi)
   (-> |main_loop| b r)
 )
 
-empty_tree:
-dq 0
+(main_loop: lo hi -> |compare| lo hi |exit|
+  (parse_token:-> $c = {|deref_byte| lo};
+  (check_function:-> |compare| c 40 (-> |parse_function_help| lo hi (l r func -> func (-> |main_loop| l r)))
+  (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
+  (check_comment:-> |compare| c 59 (-> |parse_comment| lo hi)
+  (check_escape:-> |compare| c 92 (-> |parse_escape| lo hi)
+  (-> |print_char| lo hi))))))
+)
+
+(print_char: lo hi ->
+  $mid = {|add_func| lo 1};
+  |print_range_func| lo mid
+  (-> |main_loop| mid hi)
+)
+
 start:
-call make_nil_ret
-mov [empty_tree], rax
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
@@ -1421,16 +1416,3 @@ add [flen], r8
 push [flen]
 push r8
 jmp main_loop
-  (main_loop: lo hi -> |compare| lo hi |exit|
-  (parse_token:-> $c = {|deref_byte| lo};
-  (check_function: -> |compare| c 40 (-> |parse_function_help| lo hi (l r func -> func (-> |main_loop| l r)))
-  (check_closure:-> |compare| c 124 (-> |parse_closure_outer_function| lo hi)
-  (check_comment: -> |compare| c 59 (-> |parse_comment_function| lo hi)
-  (check_escape: -> |compare| c 92 (-> |parse_escape| lo hi)
-  (-> |print_char| lo hi)))))))
-
-(print_char: lo hi ->
-  $mid = {|add_func| lo 1};
-  |print_range_func| lo mid
-  (-> |main_loop| mid hi)
-)
