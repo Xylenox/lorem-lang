@@ -120,16 +120,17 @@ compute: ; (a b -> b (a)) execs a and gets value
   jmp runtime_call
 
 callcc: ; takes (cont -> ..) and returns the value that cont recieves
-  |callcc_cont|
   pop rcx ; ret
+  |callcc_cont rcx|
   pop rbx ; f
-  push rcx
   push rax
   push rbx
   jmp runtime_call
 
   callcc_cont:
+    pop rcx
     pop rax
+    push rcx
     ret
 
 page_pointer:
@@ -635,6 +636,11 @@ read_identifier_list:
   $r = {|add_func| base r};
   |format_string| l r cont
 )
+(format_help: fmt a b -> 
+  |compare| a 1
+  (-> b fmt)
+  (-> fmt a b (fmt -> |format_help| fmt))
+)
 
 (format_string_helper: tree l mid r cont -> |compare| mid r
   (-> |make_leaf| l mid (leaf -> |make_internal| tree leaf (tree -> cont tree)))
@@ -909,9 +915,8 @@ brackets_string_2:
 (-> |compare| l fname_l
   (-> |print_range_line_func| l r (-> |print_string_func| suff_strings 26 (-> cont 0)))
   (-> |format_substring| brackets_string 0 7 
-    (fmt -> fmt pfname_l pfname_r
-    (fmt -> fmt l r
-    (fmt -> |print_tree| fmt (-> |print_string_func| suff_strings 26 (-> cont 0))))))
+    (fmt -> |format_help| fmt pfname_l pfname_r l r 1
+    (fmt -> |print_tree| fmt (-> |print_string_func| suff_strings 26 (-> cont 0)))))
 ))
 
 print_closure_eof:
@@ -1035,10 +1040,8 @@ print_label:
 map_arg_string:
 db "jmp {}{}_end\\n{}{}: dq 0\\n{}{}_end:\\n"
 (map_argument: fname_l fname_r l r cont -> |format_substring| map_arg_string 0 34
-(fmt -> fmt fname_l fname_r (fmt -> fmt l r
-(fmt -> fmt fname_l fname_r (fmt -> fmt l r
-(fmt -> fmt fname_l fname_r (fmt -> fmt l r
-(fmt -> |print_tree| fmt (-> cont 0)))))))))
+(fmt -> |format_help| fmt fname_l fname_r l r fname_l fname_r l r fname_l fname_r l r 1
+(fmt -> |print_tree| fmt (-> cont 0))))
 
 pop_start_string:
   dq "pop ["
