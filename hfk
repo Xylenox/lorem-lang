@@ -1248,8 +1248,18 @@ parse_aexp_help:
   push [arg_l]
   push [comb_arg_list]
   jmp not_body_closure_compare
+
+  body_constant_string:
+  dq "push {}\\n"    
+  body_identifier_real_string:
+  db "push [{}{}]\\n"
+
   (not_body_closure_compare: comb_args l r fname_l fname_r cont -> $dig = { |deref_byte| l };
-   |compare| dig 40 (-> |not_body_closure_help| cont) 
+   |compare| dig 40
+    (-> 
+      |parse_function| comb_args fname_l fname_r l r
+      (lo hi -> |print_string_func| push_rax_string 9 cont)
+    )
     (not_body: ->
     (constant -> $lb = { |deref_byte| l };
        |is_alpha_func| lb (res -> |compare| res 1
@@ -1266,26 +1276,6 @@ parse_aexp_help:
       (fmt -> |print_tree| fmt (-> cont))))
   )
 )
-
-  not_body_closure_help:
-  |body_function_cont|
-  push rax
-  push [arg_r]
-  push [arg_l]
-
-  push [function_name+8]
-  push [function_name]
-  mov rax, [comb_arg_list]
-  push rax
-  jmp parse_function
-
-  (body_function_cont: lo hi cont -> |print_string_func| push_rax_string 9 cont)
-
-  body_constant_string:
-  dq "push \{}\\n"
-    
-  body_identifier_real_string:
-  db "push [\{}\{}]\\n"
 
 (parse_function_help: lo hi cont ->
   $nil = {|make_nil_ret|};
