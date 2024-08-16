@@ -1307,16 +1307,6 @@ parse_function_help: ; lo hi cont
   push rax
   jmp read_aexp
 
-
-parse_closure_function: ; takes (lo hi)
-  pop r8
-  pop [flen]
-  call parse_closure
-  push [flen]
-  push r8
-  jmp main_loop
-
-
 parse_closure_outer_function: ; takes (lo hi)
   pop r8
   pop [flen]
