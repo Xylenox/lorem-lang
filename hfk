@@ -713,14 +713,11 @@ read_operand_list:
   jmp runtime_call
 
 read_operand_list_imperative:
-  push rsi
-  push rdi
+  sub rsp, 24
+  mov [rsp], rdi
+  mov [rsp+8], rsi
   |read_operand_list_imperative_lambda|
-  pop rdi
-  pop rsi
-  push rax
-  push rsi
-  push rdi
+  mov [rsp+16], rax
   jmp read_operand_list
   read_operand_list_imperative_lambda:
     pop rax
@@ -835,20 +832,8 @@ closure_map_arg:
   push rax
   jmp runtime_call
 
-print_closure:
-  push rdi
-  lea rdi, [newline_string]
-  lea rsi, [newline_string+1]
-  call make_leaf_imperative
-  mov [newline_leaf], rax
-  
-  lea rdi, [newline_string]
-  lea rsi, [newline_string]
-  call make_leaf_imperative
-  mov [closure_tree], rax
-  
-  jmp closure_header_end
-  closure_header:
+
+closure_header:
   dq "mov rdi,"
   dq " 800"
   
@@ -857,7 +842,16 @@ print_closure:
   
   dq "lea rdx,"
   dq " [rax+8]"
-  closure_header_end:
+closure_string:
+db "mov rdi, 800\\ncall malloc\\nlea rdx, [rax+8]"
+
+print_closure_help:
+  pop rax
+  pop rdi
+  push rax
+  jmp print_closure
+print_closure:
+  push rdi
   lea rdi, [newline_string]
   lea rsi, [newline_string+1]
   call make_pair_imperative
@@ -1000,13 +994,15 @@ parse_closure:
   mov rdi, rax
   call print_closure
   ret
-parse_closure_outer:
-  mov [function_name], 0
-  mov [function_name+8], 0
-  mov [prev_function_name], 0
-  mov [prev_function_name+8], 0
-  call parse_closure
-  ret
+
+(parse_closure_fun: lo hi cont ->
+  $lo = {|add_func| lo 1};
+  |read_operand_list| lo hi (op_list lo hi -> 
+    $lo = {|add_func| lo 1};
+    $a = {|print_closure_help| op_list};
+    cont lo hi
+  )
+)
 
 function_name:
   dq 0
@@ -1307,13 +1303,7 @@ parse_function_help: ; lo hi cont
   push rax
   jmp read_aexp
 
-parse_closure_outer_function: ; takes (lo hi)
-  pop r8
-  pop [flen]
-  call parse_closure
-  push [flen]
-  push r8
-  jmp main_loop
+(parse_closure_outer_function: lo hi -> |parse_closure_fun| lo hi (-> |main_loop|)) ; takes (lo hi)
 
 (parse_comment: lo hi -> |compare| lo hi (-> |main_loop| lo hi)
   (->
