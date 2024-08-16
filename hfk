@@ -1023,7 +1023,7 @@ runtime_call_string:
   dq "jmp runt"
   dq "ime_call"
 push_rax_string:
-  dq "push rax"
+  db "push rax\\n"
 print_label:
   pop rdi
   pop rsi
@@ -1056,8 +1056,6 @@ jmp_end_string:
   
 end_label_string:
   db "_end:"
-push_rax_string:
-  dq "push rax"
 old_arg_list: dq 0
 new_arg_list: dq 0
 comb_arg_list: dq 0
@@ -1241,7 +1239,7 @@ parse_aexp_help:
   lea rdi, [push_rax_string]
   lea rsi, [push_rax_string+8]
   call print_range_line
-  jmp end_process_function_body
+  jmp runtime_call
 
   not_body_closure:
   push [function_name+8]
@@ -1281,20 +1279,13 @@ parse_aexp_help:
   push rax
   jmp parse_function
 
-  body_function_cont:
-  add rsp, 16
-  lea rdi, [push_rax_string]
-  lea rsi, [push_rax_string+8]
-  call print_range_line
-  jmp end_process_function_body
+  (body_function_cont: lo hi cont -> |print_string_func| push_rax_string 9 cont)
 
   body_constant_string:
   dq "push \{}\\n"
     
   body_identifier_real_string:
   db "push [\{}\{}]\\n"
-
-  (end_process_function_body: cont -> cont)
 
 (parse_function_help: lo hi cont ->
   $nil = {|make_nil_ret|};
