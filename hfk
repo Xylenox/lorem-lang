@@ -1248,9 +1248,10 @@ db "push [{}{}]\\n"
     (fmt -> |print_tree| fmt (-> cont))))
 ))
 
-(parse_function_help: lo hi cont ->
+(parse_function_help: lo hi ->
   $nil = {|make_nil_ret|};
-  |read_aexp| nil 0 0 lo hi cont
+  |read_aexp| nil 0 0 lo hi
+  (l r func -> func (-> |main_loop| l r))
 )
 
 (parse_closure_outer: lo hi -> |parse_closure| lo hi (-> |main_loop|)) ; takes (lo hi)
@@ -1275,7 +1276,7 @@ db "push [{}{}]\\n"
 
 (main_loop: lo hi -> |compare| lo hi |exit|
   (parse_token:-> $c = {|deref_byte| lo};
-  (check_function:-> |compare| c 40 (-> |parse_function_help| lo hi (l r func -> func (-> |main_loop| l r)))
+  (check_function:-> |compare| c 40 (-> |parse_function_help| lo hi)
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer| lo hi)
   (check_comment:-> |compare| c 59 (-> |parse_comment| lo hi)
   (check_escape:-> |compare| c 92 (-> |parse_escape| lo hi)
