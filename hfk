@@ -519,6 +519,8 @@ is_alpha_func:
   push rcx
   jmp runtime_call
 
+(!is_alpha_ret: c -> |callcc| (ret -> |is_alpha_func| c ret))
+
 is_digit:           ; is alpha
   cmp r7, "0"
   jl not_digit
@@ -643,6 +645,12 @@ read_identifier_list:
   (-> b fmt)
   (-> fmt a b (fmt -> |format_help| fmt))
 )
+(printf_help: fmt cont a b -> 
+  |compare| a 1
+  (-> cont fmt b)
+  (-> fmt a b (fmt -> |printf_help| fmt cont))
+)
+(printf: base l r -> |format_substring| base l r (fmt -> |printf_help| fmt (fmt cont -> |print_tree| fmt cont)))
 
 (format_string_helper: tree l mid r cont -> |compare| mid r
   (-> |make_leaf| l mid (leaf -> |make_internal| tree leaf (tree -> cont tree)))
@@ -1202,10 +1210,8 @@ db "call runtime_call_ret\\npush rax\\n"
   $l_end = {|add_func| l 1};
   cont l_end r (cont ->
     |gen_label_func| (il ir ->
-    |format_substring| "jmp {}_end:\n{}: db {}\n{}_end: push {}\n" 0 38 (fmt ->
-    |format_help| fmt il ir il ir l_start l_end il ir il ir 1 (fmt ->
-    |print_tree| fmt cont
-  ))))
+    |printf| "jmp {}_end:\n{}: db {}\n{}_end: push {}\n" 0 38 il ir il ir l_start l_end il ir il ir 1 cont
+     ))
 ))))
 
 (print_aexp: context fname_l fname_r l r cont -> 
@@ -1213,7 +1219,7 @@ db "call runtime_call_ret\\npush rax\\n"
   |compare| lb 124
   (-> |aexp_closure_help| context fname_l fname_r l r cont)
   (-> |not_body_closure_compare| context fname_l fname_r l r cont)
-) ; reads aexp and puts it on stack
+)
 
 (aexp_closure_help: context fname_l fname_r l r cont ->
   |parse_closure| l r
@@ -1221,20 +1227,23 @@ db "call runtime_call_ret\\npush rax\\n"
 )
 
 (not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
-  (constant -> $lb = {|deref_byte| l};
-      |is_alpha_func| lb (res -> |compare| res 1
+  $constant = (-> |format_substring| "push {}\n" 0 8
+    (fmt -> fmt l r
+    (fmt -> |print_tree| fmt (-> cont)))
+  );
+  $res = {|is_alpha_ret| dig};
+  (-> |compare| res 1
     (body_identifier: -> |search_tree| comb_args l r
       (bool -> bool
         (body_identifier_real: -> |format_substring| "push [{}{}]\n" 0 12
           (fmt -> fmt fname_l fname_r (fmt -> fmt l r
           (fmt -> |print_tree| fmt (-> cont)))))
-        constant))
+        constant
+      )
+    )
     constant
-  ))  
-  (body_constant: -> |format_substring| "push {}\n" 0 8
-    (fmt -> fmt l r
-    (fmt -> |print_tree| fmt (-> cont)))
-))
+  )
+)
 
 (parse_function_help: lo hi ->
   $nil = {|make_nil_ret|};
