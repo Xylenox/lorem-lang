@@ -1087,12 +1087,12 @@ db "pop rax\\npush rax\\n"
   (l r -> $l = {|add_func| l 2};
   |read_cexp| new_context fname_l fname_r l r
   (l r extra_context cexp -> $l = {|add_func| l 1};
-  (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
+  (-> cont l r (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
     (-> |print_function_storage| extra_context fname_l fname_r
     (-> |print_function_init| new_context fname_l fname_r is_returning
     (-> cexp
-    (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))
-  (-> cont l r))))))
+    (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont))))))))))))
+)
 
 
 function_done_string:
@@ -1131,10 +1131,13 @@ arg_r: dq 0
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
 
 (read_texp: context fname_l fname_r l r cont ->
-  (-> $lb = { |deref_byte| l };
-      |compare| lb 123
-      (-> |read_block| context fname_l fname_r l r cont)
-      (-> |read_aexp| context fname_l fname_r l r cont)))
+  (->
+    $lb = { |deref_byte| l };
+    |compare| lb 123
+    (-> |read_block| context fname_l fname_r l r cont)
+    (-> |read_aexp| context fname_l fname_r l r cont)
+  )
+)
 
 
 function_ret_and_push_string:
@@ -1179,18 +1182,7 @@ db "call runtime_call_ret\\npush rax\\n"
 ; returns l r aexp
 (read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
 (a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |print_aexp| context fname_l fname_r a b cont2))))
-read_aexp_imp:
-  |read_aexp_imp_lambda|
-  push rax
-  |read_aexp [comb_arg_list] [function_name] [function_name+8] r8 [flen]|
-  push rax
-  jmp runtime_call
-  read_aexp_imp_lambda:
-    pop r8
-    pop [flen]
-    pop rax
-    ret
-  
+
 (print_aexp: context fname_l fname_r l r cont -> 
   $lb = {|deref_byte| l};
   |compare| lb 124
@@ -1212,7 +1204,7 @@ db "push [{}{}]\\n"
   |compare| dig 40
   (-> 
     |parse_function| comb_args fname_l fname_r l r
-    (lo hi -> |print_string_func| push_rax_string 9 cont)
+    (lo hi func -> func (-> |print_string_func| push_rax_string 9 cont))
   )
   (not_body: ->
   (constant -> $lb = {|deref_byte| l};
@@ -1230,9 +1222,22 @@ db "push [{}{}]\\n"
     (fmt -> |print_tree| fmt (-> cont))))
 ))
 
+read_aexp_imp:
+  |read_aexp_imp_lambda|
+  push rax
+  |read_aexp [comb_arg_list] [function_name] [function_name+8] r8 [flen]|
+  push rax
+  jmp runtime_call
+  read_aexp_imp_lambda:
+    pop r8
+    pop [flen]
+    pop rax
+    ret
+  
+
 (parse_function_help: lo hi ->
   $nil = {|make_nil_ret|};
-  |read_aexp| nil 0 0 lo hi
+  |parse_function| nil 0 0 lo hi
   (l r func -> func (-> |main_loop| l r))
 )
 
