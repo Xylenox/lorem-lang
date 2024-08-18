@@ -650,7 +650,7 @@ read_identifier_list:
   (-> cont fmt b)
   (-> fmt a b (fmt -> |printf_help| fmt cont))
 )
-(printf: base l r -> |format_substring| base l r (fmt -> |printf_help| fmt (fmt cont -> |print_tree| fmt cont)))
+(printf: base r -> |format_substring| base 0 r (fmt -> |printf_help| fmt (fmt cont -> |print_tree| fmt cont)))
 
 (format_string_helper: tree l mid r cont -> |compare| mid r
   (-> |make_leaf| l mid (leaf -> |make_internal| tree leaf (tree -> cont tree)))
@@ -1210,7 +1210,7 @@ db "call runtime_call_ret\\npush rax\\n"
   $l_end = {|add_func| l 1};
   cont l_end r (cont ->
     |gen_label_func| (il ir ->
-    |printf| "jmp {}_end:\n{}: db {}\n{}_end: push {}\n" 0 38 il ir il ir l_start l_end il ir il ir 1 cont
+    |printf| "jmp {}_end:\n{}: db {}\n{}_end: push {}\n" 38 il ir il ir l_start l_end il ir il ir 1 cont
      ))
 ))))
 
@@ -1227,10 +1227,7 @@ db "call runtime_call_ret\\npush rax\\n"
 )
 
 (not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
-  $constant = (-> |format_substring| "push {}\n" 0 8
-    (fmt -> fmt l r
-    (fmt -> |print_tree| fmt (-> cont)))
-  );
+  $constant = (-> |printf| "push {}\n" 8 l r 1 cont);
   $res = {|is_alpha_ret| dig};
   (-> |compare| res 1
     (body_identifier: -> |search_tree| comb_args l r
