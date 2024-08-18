@@ -50,6 +50,8 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     push rsi
     jmp runtime_call
 
+(if_ne: a b cont_ne cont_e -> |compare| a b cont_e cont_ne)
+
 (!compare_bool: a b ->
   |callcc| (ret -> |compare| a b (-> ret (x y -> x)) (-> ret (x y -> y)))
 )
@@ -1081,18 +1083,24 @@ db "pop rax\\npush rax\\n"
 (-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> is_returning (-> |print_substring_func| function_storage_end 8 17 cont) cont)))
 
 (parse_function: old_context p_fname_l p_fname_r l r cont ->
-  $l_inner = {|add_func| l 1}; |parse_label| l_inner r 
-  (l r fname_l fname_r is_returning -> |read_new_context| old_context l r 
-  (new_context l r -> |read_whitespace_func| l r
-  (l r -> $l = {|add_func| l 2};
-  |read_cexp| new_context fname_l fname_r l r
-  (l r extra_context cexp -> $l = {|add_func| l 1};
-  (-> cont l r (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-    (-> |print_function_storage| extra_context fname_l fname_r
-    (-> |print_function_init| new_context fname_l fname_r is_returning
-    (-> cexp
-    (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont))))))))))))
-)
+  |read_whitespace_func| l r
+  (l r -> $lb = {|deref_byte| l};
+  |compare| lb 40 (->
+    $l_inner = {|add_func| l 1};
+    |parse_label| l_inner r 
+    (l r fname_l fname_r is_returning -> |read_new_context| old_context l r 
+    (new_context l r -> |read_whitespace_func| l r
+    (l r -> $l = {|add_func| l 2};
+    |read_cexp| new_context fname_l fname_r l r
+    (l r extra_context cexp -> $l = {|add_func| l 1};
+    (-> cont l r (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
+      (-> |print_function_storage| extra_context fname_l fname_r
+      (-> |print_function_init| new_context fname_l fname_r is_returning
+      (-> cexp
+      (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont))))))))))))
+  )
+  (-> cont l r 0)
+))
 
 
 function_done_string:
@@ -1180,8 +1188,18 @@ db "call runtime_call_ret\\npush rax\\n"
   (aexp_list -> cont)))
 
 ; returns l r aexp
-(read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
-(a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |print_aexp| context fname_l fname_r a b cont2))))
+(read_aexp: context fname_l fname_r l r cont ->
+  $dig = {|deref_byte| l};
+  |parse_function| context fname_l fname_r l r
+  (lo hi func ->
+    |if_ne| func 0 (-> 
+      cont lo hi (cont -> func (-> |print_string_func| push_rax_string 9 cont))
+    )
+    (-> |read_id_or_closure_or_function_func| l r
+      (a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |print_aexp| context fname_l fname_r a b cont2)))
+    )
+  )
+)
 
 (print_aexp: context fname_l fname_r l r cont -> 
   $lb = {|deref_byte| l};
@@ -1201,12 +1219,6 @@ body_identifier_real_string:
 db "push [{}{}]\\n"
 
 (not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
-  |compare| dig 40
-  (-> 
-    |parse_function| comb_args fname_l fname_r l r
-    (lo hi func -> func (-> |print_string_func| push_rax_string 9 cont))
-  )
-  (not_body: ->
   (constant -> $lb = {|deref_byte| l};
       |is_alpha_func| lb (res -> |compare| res 1
     (body_indentifier: -> |search_tree| comb_args l r
@@ -1219,7 +1231,7 @@ db "push [{}{}]\\n"
   ))  
   (body_constant: -> |format_substring| body_constant_string 0 8
     (fmt -> fmt l r
-    (fmt -> |print_tree| fmt (-> cont))))
+    (fmt -> |print_tree| fmt (-> cont)))
 ))
 
 read_aexp_imp:
