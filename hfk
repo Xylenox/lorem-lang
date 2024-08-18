@@ -1009,10 +1009,8 @@ print_label:
   call print_range_line
   jmp runtime_call
 
-map_arg_string:
-db "jmp {}{}_end\\n{}{}: dq 0\\n{}{}_end:\\n"
-(map_argument: fname_l fname_r l r cont -> |format_substring| map_arg_string 0 34
-(fmt -> |format_help| fmt fname_l fname_r l r fname_l fname_r l r fname_l fname_r l r 1
+(map_argument: fname_l fname_r l r cont -> |format_substring| "{}{}: dq 0\n" 0 11
+(fmt -> |format_help| fmt fname_l fname_r l r 1
 (fmt -> |print_tree| fmt (-> cont 0))))
 
 pop_start_string:
@@ -1154,7 +1152,8 @@ db "call runtime_call_ret\\npush rax\\n"
     (l r -> |read_identifier_func| l r
     (il ir l r -> |add_to_context| context il ir
     (context -> |read_identifier_list| l r
-    (ids l r -> |read_whitespace_func| l r
+    (ids l r -> $context = {|make_internal_ret| context ids};
+    |read_whitespace_func| l r
     (l r -> $l = {|add_func| l 1};
     |read_whitespace_func| l r
     (l r -> |read_texp| context fname_l fname_r l r
