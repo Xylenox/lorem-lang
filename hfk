@@ -1190,16 +1190,40 @@ db "call runtime_call_ret\\npush rax\\n"
 ; returns l r aexp
 (read_aexp: context fname_l fname_r l r cont ->
   $dig = {|deref_byte| l};
-  |parse_function| context fname_l fname_r l r
-  (lo hi func ->
-    |if_ne| func 0 (-> 
-      cont lo hi (cont -> func (-> |print_string_func| push_rax_string 9 cont))
-    )
-    (-> |read_id_or_closure_or_function_func| l r
-      (a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |print_aexp| context fname_l fname_r a b cont2)))
-    )
-  )
-)
+  |parse_function| context fname_l fname_r l r (lo hi func -> |if_ne| func 0 (-> 
+    cont lo hi (cont -> func (-> |print_string_func| push_rax_string 9 cont))
+  )(->
+  |read_const_string| context fname_l fname_r l r (lo hi string -> |if_ne| string 0 (-> 
+    cont lo hi (cont -> string cont)
+  )(->
+  |read_id_or_closure_or_function_func| l r
+    (a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |print_aexp| context fname_l fname_r a b cont2)))
+)))))
+
+(read_until: c l r cont ->
+  $lb = {|deref_byte| l};
+  |compare| lb c (-> cont l r) (->
+  $l = {|add_func| l 1};
+  |read_until| c l r cont
+))
+
+const_string_string:
+db "jmp {}_end:\\n{}: db {}\\n{}_end: push {}\\n"
+
+(read_const_string: context fname_l fname_r l r cont ->
+  |read_whitespace_func| l r (l_start r ->
+  $lb = {|deref_byte| l_start};
+  |if_ne| lb 34 (-> cont l r 0) (->
+  $l = {|add_func| l_start 1};
+  |read_until| 34 l r (l r ->
+  $l_end = {|add_func| l 1};
+  cont l_end r (cont ->
+    |gen_label_func| (il ir ->
+    |format_substring| const_string_string 0 38 (fmt ->
+    |format_help| fmt il ir il ir l_start l_end il ir il ir 1 (fmt ->
+    |print_tree| fmt cont
+  ))))
+))))
 
 (print_aexp: context fname_l fname_r l r cont -> 
   $lb = {|deref_byte| l};
