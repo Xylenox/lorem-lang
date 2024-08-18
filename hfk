@@ -1207,8 +1207,8 @@ db "call runtime_call_ret\\npush rax\\n"
   |read_until| c l r cont
 ))
 
-const_string_string:
-db "jmp {}_end:\\n{}: db {}\\n{}_end: push {}\\n"
+; const_string_string:
+; db ""
 
 (read_const_string: context fname_l fname_r l r cont ->
   |read_whitespace_func| l r (l_start r ->
@@ -1219,7 +1219,7 @@ db "jmp {}_end:\\n{}: db {}\\n{}_end: push {}\\n"
   $l_end = {|add_func| l 1};
   cont l_end r (cont ->
     |gen_label_func| (il ir ->
-    |format_substring| const_string_string 0 38 (fmt ->
+    |format_substring| "jmp {}_end:\n{}: db {}\n{}_end: push {}\n" 0 38 (fmt ->
     |format_help| fmt il ir il ir l_start l_end il ir il ir 1 (fmt ->
     |print_tree| fmt cont
   ))))
@@ -1237,39 +1237,21 @@ db "jmp {}_end:\\n{}: db {}\\n{}_end: push {}\\n"
   (-> |print_string_func| push_rax_string 9 cont)
 )
 
-body_constant_string:
-dq "push {}\\n"    
-body_identifier_real_string:
-db "push [{}{}]\\n"
-
 (not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
   (constant -> $lb = {|deref_byte| l};
       |is_alpha_func| lb (res -> |compare| res 1
-    (body_indentifier: -> |search_tree| comb_args l r
+    (body_identifier: -> |search_tree| comb_args l r
       (bool -> bool
-        (body_identifier_real: -> |format_substring| body_identifier_real_string 0 12
+        (body_identifier_real: -> |format_substring| "push [{}{}]\n" 0 12
           (fmt -> fmt fname_l fname_r (fmt -> fmt l r
           (fmt -> |print_tree| fmt (-> cont)))))
         constant))
     constant
   ))  
-  (body_constant: -> |format_substring| body_constant_string 0 8
+  (body_constant: -> |format_substring| "push {}\n" 0 8
     (fmt -> fmt l r
     (fmt -> |print_tree| fmt (-> cont)))
 ))
-
-read_aexp_imp:
-  |read_aexp_imp_lambda|
-  push rax
-  |read_aexp [comb_arg_list] [function_name] [function_name+8] r8 [flen]|
-  push rax
-  jmp runtime_call
-  read_aexp_imp_lambda:
-    pop r8
-    pop [flen]
-    pop rax
-    ret
-  
 
 (parse_function_help: lo hi ->
   $nil = {|make_nil_ret|};
