@@ -1206,7 +1206,7 @@ db "call runtime_call_ret\\npush rax\\n"
 
 ; returns l r aexp
 (read_aexp: context fname_l fname_r l r cont -> |read_id_or_closure_or_function_func| l r
-(a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |parse_aexp| context fname_l fname_r a b cont2))))
+(a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |print_aexp| context fname_l fname_r a b cont2))))
 read_aexp_imp:
   |read_aexp_imp_lambda|
   push rax
@@ -1219,7 +1219,7 @@ read_aexp_imp:
     pop rax
     ret
   
-(parse_aexp: context fname_l fname_r l r cont -> 
+(print_aexp: context fname_l fname_r l r cont -> 
   $lb = {|deref_byte| l};
   |compare| lb 124
   (-> |aexp_closure| context fname_l fname_r l r cont)
@@ -1249,28 +1249,27 @@ aexp_closure:
   body_identifier_real_string:
   db "push [{}{}]\\n"
 
-  (not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
-   |compare| dig 40
-    (-> 
-      |parse_function| comb_args fname_l fname_r l r
-      (lo hi -> |print_string_func| push_rax_string 9 cont)
-    )
-    (not_body: ->
-    (constant -> $lb = {|deref_byte| l};
-       |is_alpha_func| lb (res -> |compare| res 1
-      (body_indentifier: -> |search_tree| comb_args l r
-        (bool -> bool
-          (body_identifier_real: -> |format_substring| body_identifier_real_string 0 12
-            (fmt -> fmt fname_l fname_r (fmt -> fmt l r
-            (fmt -> |print_tree| fmt (-> cont)))))
-          constant))
-      constant
-    ))  
-    (body_constant: -> |format_substring| body_constant_string 0 8
-      (fmt -> fmt l r
-      (fmt -> |print_tree| fmt (-> cont))))
+(not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
+  |compare| dig 40
+  (-> 
+    |parse_function| comb_args fname_l fname_r l r
+    (lo hi -> |print_string_func| push_rax_string 9 cont)
   )
-)
+  (not_body: ->
+  (constant -> $lb = {|deref_byte| l};
+      |is_alpha_func| lb (res -> |compare| res 1
+    (body_indentifier: -> |search_tree| comb_args l r
+      (bool -> bool
+        (body_identifier_real: -> |format_substring| body_identifier_real_string 0 12
+          (fmt -> fmt fname_l fname_r (fmt -> fmt l r
+          (fmt -> |print_tree| fmt (-> cont)))))
+        constant))
+    constant
+  ))  
+  (body_constant: -> |format_substring| body_constant_string 0 8
+    (fmt -> fmt l r
+    (fmt -> |print_tree| fmt (-> cont))))
+))
 
 (parse_function_help: lo hi cont ->
   $nil = {|make_nil_ret|};
