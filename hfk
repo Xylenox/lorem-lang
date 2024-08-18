@@ -1256,6 +1256,12 @@ db "push [{}{}]\\n"
   (-> |main_loop| b r)
 )
 
+(print_char: lo hi ->
+  $mid = {|add_func| lo 1};
+  |print_range_func| lo mid
+  (-> |main_loop| mid hi)
+)
+
 (main_loop: lo hi -> |compare| lo hi |exit|
   (parse_token:-> $c = {|deref_byte| lo};
   (check_function:-> |compare| c 40 (-> |parse_function_help| lo hi)
@@ -1263,12 +1269,6 @@ db "push [{}{}]\\n"
   (check_comment:-> |compare| c 59 (-> |parse_comment| lo hi)
   (check_escape:-> |compare| c 92 (-> |parse_escape| lo hi)
   (-> |print_char| lo hi))))))
-)
-
-(print_char: lo hi ->
-  $mid = {|add_func| lo 1};
-  |print_range_func| lo mid
-  (-> |main_loop| mid hi)
 )
 
 start:
