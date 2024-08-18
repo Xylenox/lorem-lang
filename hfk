@@ -1219,8 +1219,13 @@ read_aexp_imp:
     pop rax
     ret
   
-(parse_aexp: context fname_l fname_r l r cont -> |parse_aexp_help| context fname_l fname_r l r cont) ; reads aexp and puts it on stack
-parse_aexp_help:
+(parse_aexp: context fname_l fname_r l r cont -> 
+  $lb = {|deref_byte| l};
+  |compare| lb 124
+  (-> |aexp_closure| context fname_l fname_r l r cont)
+  (-> |not_body_closure_compare| context fname_l fname_r l r cont)
+) ; reads aexp and puts it on stack
+aexp_closure:
   pop [comb_arg_list]
   pop [function_name]
   pop [function_name+8]
@@ -1228,8 +1233,6 @@ parse_aexp_help:
   pop [arg_r]
 
   mov rdi, [arg_l]
-  cmpb [rdi], "\|"
-  jne not_body_closure
 
   push r8
   mov r8, rdi
@@ -1241,27 +1244,19 @@ parse_aexp_help:
   call print_range_line
   jmp runtime_call
 
-  not_body_closure:
-  push [function_name+8]
-  push [function_name]
-  push [arg_r]
-  push [arg_l]
-  push [comb_arg_list]
-  jmp not_body_closure_compare
-
   body_constant_string:
   dq "push {}\\n"    
   body_identifier_real_string:
   db "push [{}{}]\\n"
 
-  (not_body_closure_compare: comb_args l r fname_l fname_r cont -> $dig = { |deref_byte| l };
+  (not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
    |compare| dig 40
     (-> 
       |parse_function| comb_args fname_l fname_r l r
       (lo hi -> |print_string_func| push_rax_string 9 cont)
     )
     (not_body: ->
-    (constant -> $lb = { |deref_byte| l };
+    (constant -> $lb = {|deref_byte| l};
        |is_alpha_func| lb (res -> |compare| res 1
       (body_indentifier: -> |search_tree| comb_args l r
         (bool -> bool
