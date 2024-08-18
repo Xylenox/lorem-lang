@@ -1113,39 +1113,21 @@ arg_l: dq 0
 arg_r: dq 0
 
 (read_func_operand_list: context fname_l fname_r l r cont -> |make_nil|
-(tree -> |read_func_operand_list_help| context fname_l fname_r l r tree cont))
-read_func_operand_list_help:
-  pop [comb_arg_list]
-  pop [function_name]
-  pop [function_name+8]
-  pop r8
-  pop [flen]
+  (tree -> |read_func_operand_list_help| context fname_l fname_r l r tree cont)
+)
+(read_func_operand_list_help: context fname_l fname_r l r tree cont ->
+  |read_whitespace_func| l r
+  (l r -> |read_aexp| context fname_l fname_r l r
+  (l r aexp ->
+    |compare| aexp 0 (-> cont tree l r)
+    (->
+      $leaf = {|make_leaf_ret| aexp 0};
+      $tree = {|make_internal_ret| tree leaf};
+      |read_func_operand_list_help| context fname_l fname_r l r tree cont
+    )
+  )
+))
 
-  func_op_list_loop:
-  call read_whitespace
-  call read_aexp_imp
-  cmp rax, 0
-  je func_op_list_done
-
-  mov rdi, rax
-  mov rsi, rdx
-  call make_leaf_imperative
-
-  pop rdi
-  mov rsi, rax
-  call make_internal_imperative
-  push rax
-
-  jmp func_op_list_loop
-
-  func_op_list_done:
-  pop rax
-  pop rdi
-  push [flen]
-  push r8
-  push rax
-  push rdi
-  jmp runtime_call
 (add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
 
 (read_texp: context fname_l fname_r l r cont ->
