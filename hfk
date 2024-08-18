@@ -985,17 +985,7 @@ closure_footer:
   dq "mov [rax"
   dq "], rdx"
 
-parse_closure:
-  add r8, 1
-  mov rdi, r8
-  mov rsi, [flen]
-  call read_operand_list_imperative
-  add r8, 1
-  mov rdi, rax
-  call print_closure
-  ret
-
-(parse_closure_fun: lo hi cont ->
+(parse_closure: lo hi cont ->
   $lo = {|add_func| lo 1};
   |read_operand_list| lo hi (op_list lo hi -> 
     $lo = {|add_func| lo 1};
@@ -1227,7 +1217,7 @@ read_aexp_imp:
 ) ; reads aexp and puts it on stack
 
 (aexp_closure_help: context fname_l fname_r l r cont ->
-  |parse_closure_fun| l r
+  |parse_closure| l r
   (-> |print_string_func| push_rax_string 9 cont)
 )
 
@@ -1263,7 +1253,7 @@ db "push [{}{}]\\n"
   |read_aexp| nil 0 0 lo hi cont
 )
 
-(parse_closure_outer: lo hi -> |parse_closure_fun| lo hi (-> |main_loop|)) ; takes (lo hi)
+(parse_closure_outer: lo hi -> |parse_closure| lo hi (-> |main_loop|)) ; takes (lo hi)
 
 (parse_comment: lo hi -> |compare| lo hi (-> |main_loop| lo hi)
   (->
