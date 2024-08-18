@@ -1222,32 +1222,19 @@ read_aexp_imp:
 (print_aexp: context fname_l fname_r l r cont -> 
   $lb = {|deref_byte| l};
   |compare| lb 124
-  (-> |aexp_closure| context fname_l fname_r l r cont)
+  (-> |aexp_closure_help| context fname_l fname_r l r cont)
   (-> |not_body_closure_compare| context fname_l fname_r l r cont)
 ) ; reads aexp and puts it on stack
-aexp_closure:
-  pop [comb_arg_list]
-  pop [function_name]
-  pop [function_name+8]
-  pop [arg_l]
-  pop [arg_r]
 
-  mov rdi, [arg_l]
+(aexp_closure_help: context fname_l fname_r l r cont ->
+  |parse_closure_fun| l r
+  (-> |print_string_func| push_rax_string 9 cont)
+)
 
-  push r8
-  mov r8, rdi
-  call parse_closure
-  pop r8
-
-  lea rdi, [push_rax_string]
-  lea rsi, [push_rax_string+8]
-  call print_range_line
-  jmp runtime_call
-
-  body_constant_string:
-  dq "push {}\\n"    
-  body_identifier_real_string:
-  db "push [{}{}]\\n"
+body_constant_string:
+dq "push {}\\n"    
+body_identifier_real_string:
+db "push [{}{}]\\n"
 
 (not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
   |compare| dig 40
