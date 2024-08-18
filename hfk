@@ -1223,21 +1223,18 @@ db "call runtime_call_ret\\npush rax\\n"
 
 (aexp_closure_help: context fname_l fname_r l r cont ->
   |parse_closure| l r
-  (-> |print_string_func| push_rax_string 9 cont)
+  (-> |printf| "push rax\n" 9 1 cont)
 )
 
-(not_body_closure_compare: comb_args fname_l fname_r l r cont -> $dig = {|deref_byte| l};
+(not_body_closure_compare: comb_args fname_l fname_r l r cont ->
   $constant = (-> |printf| "push {}\n" 8 l r 1 cont);
+  $dig = {|deref_byte| l};
   $res = {|is_alpha_ret| dig};
   (-> |compare| res 1
-    (body_identifier: -> |search_tree| comb_args l r
-      (bool -> bool
-        (body_identifier_real: -> |format_substring| "push [{}{}]\n" 0 12
-          (fmt -> fmt fname_l fname_r (fmt -> fmt l r
-          (fmt -> |print_tree| fmt (-> cont)))))
-        constant
-      )
-    )
+    (body_identifier: -> |search_tree| comb_args l r (bool -> bool
+      (-> |printf| "push [{}{}]\n" 12 fname_l fname_r l r 1 cont)
+      constant
+    ))
     constant
   )
 )
