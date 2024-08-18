@@ -1162,7 +1162,9 @@ db "call runtime_call_ret\\npush rax\\n"
     |read_cexp| context fname_l fname_r l r
     (l r context cexp -> cont l r context 
         (cont -> texp
-        (-> |print_pop_arg| fname_l fname_r il ir (a -> cexp cont)))))))))))))
+        (-> |print_pop_arg| fname_l fname_r il ir
+        (a -> |map_tree| ids (l r -> |print_pop_arg| fname_l fname_r l r)
+        (a -> cexp cont))))))))))))))
   (-> |read_function_application| context fname_l fname_r l r cont)))
 
 (read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
