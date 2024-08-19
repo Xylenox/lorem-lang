@@ -655,22 +655,21 @@ read_identifier_list:
   (-> cont fmt b)
   (-> fmt a b (fmt -> |printf_help| fmt cont))
 )
-(printf: base r -> |format_substring| base 0 r (fmt -> |printf_help| fmt (fmt cont -> |print_tree| fmt cont)))
-(printf2_help: cont l ->
+(printf_help: cont l ->
   $lb = {|deref_byte| l};
   ${|if| {|compare_bool| lb 0} (break ->
     cont
   )};
   ${|if| {|compare_bool| lb 123} (break a b ->
     |print_range_func| a b (->
-      |printf2_help| cont {|add_func| l 2}
+      |printf_help| cont {|add_func| l 2}
     )
   )};
   |print_string_func| l 1 (->
-    |printf2_help| cont {|add_func| l 1}
+    |printf_help| cont {|add_func| l 1}
   )
 )
-(printf2: ret l -> |callcc| ret (ret -> |printf2_help| ret l))
+(printf: ret l -> |callcc| ret (ret -> |printf_help| ret l))
 
 (format_string_helper: tree l mid r cont ->
   ${|if| {|compare_bool| mid r} (break ->
@@ -1177,8 +1176,10 @@ db "call runtime_call_ret\\npush rax\\n"
       $l = {|add_func| l 1};
       |read_cexp| context fname_l fname_r l r
       (l r context cexp -> cont l r context (cont ->
-        (-> texp (-> |printf| "add rsp, 8\n" 11 1 (-> cexp cont))
-      ))))
+        (-> texp (-> $
+          {|printf| "add rsp, 8\n" 11};
+          cexp cont
+      )))))
     )};
     |read_identifier_func| l r
     (il ir l r -> |add_to_context| context il ir
@@ -1233,7 +1234,8 @@ db "call runtime_call_ret\\npush rax\\n"
   $l_end = {|add_func| l 1};
   cont l_end r (cont ->
     |gen_label_func| (il ir ->
-    |printf| "jmp {}_end:\n{}: db {}\ndb 0\n{}_end: push {}\n" 43 il ir il ir l_start l_end il ir il ir 1 cont
+    ${|printf| "jmp {}_end:\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
+     cont
      ))
 ))))
 
@@ -1246,7 +1248,10 @@ db "call runtime_call_ret\\npush rax\\n"
 
 (aexp_closure_help: context fname_l fname_r l r cont ->
   |parse_closure| l r
-  (-> |printf| "push rax\n" 9 1 cont)
+  (->
+    ${|printf| "push rax\n"};
+    cont
+  )
 )
 
 (not_body_closure_compare: comb_args fname_l fname_r l r cont ->
@@ -1256,11 +1261,13 @@ db "call runtime_call_ret\\npush rax\\n"
   $a = {|if| cmp (break_o ->
     |search_tree| comb_args l r
     (bool ->
-    $a = {|if| bool (break -> |printf| "push [{}{}]\n" 12 fname_l fname_r l r 1 cont)};
+    $a = {|if| bool (break -> ${|printf| "push [{}{}]\n" fname_l fname_r l r};
+      cont
+    )};
     break_o
   ))};
   (->
-    ${|printf2| "push {}\n" l r};
+    ${|printf| "push {}\n" l r};
     cont
   )
 )
