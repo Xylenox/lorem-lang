@@ -657,26 +657,20 @@ read_identifier_list:
 )
 (printf: base r -> |format_substring| base 0 r (fmt -> |printf_help| fmt (fmt cont -> |print_tree| fmt cont)))
 
-(format_string_helper: tree l mid r cont -> |compare| mid r
-  (-> |make_leaf| l mid (leaf -> |make_internal| tree leaf (tree -> cont tree)))
-  (-> $mid_b = { |deref_byte| mid };
-    |compare| mid_b 123
-      (-> |make_leaf| l mid
-        (leaf -> |make_internal| tree leaf
-          (tree ->
-            $new_mid = {|add_func| mid 2};
-            cont
-            (lb rb cont2 -> |make_leaf| lb rb (leaf -> |make_internal| tree leaf
-              (tree -> |format_string_helper| tree new_mid new_mid r cont2))
-            )
-          )
-        )
-      )
-      (->
-        $new_mid = {|add_func| mid 1};
-        |format_string_helper| tree l new_mid r cont
-      )
-  )
+(format_string_helper: tree l mid r cont ->
+  ${|if| {|compare_bool| mid r} (break ->
+    cont {|make_internal_ret| tree {|make_leaf_ret| l mid}}
+  )};
+  ${|if| {|compare_bool| {|deref_byte| mid} 123} (break ->
+    $new_mid = {|add_func| mid 2};
+    $tree = {|make_internal_ret| tree {|make_leaf_ret| l mid}};
+    cont (lb rb cont ->
+      $tree = {|make_internal_ret| tree {|make_leaf_ret| lb rb}};
+      |format_string_helper| tree new_mid new_mid r cont
+    )
+  )};
+  $new_mid = {|add_func| mid 1};
+  |format_string_helper| tree l new_mid r cont
 )
 
 read_operand_list:
