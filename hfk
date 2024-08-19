@@ -1162,7 +1162,16 @@ db "call runtime_call_ret\\npush rax\\n"
      |compare| lb 36
   (-> $l = {|add_func| l 1};
   |read_whitespace_func| l r
-    (l r -> |read_identifier_func| l r
+    (l r -> 
+    ${|if| {|compare_bool| {|deref_byte| l} 123} (break ->
+      |read_texp| context fname_l fname_r l r (l r texp ->
+      $l = {|add_func| l 1};
+      |read_cexp| context fname_l fname_r l r
+      (l r context cexp -> cont l r context (cont ->
+        (-> texp (-> |printf| "add rsp, 8\n" 11 1 (-> cexp cont))
+      ))))
+    )};
+    |read_identifier_func| l r
     (il ir l r -> |add_to_context| context il ir
     (context -> |read_identifier_list| l r
     (ids l r -> $context = {|make_internal_ret| context ids};
@@ -1254,8 +1263,8 @@ db "call runtime_call_ret\\npush rax\\n"
 
 (parse_comment: lo hi -> |compare| lo hi (-> |main_loop| lo hi)
   (->
-    $lb = {|deref_byte| lo};
-    |compare| lb 10 (-> |main_loop| lo hi)
+    {|compare_bool| {|deref_byte| lo} 10}
+    (-> |main_loop| lo hi)
     (-> 
       $lo = {|add_func| lo 1};
       |parse_comment| lo hi
@@ -1278,11 +1287,11 @@ db "call runtime_call_ret\\npush rax\\n"
 
 (main_loop: lo hi -> |compare| lo hi |exit|
   (-> $c = {|deref_byte| lo};
-  (check_function:-> |compare| c 40 (-> |parse_function_help| lo hi)
+  $a = {|if| {|compare_bool| c 40} (break -> |parse_function_help| lo hi)};
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer| lo hi)
   (check_comment:-> |compare| c 59 (-> |parse_comment| lo hi)
   (check_escape:-> |compare| c 92 (-> |parse_escape| lo hi)
-  (-> |print_char| lo hi))))))
+  (-> |print_char| lo hi)))))
 )
 
 start:
