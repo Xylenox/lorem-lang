@@ -1285,13 +1285,14 @@ db "call runtime_call_ret\\npush rax\\n"
   (-> |main_loop| mid hi)
 )
 
-(main_loop: lo hi -> |compare| lo hi |exit|
-  (-> $c = {|deref_byte| lo};
-  $a = {|if| {|compare_bool| c 40} (break -> |parse_function_help| lo hi)};
-  (check_closure:-> |compare| c 124 (-> |parse_closure_outer| lo hi)
-  (check_comment:-> |compare| c 59 (-> |parse_comment| lo hi)
-  (check_escape:-> |compare| c 92 (-> |parse_escape| lo hi)
-  (-> |print_char| lo hi)))))
+(main_loop: lo hi ->
+  ${|if| {|compare_bool|} lo hi (break -> |exit|)};
+  $c = {|deref_byte| lo};
+  ${|if| {|compare_bool| c 40} (break -> |parse_function_help| lo hi)};
+  ${|if| {|compare_bool| c 124} (break -> |parse_closure_outer| lo hi)};
+  ${|if| {|compare_bool| c 59} (break -> |parse_comment| lo hi)};
+  ${|if| {|compare_bool| c 92} (break -> |parse_escape| lo hi)};
+  |print_char| lo hi
 )
 
 start:
