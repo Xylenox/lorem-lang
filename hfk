@@ -50,6 +50,11 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     push rsi
     jmp runtime_call
 
+(if: ret v cont ->
+  $break = (-> |return| ret 0);
+  v (-> cont break) break
+)
+
 (if_ne: a b cont_ne cont_e -> |compare| a b cont_e cont_ne)
 
 (!compare_bool: a b ->
@@ -1231,8 +1236,9 @@ db "call runtime_call_ret\\npush rax\\n"
   $dig = {|deref_byte| l};
   $res = {|is_alpha_ret| dig};
   (-> |compare| res 1
-    (body_identifier: -> |search_tree| comb_args l r (bool -> bool
-      (-> |printf| "push [{}{}]\n" 12 fname_l fname_r l r 1 cont)
+    (body_identifier: -> |search_tree| comb_args l r
+    (bool ->
+      $a = {|if| bool (break -> |printf| "push [{}{}]\n" 12 fname_l fname_r l r 1 cont)};
       constant
     ))
     constant
@@ -1272,7 +1278,7 @@ db "call runtime_call_ret\\npush rax\\n"
 )
 
 (main_loop: lo hi -> |compare| lo hi |exit|
-  (parse_token:-> $c = {|deref_byte| lo};
+  (-> $c = {|deref_byte| lo};
   (check_function:-> |compare| c 40 (-> |parse_function_help| lo hi)
   (check_closure:-> |compare| c 124 (-> |parse_closure_outer| lo hi)
   (check_comment:-> |compare| c 59 (-> |parse_comment| lo hi)
