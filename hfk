@@ -656,6 +656,12 @@ read_identifier_list:
   (-> fmt a b (fmt -> |printf_help| fmt cont))
 )
 (printf: base r -> |format_substring| base 0 r (fmt -> |printf_help| fmt (fmt cont -> |print_tree| fmt cont)))
+; (!printf2_help: l r ->
+;   ${|if| {|compare_bool| l r} (break ->
+;     |return| 0
+;   )};
+  
+; )
 
 (format_string_helper: tree l mid r cont ->
   ${|if| {|compare_bool| mid r} (break ->
@@ -1218,7 +1224,7 @@ db "call runtime_call_ret\\npush rax\\n"
   $l_end = {|add_func| l 1};
   cont l_end r (cont ->
     |gen_label_func| (il ir ->
-    |printf| "jmp {}_end:\n{}: db {}\n{}_end: push {}\n" 38 il ir il ir l_start l_end il ir il ir 1 cont
+    |printf| "jmp {}_end:\n{}: db {}\ndb 0\n{}_end: push {}\n" 43 il ir il ir l_start l_end il ir il ir 1 cont
      ))
 ))))
 

@@ -1400,6 +1400,8 @@ parse_instruction:
     cmp rax, "db"
     jne not_db
     call read_whitespace
+    cmpb [r8], 34
+    jne not_db
     call print_string
     ret
     not_db:
