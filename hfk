@@ -1120,11 +1120,11 @@ arg_r: dq 0
 )
 (read_func_operand_list_help: context fname_l fname_r l r tree cont ->
   |read_whitespace_func| l r
-  (l r -> |read_aexp| context fname_l fname_r l r
-  (l r aexp ->
-    |compare| aexp 0 (-> cont tree l r)
+  (l r -> |read_texp| context fname_l fname_r l r
+  (l r texp ->
+    |compare| texp 0 (-> cont tree l r)
     (->
-      $leaf = {|make_leaf_ret| aexp 0};
+      $leaf = {|make_leaf_ret| texp 0};
       $tree = {|make_internal_ret| tree leaf};
       |read_func_operand_list_help| context fname_l fname_r l r tree cont
     )
@@ -1232,17 +1232,16 @@ db "call runtime_call_ret\\npush rax\\n"
 )
 
 (not_body_closure_compare: comb_args fname_l fname_r l r cont ->
-  $constant = (-> |printf| "push {}\n" 8 l r 1 cont);
   $dig = {|deref_byte| l};
   $res = {|is_alpha_ret| dig};
-  (-> |compare| res 1
-    (body_identifier: -> |search_tree| comb_args l r
+  $cmp = {|compare_bool| res 1};
+  $a = {|if| cmp (break_o ->
+    |search_tree| comb_args l r
     (bool ->
-      $a = {|if| bool (break -> |printf| "push [{}{}]\n" 12 fname_l fname_r l r 1 cont)};
-      constant
-    ))
-    constant
-  )
+    $a = {|if| bool (break -> |printf| "push [{}{}]\n" 12 fname_l fname_r l r 1 cont)};
+    break_o
+  ))};
+  (-> |printf| "push {}\n" 8 l r 1 cont)
 )
 
 (parse_function_help: lo hi ->
