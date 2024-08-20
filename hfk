@@ -1257,11 +1257,11 @@ db "call runtime_call_ret\\npush rax\\n"
 (not_body_closure_compare: comb_args fname_l fname_r l r cont ->
   $dig = {|deref_byte| l};
   $res = {|is_alpha_ret| dig};
-  $cmp = {|compare_bool| res 1};
-  $a = {|if| cmp (break_o ->
+  $a = {|if| {|compare_bool| res 1} (break_o ->
     |search_tree| comb_args l r
     (bool ->
-    $a = {|if| bool (break -> ${|printf| "push [{}{}]\n" fname_l fname_r l r};
+    $a = {|if| bool (break ->
+      ${|printf| "push [{}{}]\n" fname_l fname_r l r};
       cont
     )};
     break_o
@@ -1280,15 +1280,10 @@ db "call runtime_call_ret\\npush rax\\n"
 
 (parse_closure_outer: lo hi -> |parse_closure| lo hi (-> |main_loop|)) ; takes (lo hi)
 
-(parse_comment: lo hi -> |compare| lo hi (-> |main_loop| lo hi)
-  (->
-    {|compare_bool| {|deref_byte| lo} 10}
-    (-> |main_loop| lo hi)
-    (-> 
-      $lo = {|add_func| lo 1};
-      |parse_comment| lo hi
-    )
-  )
+(parse_comment: lo hi -> 
+  ${|if| {|compare_bool| lo hi} (break -> |main_loop| lo hi)};
+  ${|if| {|compare_bool| {|deref_byte| lo} 10} (break -> |main_loop| lo hi)};
+  |parse_comment| {|add_func| lo 1} hi
 )
 
 (parse_escape: l r ->
