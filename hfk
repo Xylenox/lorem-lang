@@ -160,7 +160,7 @@ malloc:
   
   new_page:
   push rdi
-  mov rsi, 4096
+  mov rsi, 40960000
   mov rdi, 0               ; adress
   mov rdx, 3               ; PROT_READ \| PROT_WRITE
   mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
@@ -170,7 +170,7 @@ malloc:
   syscall
   pop rdi
   mov [page_pointer], rax
-  mov [memory_left], 4096
+  mov [memory_left], 40960000
 
   malloc_ret:
   mov rax, [page_pointer]
