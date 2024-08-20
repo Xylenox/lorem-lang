@@ -54,8 +54,10 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
   $break = (-> |return| ret 0);
   v (-> cont break) break
 )
-
 (if_ne: a b cont_ne cont_e -> |compare| a b cont_e cont_ne)
+(!ne: a b -> 
+  |callcc| (ret -> |compare| a b (-> ret (x y -> y)) (-> ret (x y -> x)))
+)
 
 (!compare_bool: a b ->
   |callcc| (ret -> |compare| a b (-> ret (x y -> x)) (-> ret (x y -> y)))
@@ -160,7 +162,7 @@ malloc:
   
   new_page:
   push rdi
-  mov rsi, 40960000
+  mov rsi, 4096000
   mov rdi, 0               ; adress
   mov rdx, 3               ; PROT_READ \| PROT_WRITE
   mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
@@ -170,7 +172,7 @@ malloc:
   syscall
   pop rdi
   mov [page_pointer], rax
-  mov [memory_left], 40960000
+  mov [memory_left], 4096000
 
   malloc_ret:
   mov rax, [page_pointer]
@@ -1208,15 +1210,17 @@ db "call runtime_call_ret\\npush rax\\n"
 ; returns l r aexp
 (read_aexp: context fname_l fname_r l r cont ->
   $dig = {|deref_byte| l};
-  |parse_function| context fname_l fname_r l r (lo hi func -> |if_ne| func 0 (-> 
+  |parse_function| context fname_l fname_r l r (lo hi func ->
+  ${|if| {|ne| func 0} (break -> 
     cont lo hi (cont -> func (-> |print_string_func| push_rax_string 9 cont))
-  )(->
-  |read_const_string| context fname_l fname_r l r (lo hi string -> |if_ne| string 0 (-> 
+  )};
+  |read_const_string| context fname_l fname_r l r (lo hi string ->
+  {|ne| string 0} (-> 
     cont lo hi (cont -> string cont)
   )(->
   |read_id_or_closure_or_function_func| l r
     (a b l r -> |compare| a b (-> cont l r 0) (-> cont l r (cont2 -> |print_aexp| context fname_l fname_r a b cont2)))
-)))))
+))))
 
 (read_until: c l r cont ->
   $lb = {|deref_byte| l};
@@ -1228,7 +1232,7 @@ db "call runtime_call_ret\\npush rax\\n"
 (read_const_string: context fname_l fname_r l r cont ->
   |read_whitespace_func| l r (l_start r ->
   $lb = {|deref_byte| l_start};
-  |if_ne| lb 34 (-> cont l r 0) (->
+  ${|if| {|ne| lb 34} (break -> cont l r 0)};
   $l = {|add_func| l_start 1};
   |read_until| 34 l r (l r ->
   $l_end = {|add_func| l 1};
@@ -1237,7 +1241,7 @@ db "call runtime_call_ret\\npush rax\\n"
     ${|printf| "jmp {}_end:\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
      cont
      ))
-))))
+)))
 
 (print_aexp: context fname_l fname_r l r cont -> 
   $lb = {|deref_byte| l};
