@@ -14,19 +14,20 @@ return:
   push rcx
   ret
 
-load_func: ; (ptr cont) -> cont *ptr
-  pop rax
+load_func: ; (ptr) -> ret *ptr
   pop rdx
+  pop rax
   mov rax, [rax]
-  push rax
   push rdx
-  jmp runtime_call
+  ret
 
-store_func: ; (ptr x cont) -> *ptr = x; cont
+store_func: ; (ptr x) -> *ptr = x; RET
+  pop rdi
   pop rax
   pop rdx
   mov [rax], rdx
-  jmp runtime_call
+  push rdi
+  ret
 
 add_func: ; takes (ret a b) and returns a+b
   pop rbx
@@ -35,6 +36,18 @@ add_func: ; takes (ret a b) and returns a+b
   push rbx
   add rax, rcx
   ret
+
+decomp: ; takes (cont -> cont a b) and returns a and b
+  |decomp_cont [rsp]|
+  add rsp, 8
+  pop rcx ; f
+  push rax
+  push rcx
+  jmp runtime_call
+  decomp_cont:
+    pop rdi ; ret
+    pop rax
+    jmp rdi
 
 compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
   pop rax
@@ -54,7 +67,6 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
   $break = (-> |return| ret 0);
   v (-> cont break) break
 )
-(if_ne: a b cont_ne cont_e -> |compare| a b cont_e cont_ne)
 (!ne: a b -> 
   |callcc| (ret -> |compare| a b (-> ret (x y -> y)) (-> ret (x y -> x)))
 )
@@ -162,7 +174,7 @@ malloc:
   
   new_page:
   push rdi
-  mov rsi, 4096000
+  mov rsi, 40960
   mov rdi, 0               ; adress
   mov rdx, 3               ; PROT_READ \| PROT_WRITE
   mov r10, 0x22           ; MAP_SHARED \| MAP_ANONYMOUS
@@ -172,7 +184,7 @@ malloc:
   syscall
   pop rdi
   mov [page_pointer], rax
-  mov [memory_left], 4096000
+  mov [memory_left], 40960
 
   malloc_ret:
   mov rax, [page_pointer]
@@ -188,6 +200,12 @@ malloc:
   pop rdx
   pop rcx
   ret
+
+malloc_f:
+  pop rcx
+  pop rdi
+  push rcx
+  jmp malloc
 
 (bool_true: cont_true cont_false -> cont_true)
 (bool_false: cont_true cont_false -> cont_false)
@@ -570,6 +588,10 @@ read_whitespace_func: ; (r8 flen cont)
   push r8
   push rax
   jmp runtime_call
+
+(!read_whitespace_ret: l r -> |callcc| (ret ->
+  |read_whitespace_func| l r (l r -> ret (cont -> cont l r))
+))
 
 read_identifier: ; read identifier and return start and end pointers
   ; call read_whitespace
@@ -1088,8 +1110,8 @@ db "pop rax\\npush rax\\n"
 (-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> is_returning (-> |print_substring_func| function_storage_end 8 17 cont) cont)))
 
 (parse_function: old_context p_fname_l p_fname_r l r cont ->
-  |read_whitespace_func| l r
-  (l r -> $lb = {|deref_byte| l};
+  $l r = {|decomp| {|read_whitespace_ret| l r}};
+  ( -> $lb = {|deref_byte| l};
   |compare| lb 40 (->
     $l_inner = {|add_func| l 1};
     |parse_label| l_inner r 
