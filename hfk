@@ -213,11 +213,9 @@ malloc_f:
 
 (make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
 
-(make_internal: a b cont -> cont (cont_nil cont_leaf cont_internal -> cont_internal a b))
-
 (!make_nil: -> |return| (cont_nil cont_leaf cont_internal -> cont_nil))
 (!make_leaf: l r -> |return| (cont_nil cont_leaf cont_internal -> cont_leaf l r))
-(!make_internal_ret: a b -> |return| (cont_nil cont_leaf cont_internal -> cont_internal a b))
+(!make_internal: a b -> |return| (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
 make_leaf_imperative:
   push rsi
@@ -228,7 +226,7 @@ make_leaf_imperative:
 make_internal_imperative:
   push rsi
   push rdi
-  call make_internal_ret
+  call make_internal
   ret
 
 prin:                   ; printst
@@ -413,10 +411,10 @@ print_string_line_func:
   (-> $nil = { |make_nil| };
       cont nil)
   (l r -> action l r cont) 
-(map_internal: a b -> |map_tree| a action (new_a -> |map_tree| b action (new_b -> |make_internal| new_a new_b cont))))
+(map_internal: a b -> |map_tree| a action (new_a -> |map_tree| b action (new_b -> cont {|make_internal| new_a new_b}))))
 
 (reverse_tree: tree cont -> tree (-> cont {|make_nil|}) ( l r -> cont {|make_leaf| l r})
-(a b -> |reverse_tree| a (new_a -> |reverse_tree| b (new_b -> |make_internal| new_b new_a cont)))
+(a b -> |reverse_tree| a (new_a -> |reverse_tree| b (new_b -> cont {|make_internal| new_b new_a})))
 )
 
 (search_tree: tree l r cont -> tree (-> cont (a b -> |bool_false| a b)) (a b -> |str_equal_func| l r a b cont)
@@ -682,13 +680,13 @@ read_identifier_list:
 
 (format_string_helper: tree l mid r cont ->
   ${|if| {|compare_bool| mid r} (break ->
-    cont {|make_internal_ret| tree {|make_leaf| l mid}}
+    cont {|make_internal| tree {|make_leaf| l mid}}
   )};
   ${|if| {|compare_bool| {|deref_byte| mid} 123} (break ->
     $new_mid = {|add_func| mid 2};
-    $tree = {|make_internal_ret| tree {|make_leaf| l mid}};
+    $tree = {|make_internal| tree {|make_leaf| l mid}};
     cont (lb rb cont ->
-      $tree = {|make_internal_ret| tree {|make_leaf| lb rb}};
+      $tree = {|make_internal| tree {|make_leaf| lb rb}};
       |format_string_helper| tree new_mid new_mid r cont
     )
   )};
@@ -1079,8 +1077,7 @@ operand_list: dq 0
   ))
 
 (read_new_context: old_context l r cont -> |read_identifier_list| l r 
-(new_args l r -> |make_internal| old_context new_args
-(new_context -> cont new_context l r)))
+(new_args l r -> cont {|make_internal| old_context new_args} l r))
 
 (print_function_storage: context fname_l fname_r cont ->
 (-> |map_tree| context  (l r cont -> |map_argument| fname_l fname_r l r cont) (extra_tree -> cont)))
@@ -1124,8 +1121,7 @@ db "ret\\n"
   (rest_of_done -> is_returning (-> |print_runtime_call_ret| rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-  (-> |make_internal| {|make_leaf| fname_l fname_r} old_context
-  (helper_tree -> |print_closure_eof| fname_l fname_r p_fname_l p_fname_r helper_tree cont))))))
+  (-> |print_closure_eof| fname_l fname_r p_fname_l p_fname_r {|make_internal| {|make_leaf| fname_l fname_r} old_context} cont)))))
 
 
 (read_func_operand_list: context fname_l fname_r l r cont -> |read_func_operand_list_help| context fname_l fname_r l r {|make_nil|} cont)
@@ -1136,13 +1132,13 @@ db "ret\\n"
     |compare| texp 0 (-> cont tree l r)
     (->
       $leaf = {|make_leaf| texp 0};
-      $tree = {|make_internal_ret| tree leaf};
+      $tree = {|make_internal| tree leaf};
       |read_func_operand_list_help| context fname_l fname_r l r tree cont
     )
   )
 ))
 
-(add_to_context: context l r cont -> |make_internal| context {|make_leaf| l r} cont)
+(add_to_context: context l r cont -> cont {|make_internal| context {|make_leaf| l r}})
 
 (read_texp: context fname_l fname_r l r cont ->
   (->
@@ -1187,7 +1183,7 @@ db "call runtime_call_ret\\npush rax\\n"
     |read_identifier_func| l r
     (l r il ir -> |add_to_context| context il ir
     (context -> |read_identifier_list| l r
-    (ids l r -> $context = {|make_internal_ret| context ids};
+    (ids l r -> $context = {|make_internal| context ids};
     |read_whitespace_func| l r
     (l r -> $l = {|add_func| l 1};
     |read_whitespace_func| l r
