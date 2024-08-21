@@ -1144,8 +1144,6 @@ db "ret\\n"
   (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context
   (helper_tree -> |print_closure_eof| fname_l fname_r p_fname_l p_fname_r helper_tree cont)))))))
 
-arg_l: dq 0
-arg_r: dq 0
 
 (read_func_operand_list: context fname_l fname_r l r cont -> |make_nil|
   (tree -> |read_func_operand_list_help| context fname_l fname_r l r tree cont)
@@ -1201,7 +1199,7 @@ db "call runtime_call_ret\\npush rax\\n"
       |read_cexp| context fname_l fname_r l r
       (l r context cexp -> cont l r context (cont ->
         (-> texp (-> $
-          {|printf| "add rsp, 8\n" 11};
+          {|printf| "add rsp, 8\n"};
           cexp cont
       )))))
     )};
