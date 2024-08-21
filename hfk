@@ -213,18 +213,16 @@ malloc_f:
 
 (make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
 
-(make_nil: cont -> cont (cont_nil cont_leaf cont_internal -> cont_nil))
-(make_leaf: l r cont -> cont (cont_nil cont_leaf cont_internal -> cont_leaf l r))
 (make_internal: a b cont -> cont (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
-(!make_nil_ret: -> |return| (cont_nil cont_leaf cont_internal -> cont_nil))
-(!make_leaf_ret: l r -> |return| (cont_nil cont_leaf cont_internal -> cont_leaf l r))
+(!make_nil: -> |return| (cont_nil cont_leaf cont_internal -> cont_nil))
+(!make_leaf: l r -> |return| (cont_nil cont_leaf cont_internal -> cont_leaf l r))
 (!make_internal_ret: a b -> |return| (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
 make_leaf_imperative:
   push rsi
   push rdi
-  call make_leaf_ret
+  call make_leaf
   ret
   
 make_internal_imperative:
@@ -412,12 +410,12 @@ print_string_line_func:
 
 ; calls cont with new_tree
 (map_tree: tree action cont -> tree
-  (-> $nil = { |make_nil_ret| };
+  (-> $nil = { |make_nil| };
       cont nil)
   (l r -> action l r cont) 
 (map_internal: a b -> |map_tree| a action (new_a -> |map_tree| b action (new_b -> |make_internal| new_a new_b cont))))
 
-(reverse_tree: tree cont -> tree (-> |make_nil| cont) ( l r -> |make_leaf| l r cont)
+(reverse_tree: tree cont -> tree (-> cont {|make_nil|}) ( l r -> cont {|make_leaf| l r})
 (a b -> |reverse_tree| a (new_a -> |reverse_tree| b (new_b -> |make_internal| new_b new_a cont)))
 )
 
@@ -442,18 +440,6 @@ map_tree_imperative:
   mov [rsp+16], rax
   jmp map_tree
   map_tree_imperative_lambda:
-    pop rax
-    ret
-
-map_id_imperative:
-  sub rsp, 24
-  mov [rsp], rdi
-  |make_leaf|
-  mov [rsp+8], rax
-  |map_id_imperative_lambda|
-  mov [rsp+16], rax
-  jmp map_tree
-  map_id_imperative_lambda:
     pop rax
     ret
 
@@ -633,7 +619,7 @@ read_identifier_func: ; (r8 flen cont ->  l r r8 flen)
 read_identifier_list:
   pop r8
   pop [flen]
-  call make_nil_ret
+  call make_nil
   push rax
 
   id_list_loop:
@@ -662,9 +648,7 @@ read_identifier_list:
   push rdi
   jmp runtime_call
 
-(format_string: l r cont -> |make_nil| (tree ->
-  |format_string_helper| tree l l r cont)
-)
+(format_string: l r cont -> |format_string_helper| {|make_nil|} l l r cont)
 (format_substring: base l r cont ->
   $l = {|add_func| base l};
   $r = {|add_func| base r};
@@ -698,13 +682,13 @@ read_identifier_list:
 
 (format_string_helper: tree l mid r cont ->
   ${|if| {|compare_bool| mid r} (break ->
-    cont {|make_internal_ret| tree {|make_leaf_ret| l mid}}
+    cont {|make_internal_ret| tree {|make_leaf| l mid}}
   )};
   ${|if| {|compare_bool| {|deref_byte| mid} 123} (break ->
     $new_mid = {|add_func| mid 2};
-    $tree = {|make_internal_ret| tree {|make_leaf_ret| l mid}};
+    $tree = {|make_internal_ret| tree {|make_leaf| l mid}};
     cont (lb rb cont ->
-      $tree = {|make_internal_ret| tree {|make_leaf_ret| lb rb}};
+      $tree = {|make_internal_ret| tree {|make_leaf| lb rb}};
       |format_string_helper| tree new_mid new_mid r cont
     )
   )};
@@ -715,7 +699,7 @@ read_identifier_list:
 read_operand_list:
   pop r8
   pop [flen]
-  call make_nil_ret
+  call make_nil
   push rax
 
   op_list_loop:
@@ -825,6 +809,8 @@ read_id_or_closure_or_function:
 read_id_or_closure_or_function_func: ; (l r -> a b l r)
   pop r8
   pop [flen]
+
+  call read_whitespace
 
   call read_id_or_closure_or_function
   pop rcx
@@ -1070,9 +1056,6 @@ pop_end_string:
 (-> |println_func|
 (-> cont 0))))))
 
-jmp_end_string:
-  db "jmp \{}_end\\n"
-  
 end_label_string:
   db "_end:"
 old_arg_list: dq 0
@@ -1110,8 +1093,7 @@ db "pop rax\\npush rax\\n"
 (-> |map_tree| context (l r cont -> |print_pop_arg| fname_l fname_r l r cont) (extra_tree -> is_returning (-> |print_substring_func| function_storage_end 8 17 cont) cont)))
 
 (parse_function: old_context p_fname_l p_fname_r l r cont ->
-  $l r = {|decomp| {|read_whitespace_ret| l r}};
-  ( -> $lb = {|deref_byte| l};
+  $lb = {|deref_byte| l};
   |compare| lb 40 (->
     $l_inner = {|add_func| l 1};
     |parse_label| l_inner r 
@@ -1120,14 +1102,15 @@ db "pop rax\\npush rax\\n"
     (l r -> $l = {|add_func| l 2};
     |read_cexp| new_context fname_l fname_r l r
     (l r extra_context cexp -> $l = {|add_func| l 1};
-    (-> cont l r (print_function: cont -> |format_substring| jmp_end_string 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
+    cont l r (print_function: cont ->
+      |format_substring| "jmp {}_end\n" 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
       (-> |print_function_storage| extra_context fname_l fname_r
       (-> |print_function_init| new_context fname_l fname_r is_returning
       (-> cexp
-      (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont))))))))))))
+      (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))))))
   )
   (-> cont l r 0)
-))
+)
 
 
 function_done_string:
@@ -1141,27 +1124,25 @@ db "ret\\n"
   (rest_of_done -> is_returning (-> |print_runtime_call_ret| rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
-  (-> |make_leaf| fname_l fname_r (leaf -> |make_internal| leaf old_context
-  (helper_tree -> |print_closure_eof| fname_l fname_r p_fname_l p_fname_r helper_tree cont)))))))
+  (-> |make_internal| {|make_leaf| fname_l fname_r} old_context
+  (helper_tree -> |print_closure_eof| fname_l fname_r p_fname_l p_fname_r helper_tree cont))))))
 
 
-(read_func_operand_list: context fname_l fname_r l r cont -> |make_nil|
-  (tree -> |read_func_operand_list_help| context fname_l fname_r l r tree cont)
-)
+(read_func_operand_list: context fname_l fname_r l r cont -> |read_func_operand_list_help| context fname_l fname_r l r {|make_nil|} cont)
 (read_func_operand_list_help: context fname_l fname_r l r tree cont ->
   |read_whitespace_func| l r
   (l r -> |read_texp| context fname_l fname_r l r
   (l r texp ->
     |compare| texp 0 (-> cont tree l r)
     (->
-      $leaf = {|make_leaf_ret| texp 0};
+      $leaf = {|make_leaf| texp 0};
       $tree = {|make_internal_ret| tree leaf};
       |read_func_operand_list_help| context fname_l fname_r l r tree cont
     )
   )
 ))
 
-(add_to_context: context l r cont -> |make_leaf| l r (leaf -> |make_internal| context leaf cont))
+(add_to_context: context l r cont -> |make_internal| context {|make_leaf| l r} cont)
 
 (read_texp: context fname_l fname_r l r cont ->
   (->
@@ -1222,7 +1203,6 @@ db "call runtime_call_ret\\npush rax\\n"
   (-> |read_function_application| context fname_l fname_r l r cont)))
 
 (read_function_application: context fname_l fname_r l r cont ->
-  
   |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> cont l r context (cont2 -> |print_cexp| op_list cont2)))
 (print_cexp: aexp_list cont -> |reverse_tree| aexp_list
@@ -1296,7 +1276,7 @@ db "call runtime_call_ret\\npush rax\\n"
 )
 
 (parse_function_help: lo hi ->
-  $nil = {|make_nil_ret|};
+  $nil = {|make_nil|};
   |parse_function| nil 0 0 lo hi
   (l r func -> func (-> |main_loop| l r))
 )
