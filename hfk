@@ -210,13 +210,14 @@ malloc_f:
 (bool_true: cont_true cont_false -> cont_true)
 (bool_false: cont_true cont_false -> cont_false)
 
+
 (make_pair: cont a b -> cont (make_pair_lambda: cont -> cont a b))
 
 (make_nil: cont -> cont (cont_nil cont_leaf cont_internal -> cont_nil))
 (make_leaf: l r cont -> cont (cont_nil cont_leaf cont_internal -> cont_leaf l r))
 (make_internal: a b cont -> cont (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
-(!make_nil_ret: -> |callcc| (ret -> |make_nil| ret))
+(!make_nil_ret: -> |return| (cont_nil cont_leaf cont_internal -> cont_nil))
 (!make_leaf_ret: l r -> |return| (cont_nil cont_leaf cont_internal -> cont_leaf l r))
 (!make_internal_ret: a b -> |return| (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
@@ -1221,7 +1222,9 @@ db "call runtime_call_ret\\npush rax\\n"
         (a -> cexp cont))))))))))))))
   (-> |read_function_application| context fname_l fname_r l r cont)))
 
-(read_function_application: context fname_l fname_r l r cont -> |read_func_operand_list| context fname_l fname_r l r
+(read_function_application: context fname_l fname_r l r cont ->
+  
+  |read_func_operand_list| context fname_l fname_r l r
     (op_list l r -> cont l r context (cont2 -> |print_cexp| op_list cont2)))
 (print_cexp: aexp_list cont -> |reverse_tree| aexp_list
   (aexp_list ->|map_tree| aexp_list (aexp r cont -> aexp (-> cont 0))
