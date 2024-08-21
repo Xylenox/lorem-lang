@@ -623,10 +623,10 @@ read_identifier_func: ; (r8 flen cont ->  l r r8 flen)
   pop [flen]
   call read_identifier
   pop rcx
-  push [flen]
-  push r8
   push rdx
   push rax
+  push [flen]
+  push r8
   push rcx
   jmp runtime_call
 
@@ -756,7 +756,6 @@ read_operand_list_imperative:
     pop r8
     pop [flen]
     ret
-
 
 read_operand:
   cmpb [r8], "\["
@@ -1088,7 +1087,7 @@ operand_list: dq 0
                   rest_label l r (a b -> a))
                   (-> rest_label l r (a b -> b)))
   (pl pr is_returning -> |read_identifier_func| pl pr
-  (fl fr l r -> |read_whitespace_func| l r 
+  (l r fl fr -> |read_whitespace_func| l r 
   (l r -> $l_char = { |deref_byte| l };
     |compare| l_char 58
     (pl_has_label: -> $l = {|add_func| l 1};
@@ -1205,7 +1204,7 @@ db "call runtime_call_ret\\npush rax\\n"
       )))))
     )};
     |read_identifier_func| l r
-    (il ir l r -> |add_to_context| context il ir
+    (l r il ir -> |add_to_context| context il ir
     (context -> |read_identifier_list| l r
     (ids l r -> $context = {|make_internal_ret| context ids};
     |read_whitespace_func| l r
