@@ -1097,14 +1097,15 @@ db "pop rax\\npush rax\\n"
     (l r fname_l fname_r is_returning -> |read_new_context| old_context l r 
     (new_context l r -> |read_whitespace_func| l r
     (l r -> $l = {|add_func| l 2};
-    |read_cexp| new_context fname_l fname_r l r
+    (cexp_cont -> is_returning (-> cexp_cont (a b c -> a)) (-> cexp_cont (a b c -> b)))
+    (cexp_return -> |read_cexp| new_context fname_l fname_r l r cexp_return
     (l r extra_context cexp -> $l = {|add_func| l 1};
     cont l r (print_function: cont ->
       |format_substring| "jmp {}_end\n" 0 11 (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
       (-> |print_function_storage| extra_context fname_l fname_r
       (-> |print_function_init| new_context fname_l fname_r is_returning
       (-> cexp
-      (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))))))
+      (-> |function_done| old_context fname_l fname_r p_fname_l p_fname_r is_returning cont))))))))))))
   )
   (-> cont l r 0)
 )
@@ -1118,7 +1119,6 @@ ret_string:
 db "ret\\n"
 (print_runtime_call_ret: cont -> |print_string_func| function_ret_done_string 26 cont)
 (function_done: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
-  (rest_of_done -> is_returning (-> |print_runtime_call_ret| rest_of_done) (-> |print_string_func| function_done_string 17 rest_of_done))
   (-> |format_substring| function_done_string 17 25
   (fmt -> fmt fname_l fname_r (fmt -> |print_tree| fmt
   (-> |print_closure_eof| fname_l fname_r p_fname_l p_fname_r {|make_internal| {|make_leaf| fname_l fname_r} old_context} cont)))))
@@ -1155,7 +1155,7 @@ db "call runtime_call_ret\\npush rax\\n"
 (read_block: context fname_l fname_r l r cont ->
   $l = {|add_func| l 1};
   |read_whitespace_func| l r
-  (l r -> |read_cexp| context fname_l fname_r l r
+  (l r -> |read_cexp| context fname_l fname_r l r (a b c -> c)
   (l r context cexp -> |read_whitespace_func| l r
   (l r -> $l = {|add_func| l 1};
   cont l r
@@ -1164,7 +1164,7 @@ db "call runtime_call_ret\\npush rax\\n"
 )
 
 ; returns l r context cexp
-(read_cexp: context fname_l fname_r l r cont -> |read_whitespace_func| l r
+(read_cexp: context fname_l fname_r l r is_returning cont -> |read_whitespace_func| l r
 (l r -> $lb = { |deref_byte| l };
      |compare| lb 36
   (-> $l = {|add_func| l 1};
@@ -1173,7 +1173,7 @@ db "call runtime_call_ret\\npush rax\\n"
     ${|if| {|compare_bool| {|deref_byte| l} 123} (break ->
       |read_texp| context fname_l fname_r l r (l r texp ->
       $l = {|add_func| l 1};
-      |read_cexp| context fname_l fname_r l r
+      |read_cexp| context fname_l fname_r l r is_returning
       (l r context cexp -> cont l r context (cont ->
         (-> texp (-> $
           {|printf| "add rsp, 8\n"};
@@ -1190,17 +1190,33 @@ db "call runtime_call_ret\\npush rax\\n"
     (l r -> |read_texp| context fname_l fname_r l r
     (l r texp -> |read_whitespace_func| l r
     (l r -> $l = {|add_func| l 1};
-    |read_cexp| context fname_l fname_r l r
+    |read_cexp| context fname_l fname_r l r is_returning
     (l r context cexp -> cont l r context 
         (cont -> texp
         (-> |print_pop_arg| fname_l fname_r il ir
         (a -> |map_tree| ids (l r -> |print_pop_arg| fname_l fname_r l r)
         (a -> cexp cont))))))))))))))
-  (-> |read_function_application| context fname_l fname_r l r cont)))
+  (-> |read_function_application| context fname_l fname_r l r is_returning cont)))
 
-(read_function_application: context fname_l fname_r l r cont ->
-  |read_func_operand_list| context fname_l fname_r l r
-    (op_list l r -> cont l r context (cont2 -> |print_cexp| op_list cont2)))
+(read_function_application: context fname_l fname_r l r is_returning cont ->
+  |read_identifier_func| l r
+  (l r il ir -> |read_func_operand_list| context fname_l fname_r l r
+    (op_list l r -> cont l r context
+      (cont2 ->
+        |print_cexp| op_list (-> 
+        ${|if| {|ne| il ir} (break ->
+          ${|printf| "push [{}{}]" fname_l fname_r il ir};
+          break
+        )};
+        is_returning
+          (-> |print_runtime_call_ret| cont2)
+          (-> |print_string_func| function_done_string 17 cont2)
+          (-> cont2)
+        )
+      )
+    )
+  )
+)
 (print_cexp: aexp_list cont -> |reverse_tree| aexp_list
   (aexp_list ->|map_tree| aexp_list (aexp r cont -> aexp (-> cont 0))
   (aexp_list -> cont)))
