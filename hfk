@@ -349,13 +349,13 @@ print_range: ; FOLLOWS SYSTEM V ABI
   syscall
   ret
 
-print_range_func:
-  ; takes l r cont and prints l r then calls cont
+print_range_ret:
+  pop rax
   pop rdi
   pop rsi
+  push rax
   call print_range
-  jmp runtime_call
-
+  ret
 
 print_range_line_func:
   ; takes l r cont and prints l r then calls cont
@@ -401,7 +401,22 @@ print_string_line_func:
   call print_range_line
   jmp runtime_call
 
-(print_tree: tree cont -> traverse_tree tree (-> print_range_func) cont)
+(printf_help: cont l ->
+  $lb = {deref_byte l};
+  ${if {compare_bool lb 0} (break ->
+    cont
+  )};
+  ${if {compare_bool lb 123} (break a b ->
+    ${print_range_ret a b};
+    printf_help cont {add_func l 2}
+  )};
+  print_string_func l 1 (->
+    printf_help cont {add_func l 1}
+  )
+)
+(printf: ret l -> callcc ret (ret -> printf_help ret l))
+
+(print_tree: tree cont -> traverse_tree tree (l r cont -> ${print_range_ret l r}; cont) cont)
 
 (traverse_tree: tree action cont -> tree cont (l r -> action l r cont) 
 (traverse_internal: a b -> traverse_tree a action (-> traverse_tree b action cont)))
@@ -657,23 +672,6 @@ read_identifier_list:
   (-> b fmt)
   (-> fmt a b (fmt -> format_help fmt))
 )
-
-(printf_help: cont l ->
-  $lb = {deref_byte l};
-  ${if {compare_bool lb 0} (break ->
-    cont
-  )};
-  ${if {compare_bool lb 123} (break a b ->
-    print_range_func a b (->
-      printf_help cont {add_func l 2}
-    )
-  )};
-  print_string_func l 1 (->
-    printf_help cont {add_func l 1}
-  )
-)
-(printf: ret l -> callcc ret (ret -> printf_help ret l))
-
 (format_string_helper: tree l mid r cont ->
   ${if {compare_bool mid r} (break ->
     cont {make_internal tree {make_leaf l mid}}
@@ -916,13 +914,15 @@ brackets_string:
   dq "[\{}\{}]\\n"
 brackets_string_2:
   db "[]"
-(eof_closure_map_arg: fname_l fname_r pfname_l pfname_r l r cont -> print_string_line_func mov_string 9
-(-> compare l fname_l
-  (-> print_range_line_func l r (-> print_string_func suff_strings 26 (-> cont 0)))
+(!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
+  return (l r cont ->
+  print_string_func "mov rcx, " 9
+  (-> compare l fname_l
+  (-> print_range_line_func l r (-> print_string_func "mov [rdx], rcx\nadd rdx, 8\n" 26 (-> cont 0)))
   (-> format_substring brackets_string 0 7  
     (fmt -> format_help fmt pfname_l pfname_r l r 1
     (fmt -> print_tree fmt (-> print_string_func suff_strings 26 (-> cont 0)))))
-))
+)))
 
 print_closure_eof:
   pop [function_name]
@@ -962,6 +962,9 @@ print_closure_eof:
   call print_range_line
 
   |eof_closure_map_arg [function_name] [function_name+8] [prev_function_name] [prev_function_name+8]|
+  push rax
+  call runtime_call_ret
+
   mov rsi, rax
   pop rdi
   call map_tree_imperative
@@ -1043,12 +1046,13 @@ pop_start_string:
 pop_end_string:
   dq "]"
   
-(print_pop_arg: p_fname_l p_fname_r l r cont -> print_string_func pop_start_string 5
-(-> print_range_func p_fname_l p_fname_r
-(-> print_range_func l r
+(print_pop_arg: p_fname_l p_fname_r l r cont ->
+print_string_func pop_start_string 5 (->
+  ${print_range_ret p_fname_l p_fname_r};
+  ${print_range_ret l r};
 (-> print_string_func pop_end_string 1
 (-> println_func
-(-> cont 0))))))
+(-> cont 0)))))
 
 end_label_string:
   db "_end:"
@@ -1313,14 +1317,14 @@ db "ret\\n"
 (parse_escape: l r ->
   $a = {add_func l 1};
   $b = {add_func l 2};
-  print_range_func a b
-  (-> main_loop b r)
+  ${print_range_ret a b};
+  main_loop b r
 )
 
 (print_char: lo hi ->
   $mid = {add_func lo 1};
-  print_range_func lo mid
-  (-> main_loop mid hi)
+  ${print_range_ret lo mid};
+  main_loop mid hi
 )
 
 (main_loop: lo hi ->
