@@ -38,7 +38,21 @@ add_func: ; takes (ret a b) and returns a+b
   ret
 
 div_func:
-  
+  pop rcx
+  pop rax
+  mov rdx, 0
+  pop rdi
+  idiv rdi
+  jmp rcx
+
+mod_func:
+  pop rcx
+  pop rax
+  mov rdx, 0
+  pop rdi
+  idiv rdi
+  mov rax, rdx
+  jmp rcx
 
 decomp: ; takes (cont -> cont a b) and returns a and b
   |decomp_cont [rsp]|
@@ -434,7 +448,9 @@ print_string_line_func:
 )
 (printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
 
-(print_tree: tree cont -> traverse_tree tree (l r cont -> ${print_range_ret l r}; cont) cont)
+(print_tree: tree cont -> traverse_tree tree
+(l r cont -> ${print_range_ret l r};
+cont) cont)
 
 (traverse_tree: tree action cont -> tree cont (l r -> action l r cont) 
 (traverse_internal: a b -> traverse_tree a action (-> traverse_tree b action cont)))
