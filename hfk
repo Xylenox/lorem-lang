@@ -184,7 +184,7 @@ malloc:
   
   new_page:
   push rdi
-  mov rsi, 40960
+  mov rsi, 4096
   mov rdi, 0               ; adress
   mov rdx, 3               ; PROT_READ | PROT_WRITE
   mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
@@ -194,7 +194,7 @@ malloc:
   syscall
   pop rdi
   mov [page_pointer], rax
-  mov [memory_left], 40960
+  mov [memory_left], 4096
 
   malloc_ret:
   mov rax, [page_pointer]
@@ -451,6 +451,16 @@ print_string_line_func:
 )
 (printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
 
+(tree_size_help: tree cont ->
+tree
+  (-> cont 0)
+  (l r ->
+    cont 1
+  )
+  (a b -> tree_size_help a (count_a -> (-> tree_size_help b (count_b -> cont {add_func count_a count_b}))))
+)
+
+(!tree_size: tree -> callcc (ret -> tree_size_help tree ret))
 (print_tree: tree cont -> traverse_tree tree
 (l r cont -> ${print_range_ret l r};
 cont) cont)
@@ -973,19 +983,25 @@ print_closure_eof:
   lea rsi, [newline_string]
   call make_leaf_imperative
   mov [closure_tree], rax
+
+
+  lea rdi, [closure_header]
+  lea rsi, [closure_header+9]
+  call print_range
+
+  push [rsp]
+  call tree_size
+  add rax, 1
+  shl rax, 3
+
+  push rax
+  call print_num
   
   lea rdi, [newline_string]
   lea rsi, [newline_string+1]
   call make_pair_imperative
   mov rdi, rax
   mov rsi, 0
-  call make_pair_imperative
-  push rax
-  lea rdi, [closure_header]
-  lea rsi, [closure_header+12]
-  call make_pair_imperative
-  mov rdi, rax
-  pop rsi
   call make_pair_imperative
   mov rdi, rax
   call print_ranges
