@@ -1205,8 +1205,14 @@ db "call runtime_call_ret\\npush rax\\n"
       (cont2 ->
         |print_cexp| op_list (-> 
         ${|if| {|ne| il ir} (break ->
-          ${|printf| "push [{}{}]" fname_l fname_r il ir};
-          break
+          |search_tree| context il ir (bool ->
+            ${|if| bool (break2 -> 
+              ${|printf| "push [{}{}]\n" fname_l fname_r il ir};
+              break
+            )};
+            ${|printf| "jmp {}\n" il ir};
+            cont2
+          )
         )};
         is_returning
           (-> |print_runtime_call_ret| cont2)
