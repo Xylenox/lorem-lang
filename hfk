@@ -1206,11 +1206,15 @@ db "ret\\n"
     (op_list l r -> cont l r context
       (cont2 ->
         |print_cexp| op_list (-> 
-        ${|if| {|ne| il ir} (break ->
+        ${if {ne il ir} (break ->
           |search_tree| context il ir (bool ->
             ${|if| bool (break2 -> 
               ${|printf| "push [{}{}]\n" fname_l fname_r il ir};
               break
+            )};
+            ${|if| is_returning (break2 ->
+              ${|printf| "call {}\n" il ir};
+              cont2
             )};
             ${|printf| "jmp {}\n" il ir};
             cont2
