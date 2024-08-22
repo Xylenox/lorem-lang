@@ -914,6 +914,7 @@ brackets_string:
   dq "[\{}\{}]\\n"
 brackets_string_2:
   db "[]"
+
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
   return (l r cont ->
   print_string_func "mov rcx, " 9
@@ -1119,7 +1120,6 @@ db "ret\\n"
 (function_done: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
   (rest_of_done -> is_returning (-> ${printf "ret\n"};
     rest_of_done)
-    rest_of_done
     rest_of_done
     )
   (-> format_substring function_done_string 17 25
