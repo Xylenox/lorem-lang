@@ -132,14 +132,7 @@ runtime_call_ret:
   pop rax
   push rbp
   jmp rax
-
-compute: ; (a b -> b (a)) execs a and gets value
-  call runtime_call_ret
-  pop rcx
-  push rax
-  push rcx
-  jmp runtime_call
-
+  
 callcc: ; takes (cont -> ..) and returns the value that cont recieves
   |callcc_cont [rsp]|
   pop rcx

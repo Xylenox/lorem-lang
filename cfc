@@ -6,6 +6,148 @@
 ;
 jmp star
 
+page_pointer:
+dq 0
+memory_left:
+dq 0
+malloc:
+  push rcx
+  push rdx
+  push rsi
+  push rdi
+  push r8
+  push r9
+  push r10
+  push r11
+
+  cmp [memory_left], rdi
+  jl new_page
+  jmp malloc_ret
+  
+  new_page:
+  push rdi
+  mov rsi, 40960
+  mov rdi, 0               ; adress
+  mov rdx, 3               ; PROT_READ | PROT_WRITE
+  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
+  mov r8, -1              ; file descriptor empty, anonymous
+  mov r9, 0               ; offset
+  mov rax, 9               ; mmap
+  syscall
+  pop rdi
+  mov [page_pointer], rax
+  mov [memory_left], 40960
+
+  malloc_ret:
+  mov rax, [page_pointer]
+  add [page_pointer], rdi
+  sub [memory_left], rdi
+
+  pop r11
+  pop r10
+  pop r9
+  pop r8
+  pop rdi
+  pop rsi
+  pop rdx
+  pop rcx
+  ret
+
+
+runtime_call:
+  ; first input is closure containing | number of operands including function, function, environment |
+  mov rdx, [rsp]
+  mov rcx, [rdx]
+  shl rcx, 3
+  add rdx, 8
+  add rsp, 8
+  sub rsp, rcx
+
+  runtime_call_loop:
+  sub rcx, 8
+  mov rax, [rdx+rcx]
+  mov [rsp+rcx], rax
+  cmp rcx, 0
+  jne runtime_call_loop
+  
+  pop rax
+  jmp rax
+
+runtime_call_ret:
+  ; first input is closure containing | number of operands including function, function, environment |
+  pop rbp
+  mov rdx, [rsp]
+  mov rcx, [rdx]
+  shl rcx, 3
+  add rdx, 8
+  add rsp, 8
+  sub rsp, rcx
+
+  runtime_call_ret_loop:
+  sub rcx, 8
+  mov rax, [rdx+rcx]
+  mov [rsp+rcx], rax
+  cmp rcx, 0
+  jne runtime_call_ret_loop
+  
+  pop rax
+  push rbp
+  jmp rax
+
+decomp: ; takes (cont -> cont a b) and returns a and b
+  |decomp_cont [rsp]|
+  add rsp, 8
+  pop rcx ; f
+  push rax
+  push rcx
+  jmp runtime_call
+  decomp_cont:
+    pop rdi ; ret
+    pop rax
+    jmp rdi
+
+deref_byte: ; takes (ptr) and returns *ptr
+  pop rdx
+  pop rax
+  push rdx
+  movb rax, [rax]
+  and rax, 0xFF
+  ret
+
+add_func: ; takes (ret a b) and returns a+b
+  pop rbx
+  pop rax
+  pop rcx
+  push rbx
+  add rax, rcx
+  ret
+
+compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
+  pop rax
+  pop rcx
+  pop rdi
+  pop rsi
+  cmp rax, rcx
+  jne compare_fail
+  push rdi
+  jmp runtime_call
+
+  compare_fail:
+    push rsi
+    jmp runtime_call
+
+(if: ret v cont ->
+  $break = (-> return ret 0);
+  v (-> cont break) break
+)
+(!ne: a b -> 
+  callcc (ret -> compare a b (-> ret (x y -> y)) (-> ret (x y -> x)))
+)
+
+(!compare_bool: a b ->
+  callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))
+)
+
 inpf: dq 0
 outf: dq 0
 flen: dq 0
@@ -37,6 +179,55 @@ pop rdx
 pop r1
 pop r0
 ret
+
+print_range: ; FOLLOWS SYSTEM V ABI
+  ; prints [rdi, rsi) to outf
+  mov rdx, rsi        ; length of print
+  sub rdx, rdi
+  mov rsi, rdi ; rsi already stores buffer lcoation
+  mov rdi, [outf]
+  mov rax, 1
+  syscall
+  ret
+
+print_range_ret:
+  pop rax
+  pop rdi
+  pop rsi
+  push rax
+  call print_range
+  ret
+
+print_range_line_func:
+  ; takes l r cont and prints l r then calls cont
+  pop rdi
+  pop rsi
+  call print_range_line
+  jmp runtime_call
+
+
+print_string_func:
+  ; takes l len cont and prints l r then calls cont
+  pop rdi
+  pop rsi
+  add rsi, rdi
+  call print_range
+  jmp runtime_call
+
+(printf_help: cont l ->
+  $lb = {deref_byte l};
+  ${if {compare_bool lb 0} (break ->
+    cont
+  )};
+  ${if {compare_bool lb 123} (break a b ->
+    ${print_range_ret a b};
+    printf_help cont {add_func l 2}
+  )};
+  print_string_func l 1 (->
+    printf_help cont {add_func l 1}
+  )
+)
+(printf: ret l -> callcc ret (ret -> printf_help ret l))
 
 is_alpha:           ; is alpha
 cmp r7, "a"      ; a
