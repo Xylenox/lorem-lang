@@ -190,12 +190,29 @@ print_range: ; FOLLOWS SYSTEM V ABI
   syscall
   ret
 
+print_char:
+  push rdi
+  mov rdx, 1
+  mov rsi, rsp
+  mov rdi, [outf]
+  mov rax, 1
+  syscall
+  pop rdi
+  ret
+
 print_range_ret:
   pop rax
   pop rdi
   pop rsi
   push rax
   call print_range
+  ret
+
+print_char_ret:
+  pop rax
+  pop rdi
+  push rax
+  call print_char
   ret
 
 print_range_line_func:
