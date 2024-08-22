@@ -359,7 +359,7 @@ print_range: ; FOLLOWS SYSTEM V ABI
   syscall
   ret
 
-print_char:
+print_char_help:
   push rdi
   mov rdx, 1
   mov rsi, rsp
@@ -377,11 +377,11 @@ print_range_ret:
   call print_range
   ret
 
-print_char_ret:
+print_char:
   pop rax
   pop rdi
   push rax
-  call print_char
+  call print_char_help
   ret
 
 print_range_line_func:
@@ -428,11 +428,14 @@ print_string_line_func:
   call print_range_line
   jmp runtime_call
 
-(print_num_help: cont v ->
+(print_num_help: v cont ->
   ${if {compare_bool v 0} (break -> cont)};
-  cont
+  print_num_help {div_func v 10} (->
+    ${print_char {add_func {deref_byte "0"} {mod_func v 10}}};
+    cont
+  )
 )
-(print_num: ret v -> callcc ret (ret -> print_num_help (-> ret 0) v))
+(print_num: ret v -> callcc ret (ret -> print_num_help v (-> ret 0)))
 
 (printf_help: cont l ->
   $lb = {deref_byte l};
@@ -443,7 +446,7 @@ print_string_line_func:
     ${print_range_ret a b};
     printf_help cont {add_func l 2}
   )};
-  ${print_char_ret {deref_byte l}};
+  ${print_char {deref_byte l}};
   printf_help cont {add_func l 1}
 )
 (printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
@@ -1355,7 +1358,7 @@ db "ret\\n"
   main_loop b r
 )
 
-(print_char: lo hi ->
+(otherwise: lo hi ->
   $mid = {add_func lo 1};
   ${print_range_ret lo mid};
   main_loop mid hi
@@ -1368,7 +1371,7 @@ db "ret\\n"
   ${if {compare_bool c 124} (break -> parse_closure_outer lo hi)};
   ${if {compare_bool c 59} (break -> parse_comment lo hi)};
   ${if {compare_bool c 92} (break -> parse_escape lo hi)};
-  print_char lo hi
+  otherwise lo hi
 )
 
 start:
