@@ -37,6 +37,9 @@ add_func: ; takes (ret a b) and returns a+b
   add rax, rcx
   ret
 
+div_func:
+  
+
 decomp: ; takes (cont -> cont a b) and returns a and b
   |decomp_cont [rsp]|
   add rsp, 8
@@ -411,6 +414,12 @@ print_string_line_func:
   call print_range_line
   jmp runtime_call
 
+(print_num_help: cont v ->
+  ${if {compare_bool v 0} (break -> cont)};
+  cont
+)
+(print_num: ret v -> callcc ret (ret -> print_num_help (-> ret 0) v))
+
 (printf_help: cont l ->
   $lb = {deref_byte l};
   ${if {compare_bool lb 0} (break ->
@@ -423,7 +432,7 @@ print_string_line_func:
   ${print_char_ret {deref_byte l}};
   printf_help cont {add_func l 1}
 )
-(printf: ret l -> callcc ret (ret -> printf_help ret l))
+(printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
 
 (print_tree: tree cont -> traverse_tree tree (l r cont -> ${print_range_ret l r}; cont) cont)
 

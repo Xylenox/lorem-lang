@@ -240,11 +240,10 @@ print_string_func:
     ${print_range_ret a b};
     printf_help cont {add_func l 2}
   )};
-  print_string_func l 1 (->
-    printf_help cont {add_func l 1}
-  )
+  ${print_char_ret {deref_byte l}};
+  printf_help cont {add_func l 1}
 )
-(printf: ret l -> callcc ret (ret -> printf_help ret l))
+(printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
 
 is_alpha:           ; is alpha
 cmp r7, "a"      ; a
@@ -1091,6 +1090,8 @@ ops1:
     dq 0x008F
     dq "jmp"
     dq 0x20FF
+    dq "idiv"
+    dq 0x38F7
     memory_only_array_end:
     push rdx
     push rsi
@@ -1134,6 +1135,8 @@ ops1:
     dq 0xE0FF
     dq "call"
     dq 0xD0FF
+    dq "idiv"
+    dq 0xF8F7
     register_only_array_end:
     push rdx
     push rsi
