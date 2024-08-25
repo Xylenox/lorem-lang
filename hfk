@@ -1199,12 +1199,29 @@ db "ret\\n"
 (read_texp: context fname_l fname_r l r cont ->
   (->
     $lb = {deref_byte l};
-    compare lb 123
-    (-> read_block context fname_l fname_r l r cont)
+    ${if {compare_bool lb 91} (break -> read_rec_block context fname_l fname_r l r cont)};
+    ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r cont)};
     (-> read_aexp context fname_l fname_r l r cont)
   )
 )
 
+(read_rec_block: context fname_l fname_r l r cont ->
+  $l = {add_func l 1};
+  read_whitespace_func l r
+  (l r -> read_cexp context fname_l fname_r l r (a b -> a)
+  (l r context cexp -> read_whitespace_func l r
+  (l r -> $l = {add_func l 1};
+  cont l r
+    (cont -> 
+    map_tree context (l r cont -> ${printf "push [{}{}]\n" fname_l fname_r l r};
+      cont 0)
+    (-> cexp
+    (-> reverse_tree context
+    (rev_context -> map_tree rev_context (l r cont -> 
+    ${printf "pop [{}{}]" fname_l fname_r l r};
+    cont 0) (-> ${printf "push rax\n"};
+     cont))))))))
+)
 
 (read_block: context fname_l fname_r l r cont ->
   $l = {add_func l 1};
@@ -1249,7 +1266,7 @@ db "ret\\n"
     (l r context cexp -> cont l r context 
         (cont -> texp
         (-> print_pop_arg fname_l fname_r il ir
-        (a -> map_tree ids (l r -> print_pop_arg fname_l fname_r l r)
+        (a -> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont)
         (a -> cexp cont))))))))))))))
   (-> read_function_application context fname_l fname_r l r is_returning cont)))
 
@@ -1318,7 +1335,7 @@ db "ret\\n"
   $l_end = {add_func l 1};
   cont l_end r (cont ->
     gen_label_func (il ir ->
-    ${printf "jmp {}_end:\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
+    ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
      cont
      ))
 )))
