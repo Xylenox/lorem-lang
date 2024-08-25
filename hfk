@@ -99,6 +99,9 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
   $break = (-> return ret 0);
   v (-> cont break) break
 )
+(if_ret: ret v cont ->
+  v (-> cont ret) (-> return ret 0)
+)
 (!ne: a b -> 
   callcc (ret -> compare a b (-> ret (x y -> y)) (-> ret (x y -> x)))
 )
@@ -332,13 +335,15 @@ gen_label:
   jne gen_label_loop
   ret
 
-gen_label_func: ; (cont) -> (cont l r)
+gen_label_func: ;  -> (cont l r)
   call gen_label
   pop rcx
   push rdx
   push rax
   push rcx
   jmp runtime_call
+
+(gen_label_ret: ret -> callcc ret (ret -> gen_label_func (l r -> ret (cont -> cont l r))))
 
 str_equal_func: ; (a b l r cont)
   pop rdi
@@ -1226,7 +1231,8 @@ db "ret\\n"
     )};
     read_const_string context fname_l fname_r l r (lo hi string ->
     ${if {ne string 0} (break -> 
-      cont lo hi (cont -> string cont)
+      cont lo hi (cont -> ${string}; 
+        cont)
     )};
     read_id_or_closure_or_function_func l r
     (a b l r -> compare a b (-> cont2 l r 0) (-> cont l r (cont2 -> print_aexp context fname_l fname_r a b cont2)))
@@ -1242,7 +1248,7 @@ db "ret\\n"
   (aexp_list -> cont)))
 
 (read_rec_block: context ids fname_l fname_r l r cont ->
-  $l = [add_func l 1];
+  $l = {add_func l 1};
   read_whitespace_func l r
   (l r -> read_cexp context fname_l fname_r l r (a b -> a)
   (l r context cexp -> read_whitespace_func l r
@@ -1266,14 +1272,14 @@ db "ret\\n"
 
 (read_block: context fname_l fname_r l r cont ->
   $l = {add_func l 1};
-  read_whitespace_func l r
-  (l r -> read_cexp context fname_l fname_r l r (a b -> a)
+  $l r = {|decomp| {read_whitespace_ret l r}};
+  read_cexp context fname_l fname_r l r (a b -> a)
   (l r context cexp -> read_whitespace_func l r
   (l r -> $l = {add_func l 1};
   cont l r
     (cont -> cexp
     (-> ${printf "push rax\n"};
-     cont)))))
+     cont))))
 )
 
 ; returns l r context cexp
@@ -1353,11 +1359,10 @@ db "ret\\n"
   $l = {add_func l_start 1};
   read_until 34 l r (l r ->
   $l_end = {add_func l 1};
-  cont l_end r (cont ->
-    gen_label_func (il ir ->
-    ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
-     cont
-     ))
+  cont l_end r (! ->
+    $il ir = {decomp {gen_label_ret}};
+    printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir
+  )
 )))
 
 (print_aexp: context fname_l fname_r l r cont -> 
