@@ -10,6 +10,22 @@ page_pointer:
 dq 0
 memory_left:
 dq 0
+
+sysc:
+    pop rcx
+
+    pop rax
+    pop rdi
+    pop rsi
+    pop rdx
+    pop r10
+    pop r8
+    pop r9
+
+    push rcx
+    syscall
+    ret
+
 malloc:
   push rcx
   push rdx
@@ -1813,6 +1829,7 @@ resl:
     mov rdx, 2      ; SEEK_END
     mov rax, 8
     syscall
+
 main:
     ; main loop
     cmp r8, [flen]
