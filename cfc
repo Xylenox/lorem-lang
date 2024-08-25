@@ -4,7 +4,7 @@
 ; r9 = output file descriptor
 ; r10 = characters remaining in input
 ;
-jmp star
+jmp start
 
 page_pointer:
 dq 0
@@ -110,6 +110,27 @@ runtime_call_ret:
   push rbp
   jmp rax
 
+return:
+  pop rcx
+  pop rax
+  push rcx
+  ret
+
+callcc: ; takes (cont -> ..) and returns the value that cont recieves
+  |callcc_cont [rsp]|
+  pop rcx
+  pop rbx ; f
+  push rax
+  push rbx
+  jmp runtime_call
+
+  callcc_cont:
+    pop rcx
+    pop rax
+    push rcx
+    ret
+
+
 decomp: ; takes (cont -> cont a b) and returns a and b
   |decomp_cont [rsp]|
   add rsp, 8
@@ -137,6 +158,23 @@ add_func: ; takes (ret a b) and returns a+b
   push rbx
   add rax, rcx
   ret
+
+div_func:
+  pop rcx
+  pop rax
+  mov rdx, 0
+  pop rdi
+  idiv rdi
+  jmp rcx
+
+mod_func:
+  pop rcx
+  pop rax
+  mov rdx, 0
+  pop rdi
+  idiv rdi
+  mov rax, rdx
+  jmp rcx
 
 compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
   pop rax
@@ -260,6 +298,15 @@ print_string_func:
   printf_help cont {add_func l 1}
 )
 (printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
+
+(print_num_help: v cont ->
+  ${if {compare_bool v 0} (break -> cont)};
+  print_num_help {div_func v 10} (->
+    ${print_char {add_func {deref_byte "0"} {mod_func v 10}}};
+    cont
+  )
+)
+(print_num: ret v -> callcc ret (ret -> print_num_help v (-> ret 0)))
 
 is_alpha:           ; is alpha
 cmp r7, "a"      ; a
@@ -1736,7 +1783,7 @@ lookup_label:
         lea rax, [rcx+16]
         ret
 
-star:
+start:
 ; open input
 mov r6, 0x0             ; READ_ONLY
 mov r2, 0xFFFF          ; all perms
@@ -1811,9 +1858,14 @@ shl rax, 5
 
 add [flen], r8
 
+push [flen]
+push r8
+
 ; need to reset r8, instruction location array, output file
 
 resl:
+    pop r8
+    pop [flen]
     cmp [iter], 0
     je exit
     sub [iter], 1
@@ -1830,19 +1882,28 @@ resl:
     mov rax, 8
     syscall
 
+    push [flen]
+    push r8
+    push [outf]
+    jmp main_help
+
+(main_help: outf l r ->
+    ${if {compare_bool l r} (break -> resl l r)};
+    $pos = {sysc 8 outf 0 1 0 0 0};
+    main l r pos
+)
 main:
     ; main loop
-    cmp r8, [flen]
-    je resl
-    mov r7, [outf]
-    mov r6, 0
-    mov r2, 1
-    mov rax, 8
-    syscall                     ; lseek save current instruction position
+    pop r8
+    pop [flen]
+    pop rax
     add rax, 0x400000
     mov [current_location], rax
     call parse_line
-    jmp main
+    push [flen]
+    push r8
+    push [outf]
+    jmp main_help
 
 inva:
 ; invalid
