@@ -102,6 +102,7 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (!ne: a b -> 
   callcc (ret -> compare a b (-> ret (x y -> y)) (-> ret (x y -> x)))
 )
+(!not: x -> callcc (ret -> x (-> ret (a b -> b)) (-> ret (a b -> a))))
 
 (!compare_bool: a b ->
   callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))
@@ -504,6 +505,10 @@ cont) cont)
 
 (search_tree: tree l r cont -> tree (-> cont (a b -> b)) (a b -> str_equal_func l r a b cont)
 (a b -> search_tree a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree b l r cont))))
+
+(!search_tree_ret: tree l r -> callcc (ret ->
+  search_tree tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
+))
 
 reverse_tree_imperative:
   sub rsp, 16
@@ -1237,7 +1242,7 @@ db "ret\\n"
   (aexp_list -> cont)))
 
 (read_rec_block: context ids fname_l fname_r l r cont ->
-  $l = {add_func l 1};
+  $l = [add_func l 1];
   read_whitespace_func l r
   (l r -> read_cexp context fname_l fname_r l r (a b -> a)
   (l r context cexp -> read_whitespace_func l r
@@ -1308,8 +1313,8 @@ db "ret\\n"
       (cont2 ->
         print_cexp op_list (-> 
         ${if {ne il ir} (break ->
-          search_tree context il ir (bool ->
-            ${if bool (break2 -> 
+           (->
+            ${if {search_tree_ret context il ir} (break2 -> 
               ${printf "push [{}{}]\n" fname_l fname_r il ir};
               break
             )};
