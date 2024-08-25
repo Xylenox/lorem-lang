@@ -1213,8 +1213,8 @@ db "ret\\n"
 
 (read_texp: context ids fname_l fname_r l r cont2 ->
   (cont ->
-    $lb = {deref_byte l};
-    ${if {compare_bool lb 91} (break -> read_rec_block context fname_l fname_r l r cont)};
+    $lb = [deref_byte l];
+    ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r cont2)};
     ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r cont)};
     parse_function context fname_l fname_r l r (lo hi func ->
     ${if {ne func 0} (break -> 
@@ -1228,7 +1228,7 @@ db "ret\\n"
     (a b l r -> compare a b (-> cont2 l r 0) (-> cont l r (cont2 -> print_aexp context fname_l fname_r a b cont2)))
   )))
   (l r t -> cont2 l r (cont ->
-    t cont
+    t (-> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont) cont)
   ))
 )
 
@@ -1236,7 +1236,7 @@ db "ret\\n"
   (aexp_list -> map_tree aexp_list (aexp r cont -> aexp (-> cont 0))
   (aexp_list -> cont)))
 
-(read_rec_block: context fname_l fname_r l r cont ->
+(read_rec_block: context ids fname_l fname_r l r cont ->
   $l = {add_func l 1};
   read_whitespace_func l r
   (l r -> read_cexp context fname_l fname_r l r (a b -> a)
@@ -1248,10 +1248,12 @@ db "ret\\n"
       cont 0)
     (-> cexp
     (-> reverse_tree context
-    (rev_context -> map_tree rev_context (l r cont -> 
+    (rev_context -> map_tree rev_context (l r cont ->
+
     ${printf "pop [{}{}]" fname_l fname_r l r};
     cont 0) (-> ${printf "push rax\n"};
-     cont))))))))
+        (-> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont) cont
+    )))))))))
 )
 
 (read_block: context fname_l fname_r l r cont ->
@@ -1297,8 +1299,7 @@ db "ret\\n"
     read_cexp context fname_l fname_r l r is_returning
     (l r context cexp -> cont l r context 
         (cont -> texp
-        (-> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont)
-        (a -> cexp cont))))))))))))
+        (a -> cexp cont)))))))))))
   (-> read_function_application context fname_l fname_r l r is_returning cont)))
 
 (read_function_application: context fname_l fname_r l r is_returning cont ->
