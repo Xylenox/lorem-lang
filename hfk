@@ -1317,9 +1317,17 @@ db "ret\\n"
   (-> read_function_application context fname_l fname_r l r is_returning cont)))
 
 (read_function_application: context fname_l fname_r l r is_returning cont ->
+  $l r = {decomp {read_whitespace_ret l r}};
   read_identifier_func l r
   (l r il ir -> read_func_operand_list context fname_l fname_r l r
-    (op_list l r -> cont l r context
+    (op_list l r ->
+    ${if {compare_bool il ir} (break ->
+      ${if {compare_bool {tree_size op_list} 0} (break2 ->
+        cont l r context (cont2 -> cont2)
+      )};
+      break
+    )};
+    cont l r context
       (cont2 ->
         print_cexp op_list (-> 
         ${if {ne il ir} (break ->
