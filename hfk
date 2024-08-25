@@ -490,6 +490,14 @@ cont) cont)
   (l r -> action l r cont) 
 (map_internal: a b -> map_tree a action (new_a -> map_tree b action (new_b -> cont {make_internal new_a new_b}))))
 
+(map_tree_ret_help: ret tree action ->
+  tree
+    (-> ret {make_nil})
+    (l r -> ret {action l r})
+    (a b -> map_tree_ret_help (new_a -> map_tree_ret_help (new_b -> ret {make_internal new_a new_b}) b action) a action)
+)
+(map_tree_ret: ret tree action -> callcc ret (ret -> map_tree_ret_help ret tree action))
+
 (reverse_tree: tree cont -> tree (-> cont {make_nil}) ( l r -> cont {make_leaf l r})
 (a b -> reverse_tree a (new_a -> reverse_tree b (new_b -> cont {make_internal new_b new_a})))
 )
@@ -1110,18 +1118,9 @@ print_label:
 (fmt -> format_help fmt fname_l fname_r l r 1
 (fmt -> print_tree fmt (-> cont 0))))
 
-pop_start_string:
-  dq "pop ["
-pop_end_string:
-  dq "]"
-  
-(print_pop_arg: p_fname_l p_fname_r l r cont ->
-print_string_func pop_start_string 5 (->
-  ${print_range_ret p_fname_l p_fname_r};
-  ${print_range_ret l r};
-(-> print_string_func pop_end_string 1
-(-> println_func
-(-> cont 0)))))
+(print_pop_arg: fname_l fname_r l r cont ->
+${printf "pop [{}{}]\n" fname_l fname_r l r};
+cont 0)
 
 end_label_string:
   db "_end:"
@@ -1228,7 +1227,8 @@ db "ret\\n"
     (a b l r -> compare a b (-> cont2 l r 0) (-> cont l r (cont2 -> print_aexp context fname_l fname_r a b cont2)))
   )))
   (l r t -> cont2 l r (cont ->
-    t (-> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont) cont)
+    t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    cont)
   ))
 )
 
@@ -1249,7 +1249,6 @@ db "ret\\n"
     (-> cexp
     (-> reverse_tree context
     (rev_context -> map_tree rev_context (l r cont ->
-
     ${printf "pop [{}{}]" fname_l fname_r l r};
     cont 0) (-> ${printf "push rax\n"};
         (-> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont) cont
