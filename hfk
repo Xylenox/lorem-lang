@@ -1249,15 +1249,19 @@ db "ret\\n"
   (l r -> $l = {add_func l 1};
   cont l r
     (cont -> 
-    map_tree context (l r cont -> ${printf "push [{}{}]\n" fname_l fname_r l r};
-      cont 0)
-    (-> cexp
+    $context = {map_tree_ret context (!l r -> callcc (ret ->
+      ${if {search_tree_ret ids l r} (break -> ret {make_nil})};
+      ret {make_leaf l r}
+    ))};
+    ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
+    cexp
     (-> reverse_tree context
-    (rev_context -> map_tree rev_context (l r cont ->
-    ${printf "pop [{}{}]" fname_l fname_r l r};
-    cont 0) (-> ${printf "push rax\n"};
-        (-> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont) cont
-    )))))))))
+    (rev_context ->
+      ${printf "push rax\n"};
+      ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+      ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]" fname_l fname_r l r)};
+      cont
+    ))))))
 )
 
 (read_block: context fname_l fname_r l r cont ->
@@ -1313,18 +1317,16 @@ db "ret\\n"
       (cont2 ->
         print_cexp op_list (-> 
         ${if {ne il ir} (break ->
-           (->
-            ${if {search_tree_ret context il ir} (break2 -> 
-              ${printf "push [{}{}]\n" fname_l fname_r il ir};
-              break
-            )};
-            ${if is_returning (break2 ->
-              ${printf "call {}\n" il ir};
-              cont2
-            )};
-            ${printf "jmp {}\n" il ir};
+          ${if {search_tree_ret context il ir} (break2 -> 
+            ${printf "push [{}{}]\n" fname_l fname_r il ir};
+            break
+          )};
+          ${if is_returning (break2 ->
+            ${printf "call {}\n" il ir};
             cont2
-          )
+          )};
+          ${printf "jmp {}\n" il ir};
+          cont2
         )};
         is_returning
           (-> ${printf "call runtime_call_ret\n"};
