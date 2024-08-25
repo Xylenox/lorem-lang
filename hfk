@@ -1198,7 +1198,7 @@ db "ret\\n"
 (read_func_operand_list: context fname_l fname_r l r cont -> read_func_operand_list_help context fname_l fname_r l r {make_nil} cont)
 (read_func_operand_list_help: context fname_l fname_r l r tree cont ->
   read_whitespace_func l r
-  (l r -> read_texp context fname_l fname_r l r
+  (l r -> read_texp context {make_nil} fname_l fname_r l r
   (l r texp ->
     compare texp 0 (-> cont tree l r)
     (->
@@ -1211,14 +1211,30 @@ db "ret\\n"
 
 (add_to_context: context l r cont -> cont {make_internal context {make_leaf l r}})
 
-(read_texp: context fname_l fname_r l r cont ->
-  (->
+(read_texp: context ids fname_l fname_r l r cont2 ->
+  (cont ->
     $lb = {deref_byte l};
     ${if {compare_bool lb 91} (break -> read_rec_block context fname_l fname_r l r cont)};
     ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r cont)};
-    (-> read_aexp context fname_l fname_r l r cont)
-  )
+    parse_function context fname_l fname_r l r (lo hi func ->
+    ${if {ne func 0} (break -> 
+      cont lo hi (cont -> func (-> print_string_func push_rax_string 9 cont))
+    )};
+    read_const_string context fname_l fname_r l r (lo hi string ->
+    ${if {ne string 0} (break -> 
+      cont lo hi (cont -> string cont)
+    )};
+    read_id_or_closure_or_function_func l r
+    (a b l r -> compare a b (-> cont2 l r 0) (-> cont l r (cont2 -> print_aexp context fname_l fname_r a b cont2)))
+  )))
+  (l r t -> cont2 l r (cont ->
+    t cont
+  ))
 )
+
+(print_cexp: aexp_list cont -> reverse_tree aexp_list
+  (aexp_list -> map_tree aexp_list (aexp r cont -> aexp (-> cont 0))
+  (aexp_list -> cont)))
 
 (read_rec_block: context fname_l fname_r l r cont ->
   $l = {add_func l 1};
@@ -1258,7 +1274,7 @@ db "ret\\n"
   read_whitespace_func l r
     (l r -> 
     ${if {compare_bool {deref_byte l} 123} (break ->
-      read_texp context fname_l fname_r l r (l r texp ->
+      read_texp context {make_nil} fname_l fname_r l r (l r texp ->
       $l = {add_func l 1};
       read_cexp context fname_l fname_r l r is_returning
       (l r context cexp -> cont l r context (cont ->
@@ -1268,21 +1284,21 @@ db "ret\\n"
       )))))
     )};
     read_identifier_func l r
-    (l r il ir -> add_to_context context il ir
-    (context -> read_identifier_list l r
-    (ids l r -> $context = {make_internal context ids};
+    (l r il ir -> read_identifier_list l r
+    (ids l r -> 
+    $ids = {make_internal {make_leaf il ir} ids};
+    $context = {make_internal context ids};
     read_whitespace_func l r
     (l r -> $l = {add_func l 1};
     read_whitespace_func l r
-    (l r -> read_texp context fname_l fname_r l r
+    (l r -> read_texp context ids fname_l fname_r l r
     (l r texp -> read_whitespace_func l r
     (l r -> $l = {add_func l 1};
     read_cexp context fname_l fname_r l r is_returning
     (l r context cexp -> cont l r context 
         (cont -> texp
-        (-> print_pop_arg fname_l fname_r il ir
-        (a -> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont)
-        (a -> cexp cont))))))))))))))
+        (-> map_tree ids (l r cont -> print_pop_arg fname_l fname_r l r cont)
+        (a -> cexp cont))))))))))))
   (-> read_function_application context fname_l fname_r l r is_returning cont)))
 
 (read_function_application: context fname_l fname_r l r is_returning cont ->
@@ -1315,24 +1331,6 @@ db "ret\\n"
     )
   )
 )
-(print_cexp: aexp_list cont -> reverse_tree aexp_list
-  (aexp_list -> map_tree aexp_list (aexp r cont -> aexp (-> cont 0))
-  (aexp_list -> cont)))
-
-; returns l r aexp
-(read_aexp: context fname_l fname_r l r cont ->
-  $dig = {deref_byte l};
-  parse_function context fname_l fname_r l r (lo hi func ->
-  ${if {ne func 0} (break -> 
-    cont lo hi (cont -> func (-> print_string_func push_rax_string 9 cont))
-  )};
-  read_const_string context fname_l fname_r l r (lo hi string ->
-  {ne string 0} (-> 
-    cont lo hi (cont -> string cont)
-  )(->
-  read_id_or_closure_or_function_func l r
-    (a b l r -> compare a b (-> cont l r 0) (-> cont l r (cont2 -> print_aexp context fname_l fname_r a b cont2)))
-))))
 
 (read_until: c l r cont ->
   $lb = {deref_byte l};
