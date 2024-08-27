@@ -1367,9 +1367,9 @@ db "ret\\n"
   $l = {add_func l_start 1};
   read_until 34 l r (l r ->
   $l_end = {add_func l 1};
-  cont l_end r (! ->
+  cont l_end r (!->
     $il ir = {decomp {gen_label_ret}};
-    printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir
+    ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
   )
 )))
 

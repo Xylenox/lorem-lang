@@ -1610,7 +1610,7 @@ parse_label:
 
     call peek_character
     cmpb [r8], ":"
-    jne parse_label_ret
+    jne parse_label_done
     add rsp, 8
     add r8, 1
     call lookup_label
@@ -1618,10 +1618,24 @@ parse_label:
     mov [rax], rsi
     mov rax, 1
     ret
-parse_label_ret:
+parse_label_done:
     mov rax, 0
     pop r8
     ret
+  
+(!parse_label_ret: l r pos -> callcc (ret -> parse_label_help l r pos (l r -> ret (cont -> cont l r))))
+parse_label_help:
+  pop r8
+  pop [flen]
+  pop rax
+  mov [current_location], rax
+  call parse_label
+  pop rcx
+  push [flen]
+  push r8
+  push rcx
+  jmp runtime_call
+
 
 parse_instruction:
     ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
@@ -1703,6 +1717,18 @@ parse_instruction:
     call ops2
     ret
 
+(!parse_instruction_ret: l r pos -> callcc (ret -> parse_instruction_help l r pos (l r -> ret (cont -> cont l r))))
+parse_instruction_help:
+  pop r8
+  pop [flen]
+  pop rax
+  mov [current_location], rax
+  call parse_instruction
+  pop rcx
+  push [flen]
+  push r8
+  push rcx
+  jmp runtime_call
 
 parse_comment:
     call peek_character
@@ -1716,6 +1742,19 @@ parse_comment:
     jmp coml
     done_comment:
     ret
+
+(!parse_comment_ret: l r pos -> callcc (ret -> parse_comment_help l r pos (l r -> ret (cont -> cont l r))))
+parse_comment_help:
+  pop r8
+  pop [flen]
+  pop rax
+  mov [current_location], rax
+  call parse_comment
+  pop rcx
+  push [flen]
+  push r8
+  push rcx
+  jmp runtime_call
 
 peek_character:
     sub rax, rax
@@ -1734,13 +1773,27 @@ read_newline:
     newline_done:
     ret
 
-parse_line:
-    call parse_label
-    call parse_instruction
-    call parse_comment
-    call read_newline
-    ret
+(!parse_newline_ret: l r pos -> callcc (ret -> parse_newline_help l r pos (l r -> ret (cont -> cont l r))))
+parse_newline_help:
+  pop r8
+  pop [flen]
+  pop rax
+  mov [current_location], rax
+  call read_newline
+  pop rcx
+  push [flen]
+  push r8
+  push rcx
+  jmp runtime_call
 
+
+(!parse_line: l r pos ->
+  $l r = {decomp {parse_label_ret l r pos}};
+  $l r = {decomp {parse_instruction_ret l r pos}};
+  $l r = {decomp {parse_comment_ret l r pos}};
+  $l r = {decomp {parse_newline_ret l r pos}};
+  ${return (cont -> cont l r)};
+)
 
 label_table:
     dq 0
@@ -1889,21 +1942,10 @@ resl:
 
 (main_help: outf l r ->
     ${if {compare_bool l r} (break -> resl l r)};
-    $pos = {sysc 8 outf 0 1 0 0 0};
-    main l r pos
+    $pos = {sysc 0x8 outf 0 1 0 0 0};
+    $l r = {decomp {parse_line l r {add_func pos 0x400000}}};
+    main_help outf l r
 )
-main:
-    ; main loop
-    pop r8
-    pop [flen]
-    pop rax
-    add rax, 0x400000
-    mov [current_location], rax
-    call parse_line
-    push [flen]
-    push r8
-    push [outf]
-    jmp main_help
 
 inva:
 ; invalid
