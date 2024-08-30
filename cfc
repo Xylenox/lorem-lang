@@ -130,19 +130,6 @@ callcc: ; takes (cont -> ..) and returns the value that cont recieves
     push rcx
     ret
 
-
-decomp: ; takes (cont -> cont a b) and returns a and b
-  |decomp_cont [rsp]|
-  add rsp, 8
-  pop rcx ; f
-  push rax
-  push rcx
-  jmp runtime_call
-  decomp_cont:
-    pop rdi ; ret
-    pop rax
-    jmp rdi
-
 deref_byte: ; takes (ptr) and returns *ptr
   pop rdx
   pop rax
@@ -622,7 +609,13 @@ read_space:
     not_done_space:
     add r8, 1
     jmp read_space
-    
+  
+(read_space_func: ret l r ->
+  ${if {compare_bool l r} (break -> return ret l)};
+  ${if {ne {deref_byte l} {deref_byte " "}} (break -> return ret l)};
+  read_space_func ret {add_func l 1} r
+)
+
 read_whitespace:
     cmp r8, [flen]
     je done_whitespace
@@ -783,6 +776,25 @@ read_identifier: ; read identifier and return start and end pointers
     pop rax
     mov rdx, r8
     ret
+
+read_identifier_func:
+  pop r8
+  pop [flen]
+  call read_identifier
+  pop rcx
+  push rdx
+  push rax
+  push [flen]
+  push r8
+  push rcx
+  jmp runtime_call
+
+(read_identifier_ret: l r ->
+  callcc (ret ->
+    read_identifier_func l r (l r il ir -> ret (cont -> cont l r il ir))
+  )
+)
+
 idti:  ; identifier to number
     mov rax, 0
     dtlo:
@@ -1603,7 +1615,6 @@ nmi:
 
 parse_label:
     push r8
-    call read_space
     call read_identifier
     mov rdi, rax
     mov rsi, rdx
@@ -1623,7 +1634,10 @@ parse_label_done:
     pop r8
     ret
   
-(!parse_label_ret: l r pos -> callcc (ret -> parse_label_help l r pos (l r -> ret (cont -> cont l r))))
+(parse_label_ret: ret l r pos ->
+  $l = {read_space_func l r};
+  parse_label_help l r pos (l r -> return ret l r)
+)
 parse_label_help:
   pop r8
   pop [flen]
@@ -1717,7 +1731,9 @@ parse_instruction:
     call ops2
     ret
 
-(!parse_instruction_ret: l r pos -> callcc (ret -> parse_instruction_help l r pos (l r -> ret (cont -> cont l r))))
+(parse_instruction_ret: ret l r pos ->
+parse_instruction_help l r pos (l r -> return ret l r)
+)
 parse_instruction_help:
   pop r8
   pop [flen]
@@ -1743,7 +1759,9 @@ parse_comment:
     done_comment:
     ret
 
-(!parse_comment_ret: l r pos -> callcc (ret -> parse_comment_help l r pos (l r -> ret (cont -> cont l r))))
+(parse_comment_ret: ret l r pos ->
+ parse_comment_help l r pos (l r -> return ret l r)
+)
 parse_comment_help:
   pop r8
   pop [flen]
@@ -1773,7 +1791,7 @@ read_newline:
     newline_done:
     ret
 
-(!parse_newline_ret: l r pos -> callcc (ret -> parse_newline_help l r pos (l r -> ret (cont -> cont l r))))
+(parse_newline_ret: ret l r pos -> parse_newline_help l r pos (l r -> return ret l r))
 parse_newline_help:
   pop r8
   pop [flen]
@@ -1787,12 +1805,12 @@ parse_newline_help:
   jmp runtime_call
 
 
-(!parse_line: l r pos ->
-  $l r = {decomp {parse_label_ret l r pos}};
-  $l r = {decomp {parse_instruction_ret l r pos}};
-  $l r = {decomp {parse_comment_ret l r pos}};
-  $l r = {decomp {parse_newline_ret l r pos}};
-  ${return (cont -> cont l r)};
+(parse_line: ret l r pos ->
+  $l r = {parse_label_ret l r pos};
+  $l r = {parse_instruction_ret l r pos};
+  $l r = {parse_comment_ret l r pos};
+  $l r = {parse_newline_ret l r pos};
+  return ret l r
 )
 
 label_table:
@@ -1943,7 +1961,7 @@ resl:
 (main_help: outf l r ->
     ${if {compare_bool l r} (break -> resl l r)};
     $pos = {sysc 0x8 outf 0 1 0 0 0};
-    $l r = {decomp {parse_line l r {add_func pos 0x400000}}};
+    $l r = {parse_line l r {add_func pos 0x400000}};
     main_help outf l r
 )
 
