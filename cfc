@@ -611,8 +611,8 @@ read_space:
     jmp read_space
   
 (read_space_func: ret l r ->
-  ${if {compare_bool l r} (break -> return ret l)};
-  ${if {ne {deref_byte l} {deref_byte " "}} (break -> return ret l)};
+  ${if {compare_bool l r} (break -> return ret l r)};
+  ${if {ne {deref_byte l} {deref_byte " "}} (break -> return ret l r)};
   read_space_func ret {add_func l 1} r
 )
 
@@ -789,10 +789,8 @@ read_identifier_func:
   push rcx
   jmp runtime_call
 
-(read_identifier_ret: l r ->
-  callcc (ret ->
-    read_identifier_func l r (l r il ir -> ret (cont -> cont l r il ir))
-  )
+(read_identifier_ret: ret l r ->
+    read_identifier_func l r (l r il ir -> return ret l r il ir)
 )
 
 idti:  ; identifier to number
@@ -1614,10 +1612,7 @@ nmi:
     jmp inva
 
 parse_label:
-    push r8
-    call read_identifier
-    mov rdi, rax
-    mov rsi, rdx
+    push rdx
 
     call peek_character
     cmpb [r8], ":"
@@ -1633,16 +1628,27 @@ parse_label_done:
     mov rax, 0
     pop r8
     ret
+
+; 0 -> special, 1 -> id
+; returns l r il ir
+(read_token: ret l r ->
+  $l r = {read_space_func l r};
+  $l r il ir = {read_identifier_ret l r};
+  return ret l r 1 il ir
+)
   
 (parse_label_ret: ret l r pos ->
-  $l = {read_space_func l r};
-  parse_label_help l r pos (l r -> return ret l r)
+  $nl r type il ir = {read_token l r};
+  parse_label_help nl r pos il ir l (l r -> return ret l r)
 )
 parse_label_help:
   pop r8
   pop [flen]
   pop rax
   mov [current_location], rax
+  pop rdi
+  pop rsi
+  pop rdx
   call parse_label
   pop rcx
   push [flen]
