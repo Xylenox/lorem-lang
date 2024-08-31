@@ -1626,16 +1626,26 @@ nmr:
 nmi:
     jmp inva
 
-; 0 -> special, 1 -> id
+(read_until: ret c l r ->
+  ${if {compare_bool l r} (break -> return ret l)};
+  ${if {compare_bool {deref_byte l} c} (break -> return ret l)};
+  read_until ret c {add_func l 1} r
+)
+
+; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment 5 -> newline
 ; returns l r il ir
 (read_token: ret l r ->
   $l r = {read_space_func l r};
   ${if {compare_bool {deref_byte l} {deref_byte ":"}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {compare_bool {deref_byte l} {deref_byte ";"}} (break ->
+    $comment_end = {read_until 10 l r};
+    return ret comment_end r 4 l commend_end
+  )};
   $l r il ir = {read_identifier_ret l r};
   return ret l r 1 il ir
 )
   
-(parse_label_ret: ret l r pos ->
+(parse_label: ret l r pos ->
   $nl r type il ir = {read_token l r};
   ${if {ne type 1} (break -> return ret l r)};
   $nl r type cl cr = {read_token nl r};
@@ -1643,6 +1653,12 @@ nmi:
   $loc = {lookup_func il ir};
   ${store_func loc pos};
   return ret nl r
+)
+
+(parse_comment: ret l r pos ->
+  $nl nr type il ir = {read_token l r};
+  ${if {ne type 4} (break -> return ret l r)};
+  return ret nl nr
 )
 
 parse_instruction:
@@ -1740,34 +1756,6 @@ parse_instruction_help:
   push rcx
   jmp runtime_call
 
-parse_comment:
-    call peek_character
-    cmp rax, 0x3B
-    jne done_comment
-    coml:
-    call peek_character
-    cmp rax, 10
-    je done_comment
-    add r8, 1
-    jmp coml
-    done_comment:
-    ret
-
-(parse_comment_ret: ret l r pos ->
- parse_comment_help l r pos (l r -> return ret l r)
-)
-parse_comment_help:
-  pop r8
-  pop [flen]
-  pop rax
-  mov [current_location], rax
-  call parse_comment
-  pop rcx
-  push [flen]
-  push r8
-  push rcx
-  jmp runtime_call
-
 peek_character:
     sub rax, rax
     cmp r8, [flen]
@@ -1800,9 +1788,9 @@ parse_newline_help:
 
 
 (parse_line: ret l r pos ->
-  $l r = {parse_label_ret l r pos};
+  $l r = {parse_label l r pos};
   $l r = {parse_instruction_ret l r pos};
-  $l r = {parse_comment_ret l r pos};
+  $l r = {parse_comment l r pos};
   $l r = {parse_newline_ret l r pos};
   return ret l r
 )
