@@ -1612,33 +1612,24 @@ nmi:
     jmp inva
 
 parse_label:
-    push rdx
-
-    call peek_character
-    cmpb [r8], ":"
-    jne parse_label_done
-    add rsp, 8
-    add r8, 1
     call lookup_label
     mov rsi, [current_location]
     mov [rax], rsi
-    mov rax, 1
-    ret
-parse_label_done:
-    mov rax, 0
-    pop r8
     ret
 
 ; 0 -> special, 1 -> id
 ; returns l r il ir
 (read_token: ret l r ->
   $l r = {read_space_func l r};
+  ${if {compare_bool {deref_byte l} {deref_byte ":"}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   $l r il ir = {read_identifier_ret l r};
   return ret l r 1 il ir
 )
   
 (parse_label_ret: ret l r pos ->
   $nl r type il ir = {read_token l r};
+  $nl r type cl cr = {read_token nl r};
+  ${if {ne {deref_byte cl} {deref_byte ":"}} (break -> return ret l r)};
   parse_label_help nl r pos il ir l (l r -> return ret l r)
 )
 parse_label_help:
