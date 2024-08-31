@@ -1641,6 +1641,9 @@ nmi:
     $comment_end = {read_until 10 l r};
     return ret comment_end r 4 l commend_end
   )};
+  ${if {compare_bool {deref_byte l} 10} (break ->
+    return ret {add_func l 1} r 5 l {add_func l 1}
+  )};
   $l r il ir = {read_identifier_ret l r};
   return ret l r 1 il ir
 )
@@ -1658,6 +1661,12 @@ nmi:
 (parse_comment: ret l r pos ->
   $nl nr type il ir = {read_token l r};
   ${if {ne type 4} (break -> return ret l r)};
+  return ret nl nr
+)
+
+(parse_newline: ret l r pos ->
+  $nl nr type il ir = {read_token l r};
+  ${if {ne type 5} (break -> return ret l r)};
   return ret nl nr
 )
 
@@ -1764,34 +1773,11 @@ peek_character:
     peek_character_ret:
     ret
 
-read_newline:
-    call read_space
-    call peek_character
-    cmp rax, 10
-    jne newline_done
-    add r8, 1
-    newline_done:
-    ret
-
-(parse_newline_ret: ret l r pos -> parse_newline_help l r pos (l r -> return ret l r))
-parse_newline_help:
-  pop r8
-  pop [flen]
-  pop rax
-  mov [current_location], rax
-  call read_newline
-  pop rcx
-  push [flen]
-  push r8
-  push rcx
-  jmp runtime_call
-
-
 (parse_line: ret l r pos ->
   $l r = {parse_label l r pos};
   $l r = {parse_instruction_ret l r pos};
   $l r = {parse_comment l r pos};
-  $l r = {parse_newline_ret l r pos};
+  $l r = {parse_newline l r pos};
   return ret l r
 )
 
