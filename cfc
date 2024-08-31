@@ -163,6 +163,21 @@ mod_func:
   mov rax, rdx
   jmp rcx
 
+load_func: ; (ptr) -> ret *ptr
+  pop rdx
+  pop rax
+  mov rax, [rax]
+  push rdx
+  ret
+
+store_func: ; (ptr x) -> *ptr = x; RET
+  pop rdi
+  pop rax
+  pop rdx
+  mov [rax], rdx
+  push rdi
+  ret
+
 compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
   pop rax
   pop rcx
@@ -1611,12 +1626,6 @@ nmr:
 nmi:
     jmp inva
 
-parse_label:
-    call lookup_label
-    mov rsi, [current_location]
-    mov [rax], rsi
-    ret
-
 ; 0 -> special, 1 -> id
 ; returns l r il ir
 (read_token: ret l r ->
@@ -1628,25 +1637,13 @@ parse_label:
   
 (parse_label_ret: ret l r pos ->
   $nl r type il ir = {read_token l r};
+  ${if {ne type 1} (break -> return ret l r)};
   $nl r type cl cr = {read_token nl r};
   ${if {ne {deref_byte cl} {deref_byte ":"}} (break -> return ret l r)};
-  parse_label_help nl r pos il ir l (l r -> return ret l r)
+  $loc = {lookup_func il ir};
+  ${store_func loc pos};
+  return ret nl r
 )
-parse_label_help:
-  pop r8
-  pop [flen]
-  pop rax
-  mov [current_location], rax
-  pop rdi
-  pop rsi
-  pop rdx
-  call parse_label
-  pop rcx
-  push [flen]
-  push r8
-  push rcx
-  jmp runtime_call
-
 
 parse_instruction:
     ; rdi is lookup table, rsi is instruction location, rdx is instruction location array
@@ -1850,6 +1847,13 @@ lookup_label:
         add [label_table+8], 24
         lea rax, [rcx+16]
         ret
+
+lookup_func:
+  pop rcx
+  pop rdi
+  pop rsi
+  push rcx
+  jmp lookup_label
 
 start:
 ; open input
