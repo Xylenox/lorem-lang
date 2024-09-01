@@ -1645,10 +1645,13 @@ nmi:
 
 ; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r il ir
-(read_token: ret l r ->
+(read_token: ret l r line ->
   $l r = {read_space_func l r};
   ${if {compare_bool l r} (break -> return ret l r 0 l l)};
   ${if {compare_bool {deref_byte l} {deref_byte ":"}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {compare_bool {deref_byte l} {deref_byte "["}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {compare_bool {deref_byte l} {deref_byte "]"}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {compare_bool {deref_byte l} 34} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {compare_bool {deref_byte l} {deref_byte ";"}} (break ->
     $comment_end = {read_until 10 l r};
     return ret comment_end r 4 l commend_end
@@ -1657,27 +1660,28 @@ nmi:
     return ret {add_func l 1} r 5 l {add_func l 1}
   )};
   $l r il ir = {read_identifier_ret l r};
+  ${if {compare_bool il ir} (break -> error line)};
   return ret l r 1 il ir
 )
   
-(parse_label: ret l r pos ->
-  $nl r type il ir = {read_token l r};
+(parse_label: ret l r pos line ->
+  $nl r type il ir = {read_token l r line};
   ${if {ne type 1} (break -> return ret l r)};
-  $nl r type cl cr = {read_token nl r};
+  $nl r type cl cr = {read_token nl r line};
   ${if {ne {deref_byte cl} {deref_byte ":"}} (break -> return ret l r)};
   $loc = {lookup_func il ir};
   ${store_func loc pos};
   return ret nl r
 )
 
-(parse_comment: ret l r pos ->
-  $nl nr type il ir = {read_token l r};
+(parse_comment: ret l r pos line ->
+  $nl nr type il ir = {read_token l r line};
   ${if {ne type 4} (break -> return ret l r)};
   return ret nl nr
 )
 
-(parse_newline: ret l r pos ->
-  $nl nr type il ir = {read_token l r};
+(parse_newline: ret l r pos line ->
+  $nl nr type il ir = {read_token l r line};
   ${if {ne type 5} (break -> return ret l r)};
   return ret nl nr
 )
@@ -1762,7 +1766,7 @@ parse_instruction:
     call ops2
     ret
 
-(parse_instruction_ret: ret l r pos ->
+(parse_instruction_ret: ret l r pos line ->
 parse_instruction_help l r pos (l r -> return ret l r)
 )
 parse_instruction_help:
@@ -1785,11 +1789,11 @@ peek_character:
     peek_character_ret:
     ret
 
-(parse_line: ret l r pos ->
-  $l r = {parse_label l r pos};
-  $l r = {parse_instruction_ret l r pos};
-  $l r = {parse_comment l r pos};
-  $l r = {parse_newline l r pos};
+(parse_line: ret l r pos line ->
+  $l r = {parse_label l r pos line};
+  $l r = {parse_instruction_ret l r pos line};
+  $l r = {parse_comment l r pos line};
+  $l r = {parse_newline l r pos line};
   return ret l r
 )
 
@@ -1940,16 +1944,17 @@ resl:
     mov rax, 8
     syscall
 
+    push 1
     push [flen]
     push r8
     push [outf]
     jmp main_help
 
-(main_help: outf l r ->
+(main_help: outf l r line ->
     ${if {compare_bool l r} (break -> resl l r)};
     $pos = {sysc 0x8 outf 0 1 0 0 0};
-    $l r = {parse_line l r {add_func pos 0x400000}};
-    main_help outf l r
+    $l r = {parse_line l r {add_func pos 0x400000} line};
+    main_help outf l r {add_func line 1}
 )
 
 inva:
