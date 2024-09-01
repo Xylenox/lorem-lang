@@ -215,6 +215,17 @@ exit:
     mov r7, 0
     syscall
 
+error:
+  mov [outf], 2
+  jmp error_help
+(error_help: num ->
+  ${printf "error "};
+  ${print_num num};
+  ${printf "\n"};
+  ${sysc 60 1 0 0 0 0 0};
+  exit
+)
+
 prin:                   ; printst
 push r0
 push r1
@@ -246,7 +257,7 @@ print_range: ; FOLLOWS SYSTEM V ABI
   syscall
   ret
 
-print_char:
+print_char_help:
   push rdi
   mov rdx, 1
   mov rsi, rsp
@@ -256,19 +267,19 @@ print_char:
   pop rdi
   ret
 
+print_char:
+  pop rax
+  pop rdi
+  push rax
+  call print_char_help
+  ret
+
 print_range_ret:
   pop rax
   pop rdi
   pop rsi
   push rax
   call print_range
-  ret
-
-print_char_ret:
-  pop rax
-  pop rdi
-  push rax
-  call print_char
   ret
 
 print_range_line_func:
@@ -296,7 +307,7 @@ print_string_func:
     ${print_range_ret a b};
     printf_help cont {add_func l 2}
   )};
-  ${print_char_ret {deref_byte l}};
+  ${print_char {deref_byte l}};
   printf_help cont {add_func l 1}
 )
 (printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
@@ -1632,10 +1643,11 @@ nmi:
   read_until ret c {add_func l 1} r
 )
 
-; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment 5 -> newline
+; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r il ir
 (read_token: ret l r ->
   $l r = {read_space_func l r};
+  ${if {compare_bool l r} (break -> return ret l r 0 l l)};
   ${if {compare_bool {deref_byte l} {deref_byte ":"}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {compare_bool {deref_byte l} {deref_byte ";"}} (break ->
     $comment_end = {read_until 10 l r};
