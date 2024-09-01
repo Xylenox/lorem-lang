@@ -1129,18 +1129,6 @@ runtime_call_string:
   dq "ime_call"
 push_rax_string:
   db "push rax\\n"
-print_label:
-  pop rdi
-  pop rsi
-  call print_range
-  lea rdi, [label_end_string]
-  lea rsi, [label_end_string+1]
-  call print_range_line
-  jmp runtime_call
-
-(map_argument: fname_l fname_r l r cont -> format_substring "{}{}: dq 0\n" 0 11
-(fmt -> format_help fmt fname_l fname_r l r 1
-(fmt -> print_tree fmt (-> cont 0))))
 
 (print_pop_arg: fname_l fname_r l r cont ->
 ${printf "pop [{}{}]\n" fname_l fname_r l r};
@@ -1171,16 +1159,6 @@ operand_list: dq 0
 (read_new_context: old_context l r cont -> read_identifier_list l r 
 (new_args l r -> cont {make_internal old_context new_args} l r))
 
-(print_function_storage: context fname_l fname_r cont ->
-(-> map_tree context  (l r cont -> map_argument fname_l fname_r l r cont) (extra_tree -> cont)))
-
-
-function_storage_end:
-db "pop rax\\npush rax\\n"
-(print_function_init: context fname_l fname_r is_returning cont -> print_label fname_l fname_r
-(-> ${if_ret is_returning (! -> printf "pop rax\n")};
- map_tree context (l r cont -> print_pop_arg fname_l fname_r l r cont) (extra_tree -> is_returning (-> print_substring_func function_storage_end 8 17 cont) cont)))
-
 (parse_function: old_context p_fname_l p_fname_r l r cont ->
   $lb = {deref_byte l};
   compare lb 40 (->
@@ -1192,11 +1170,14 @@ db "pop rax\\npush rax\\n"
     (-> read_cexp new_context fname_l fname_r l r is_returning
     (l r extra_context cexp -> $l = {add_func l 1};
     cont l r (print_function: cont ->
-      ( -> ${printf "jmp {}_end\n" fname_l fname_r};
-      (-> print_function_storage extra_context fname_l fname_r
-      (-> print_function_init new_context fname_l fname_r is_returning
-      (-> cexp
-      (-> function_done old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))))))
+      ${printf "jmp {}_end\n" fname_l fname_r};
+      ${map_tree_ret extra_context (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
+      ${printf "{}:\n" fname_l fname_r};
+      ${if_ret is_returning (!-> printf "pop rax\n")};
+      ${map_tree_ret new_context (!l r -> callcc (ret -> print_pop_arg fname_l fname_r l r ret))};
+      ${if_ret is_returning (!-> printf "push rax\n")};
+      cexp
+      (-> function_done old_context fname_l fname_r p_fname_l p_fname_r is_returning cont)))))))
   )
   (-> cont l r 0)
 )
