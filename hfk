@@ -907,11 +907,6 @@ read_id_or_closure_or_function_func: ; (l r -> a b l r)
   push rcx
   jmp runtime_call
 
-newline_leaf:
-  dq 0
-closure_tree:
-  dq 0
-
 closure_map_arg:
   jmp suff_strings_end
   mov_string:
@@ -945,8 +940,6 @@ closure_header:
   
   dq "lea rdx,"
   dq " [rax+8]"
-closure_string:
-db "mov rdi, 800\\ncall malloc\\nlea rdx, [rax+8]"
 
 print_closure_help:
   pop rax
@@ -1001,23 +994,18 @@ print_closure:
   lea rdi, [closure_footer+48]
   lea rsi, [closure_footer+62]
   call print_range_line
-
   ret
-
-brackets_string:
-  dq "[\{}\{}]\\n"
-brackets_string_2:
-  db "[]"
 
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
   return (l r cont ->
-  print_string_func "mov rcx, " 9
-  (-> compare l fname_l
-  (-> print_range_line_func l r (-> print_string_func "mov [rdx], rcx\nadd rdx, 8\n" 26 (-> cont 0)))
-  (-> format_substring brackets_string 0 7  
-    (fmt -> format_help fmt pfname_l pfname_r l r 1
-    (fmt -> print_tree fmt (-> print_string_func suff_strings 26 (-> cont 0)))))
-)))
+  ${printf "mov rcx, "};
+  compare l fname_l
+  (->
+    ${printf "{}\nmov [rdx], rcx\nadd rdx, 8\n" l r};
+    cont 0)
+  (-> ${printf "[{}{}]\nmov [rdx], rcx\nadd rdx, 8\n" pfname_l pfname_r l r};
+  cont 0)
+))
 
 print_closure_eof:
   pop [function_name]
@@ -1029,8 +1017,6 @@ print_closure_eof:
   lea rdi, [newline_string]
   lea rsi, [newline_string]
   call make_leaf_imperative
-  mov [closure_tree], rax
-
 
   lea rdi, [closure_header]
   lea rsi, [closure_header+9]
@@ -1112,35 +1098,13 @@ closure_footer:
 function_name:
   dq 0
   dq 0
-
 prev_function_name:
   dq 0
   dq 0
-label_end_string:
-  dq ":"
-dq_string:
-  dq ": dq 0"
-push_start_string:
-  dq "push ["
-push_end_string:
-  dq "]"
-runtime_call_string:
-  dq "jmp runt"
-  dq "ime_call"
-push_rax_string:
-  db "push rax\\n"
 
 (print_pop_arg: fname_l fname_r l r cont ->
 ${printf "pop [{}{}]\n" fname_l fname_r l r};
 cont 0)
-
-end_label_string:
-  db "_end:"
-old_arg_list: dq 0
-new_arg_list: dq 0
-comb_arg_list: dq 0
-temp_r8: dq 0
-operand_list: dq 0
 
 (parse_label: pl pr cont -> read_whitespace_func pl pr 
 (l r -> (rest_label -> $lb = {deref_byte l};
@@ -1182,22 +1146,10 @@ operand_list: dq 0
   (-> cont l r 0)
 )
 
-
-function_done_string:
-db "jmp runtime_call\\n\{}_end:\\n"
-function_ret_done_string:
-db "call runtime_call_ret\\nret\\n"
-ret_string:
-db "ret\\n"
 (function_done: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
-  (rest_of_done -> is_returning (-> ${printf "ret\n"};
-    rest_of_done)
-    rest_of_done
-    )
-  (-> format_substring function_done_string 17 25
-  (fmt -> fmt fname_l fname_r (fmt -> print_tree fmt
-  (-> print_closure_eof fname_l fname_r p_fname_l p_fname_r {make_internal {make_leaf fname_l fname_r} old_context} cont)))))
-
+  ${if_ret is_returning (!-> printf "ret\n")};
+  ${printf "{}_end:\n" fname_l fname_r};
+  print_closure_eof fname_l fname_r p_fname_l p_fname_r {make_internal {make_leaf fname_l fname_r} old_context} cont)
 
 (read_func_operand_list: context fname_l fname_r l r cont -> read_func_operand_list_help context fname_l fname_r l r {make_nil} cont)
 (read_func_operand_list_help: context fname_l fname_r l r tree cont ->
@@ -1222,7 +1174,9 @@ db "ret\\n"
     ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r cont)};
     parse_function context fname_l fname_r l r (lo hi func ->
     ${if {ne func 0} (break -> 
-      cont lo hi (cont -> func (-> print_string_func push_rax_string 9 cont))
+      cont lo hi (cont -> func (->
+        ${printf "push rax\n"};
+       cont))
     )};
     read_const_string context fname_l fname_r l r (lo hi string ->
     ${if {ne string 0} (break -> 
@@ -1341,7 +1295,9 @@ db "ret\\n"
           (-> ${printf "call runtime_call_ret\n"};
             cont2
           )
-          (-> print_string_func function_done_string 17 cont2)
+          (->
+            ${printf "jmp runtime_call\n"};
+           cont2)
         )
       )
     )
