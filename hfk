@@ -1025,20 +1025,27 @@ print_closure:
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
   return (!n l r -> 
     ${if_else_ret {compare_bool l fname_l} (!->
-      ${printf "mov [rdx], {}\nadd rdx, 8\n" l r};
+      ${printf "mov [rax+"};
+      ${print_num {mul_func 8 {add_func 1 n}}};
+      ${printf "], {}\n" l r};
     ) (!->
-      ${printf "mov rcx, [{}{}]\nmov [rdx], rcx\nadd rdx, 8\n" pfname_l pfname_r l r};
+      ${printf "mov rcx, [{}{}]\nmov [rax+" pfname_l pfname_r l r};
+      ${print_num {mul_func 8 {add_func 1 n}}};
+      ${printf "], rcx\n"};
     )};
   )
 )
 
 (print_closure_eof: fname_l fname_r pfname_l pfname_r context cont ->
   ${printf "mov rdi, "};
-  ${print_num {mul_func 8 {add_func 1 {tree_size context}}}};
-  ${printf "\ncall malloc\nlea rdx, [rax+8]\n"};
+  $size = {tree_size context};
+  ${print_num {mul_func 8 {add_func 1 size}}};
+  ${printf "\ncall malloc\n"};
   $map_arg = {eof_closure_map_arg fname_l fname_r pfname_l pfname_r};
   ${map_tree_iota context map_arg};
-  ${printf "sub rdx, rax\nshr rdx, 3\nsub rdx, 1\nmov [rax], rdx\n"};
+  ${printf "mov [rax], "};
+  ${print_num size};
+  ${printf "\n"};
   cont
 )
 
