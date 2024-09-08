@@ -60,6 +60,13 @@ div_func:
   idiv rdi
   jmp rcx
 
+mul_func: ; UNSIGNED
+  pop rcx
+  pop rax
+  pop rdx
+  mul rdx
+  jmp rcx
+
 mod_func:
   pop rcx
   pop rax
@@ -106,6 +113,17 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     break
   )
   break
+)
+(if_else_ret: ret v cont1 cont2 ->
+  $break = (-> return ret 0);
+  v (->
+    ${cont1};
+    break
+  )
+  (->
+    ${cont2};
+    break
+  )
 )
 
 (!ne: a b -> 
@@ -997,84 +1015,28 @@ print_closure:
   ret
 
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
-  return (l r cont ->
-  ${printf "mov rcx, "};
-  compare l fname_l
-  (->
-    ${printf "{}\nmov [rdx], rcx\nadd rdx, 8\n" l r};
-    cont 0)
-  (-> ${printf "[{}{}]\nmov [rdx], rcx\nadd rdx, 8\n" pfname_l pfname_r l r};
-  cont 0)
+  return (!l r -> callcc (ret ->
+    ${printf "mov rcx, "};
+    ${if_else_ret {compare_bool l fname_l} (!->
+      ${printf "{}\nmov [rdx], rcx\nadd rdx, 8\n" l r};
+    )
+    (!->
+      ${printf "[{}{}]\nmov [rdx], rcx\nadd rdx, 8\n" pfname_l pfname_r l r};
+    )};
+    ret 0
+  )
 ))
 
-print_closure_eof:
-  pop [function_name]
-  pop [function_name+8]
-  pop [prev_function_name]
-  pop [prev_function_name+8]
-  pop rdi
-  push rdi
-  lea rdi, [newline_string]
-  lea rsi, [newline_string]
-  call make_leaf_imperative
+(print_closure_eof_help: fname_l fname_r pfname_l pfname_r context cont ->
+  ${printf "mov rdi, "};
+  ${print_num {mul_func 8 {add_func 1 {tree_size context}}}};
+  ${printf "\ncall malloc\nlea rdx, [rax+8]\n"};
+  $map_arg = {eof_closure_map_arg fname_l fname_r pfname_l pfname_r};
+  ${map_tree_ret context map_arg};
+  ${printf "sub rdx, rax\nshr rdx, 3\nsub rdx, 1\nmov [rax], rdx\n"};
+  cont
+)
 
-  lea rdi, [closure_header]
-  lea rsi, [closure_header+9]
-  call print_range
-
-  push [rsp]
-  call tree_size
-  add rax, 1
-  shl rax, 3
-
-  push rax
-  call print_num
-  
-  lea rdi, [newline_string]
-  lea rsi, [newline_string+1]
-  call make_pair_imperative
-  mov rdi, rax
-  mov rsi, 0
-  call make_pair_imperative
-  mov rdi, rax
-  call print_ranges
-  lea rdi, [closure_header+16]
-  lea rsi, [closure_header+27]
-  call make_leaf_imperative
-  mov rdi, rax
-  call print_tree_imperative
-  call println
-  lea rdi, [closure_header+32]
-  lea rsi, [closure_header+48]
-  call print_range_line
-
-  |eof_closure_map_arg [function_name] [function_name+8] [prev_function_name] [prev_function_name+8]|
-  push rax
-  call runtime_call_ret
-
-  mov rsi, rax
-  pop rdi
-  call map_tree_imperative
-
-  
-  lea rdi, [closure_footer]
-  lea rsi, [closure_footer+12]
-  call print_range_line
-  
-  lea rdi, [closure_footer+16]
-  lea rsi, [closure_footer+26]
-  call print_range_line
-  
-  lea rdi, [closure_footer+32]
-  lea rsi, [closure_footer+42]
-  call print_range_line
-  
-  lea rdi, [closure_footer+48]
-  lea rsi, [closure_footer+62]
-  call print_range_line
-
-  jmp runtime_call
-  ret
 
 closure_footer:
   dq "sub rdx,"
@@ -1149,7 +1111,7 @@ cont 0)
 (function_done: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
   ${if_ret is_returning (!-> printf "ret\n")};
   ${printf "{}_end:\n" fname_l fname_r};
-  print_closure_eof fname_l fname_r p_fname_l p_fname_r {make_internal {make_leaf fname_l fname_r} old_context} cont)
+  print_closure_eof_help fname_l fname_r p_fname_l p_fname_r {make_internal {make_leaf fname_l fname_r} old_context} cont)
 
 (read_func_operand_list: context fname_l fname_r l r cont -> read_func_operand_list_help context fname_l fname_r l r {make_nil} cont)
 (read_func_operand_list_help: context fname_l fname_r l r tree cont ->
