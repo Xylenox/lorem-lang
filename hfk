@@ -709,9 +709,9 @@ read_whitespace_func: ; (r8 flen cont)
   push rax
   jmp runtime_call
 
-(!read_whitespace_ret: l r -> callcc (ret ->
-  read_whitespace_func l r (l r -> ret (cont -> cont l r))
-))
+(read_whitespace_ret: ret l r ->
+  read_whitespace_func l r (l r -> return ret l r)
+)
 
 read_identifier: ; read identifier and return start and end pointers
   ; call read_whitespace
@@ -1116,45 +1116,42 @@ cont 0)
 (read_func_operand_list: context fname_l fname_r l r cont -> read_func_operand_list_help context fname_l fname_r l r {make_nil} cont)
 (read_func_operand_list_help: context fname_l fname_r l r tree cont ->
   read_whitespace_func l r
-  (l r -> read_texp context {make_nil} fname_l fname_r l r
-  (l r texp ->
-    compare texp 0 (-> cont tree l r)
-    (->
-      $leaf = {make_leaf texp 0};
-      $tree = {make_internal tree leaf};
-      read_func_operand_list_help context fname_l fname_r l r tree cont
-    )
+  (l r ->
+  $l r texp = [read_texp context {make_nil} fname_l fname_r l r];
+  compare texp 0 (-> cont tree l r)
+  (->
+    $leaf = {make_leaf texp 0};
+    $tree = {make_internal tree leaf};
+    read_func_operand_list_help context fname_l fname_r l r tree cont
   )
 ))
 
 (add_to_context: context l r cont -> cont {make_internal context {make_leaf l r}})
 
-(read_texp: context ids fname_l fname_r l r cont2 ->
-  (cont ->
-    $lb = [deref_byte l];
-    ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r cont2)};
-    ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r cont)};
-    $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
-    (->
-    ${if {ne func 0} (break -> 
-      cont lo hi (cont -> func (->
-        ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
-        ${printf "push rax\n"};
-       cont))
-    )};
-    read_const_string context fname_l fname_r l r (lo hi string ->
-    ${if {ne string 0} (break -> 
-      cont lo hi (cont -> ${string}; 
-        cont)
-    )};
-    read_id_or_closure_or_function_func l r
-    (a b l r -> compare a b (-> cont2 l r 0) (-> cont l r (cont2 -> print_aexp context fname_l fname_r a b cont2)))
-  )))
-  (l r t -> cont2 l r (cont ->
+(read_texp: ret context ids fname_l fname_r l r ->
+  $return_pop = (l r t -> return ret l r (cont ->
     t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     cont)
-  ))
-)
+  ));
+  $lb = {deref_byte l};
+  ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r (l r t -> return ret l r t))};
+  ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r return_pop)};
+  $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
+  (->
+  ${if {ne func 0} (break -> 
+    return_pop lo hi (cont -> func (->
+      ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
+      ${printf "push rax\n"};
+      cont))
+  )};
+  read_const_string context fname_l fname_r l r (lo hi string ->
+  ${if {ne string 0} (break -> 
+    return_pop lo hi (cont -> ${string}; 
+      cont)
+  )};
+  read_id_or_closure_or_function_func l r
+  (a b l r -> compare a b (-> return ret l r 0) (-> return_pop l r (cont -> print_aexp context fname_l fname_r a b cont)))
+)))
 
 (print_cexp: aexp_list cont -> reverse_tree aexp_list
   (aexp_list -> map_tree aexp_list (aexp r cont -> aexp (-> cont 0))
@@ -1185,7 +1182,7 @@ cont 0)
 
 (read_block: context fname_l fname_r l r cont ->
   $l = {add_func l 1};
-  $l r = {|decomp| {read_whitespace_ret l r}};
+  $l r = {read_whitespace_ret l r};
   read_cexp context fname_l fname_r l r (a b -> a)
   (l r context cexp -> read_whitespace_func l r
   (l r -> $l = {add_func l 1};
@@ -1199,19 +1196,17 @@ cont 0)
 (read_cexp: context fname_l fname_r l r is_returning cont -> read_whitespace_func l r
 (l r -> $lb = {deref_byte l};
   ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning cont)};
-  (-> $l = {add_func l 1};
-  read_whitespace_func l r
-    (l r -> 
-    ${if {compare_bool {deref_byte l} 123} (break ->
-      read_texp context {make_nil} fname_l fname_r l r (l r texp ->
-      $l = {add_func l 1};
-      read_cexp context fname_l fname_r l r is_returning
-      (l r context cexp -> cont l r context (cont ->
-        (-> texp (-> $
-          {printf "add rsp, 8\n"};
-          cexp cont
-      )))))
-    )};
+  $l r = {read_whitespace_ret {add_func l 1} r};
+  ${if {compare_bool {deref_byte l} 123} (break ->
+    $l r texp = [read_texp context {make_nil} fname_l fname_r l r];
+    $l = {add_func l 1};
+    read_cexp context fname_l fname_r l r is_returning
+    (l r context cexp -> cont l r context (cont ->
+      (-> texp (->
+        ${printf "add rsp, 8\n"};
+        cexp cont
+    ))))
+  )};
     read_identifier_func l r
     (l r il ir -> read_identifier_list l r
     (ids l r -> 
@@ -1220,17 +1215,18 @@ cont 0)
     read_whitespace_func l r
     (l r -> $l = {add_func l 1};
     read_whitespace_func l r
-    (l r -> read_texp context ids fname_l fname_r l r
-    (l r texp -> read_whitespace_func l r
+    (l r ->
+    $l r texp = [read_texp context ids fname_l fname_r l r];
+    read_whitespace_func l r
     (l r -> $l = {add_func l 1};
     read_cexp context fname_l fname_r l r is_returning
     (l r context cexp -> cont l r context 
         (cont -> texp
-        (a -> cexp cont)))))))))))
+        (a -> cexp cont))))))))
   ))
 
 (read_function_application: context fname_l fname_r l r is_returning cont ->
-  $l r = {decomp {read_whitespace_ret l r}};
+  $l r = {read_whitespace_ret l r};
   read_identifier_func l r
   (l r il ir -> read_func_operand_list context fname_l fname_r l r
     (op_list l r ->
