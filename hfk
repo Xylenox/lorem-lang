@@ -1036,7 +1036,7 @@ print_closure:
   )
 )
 
-(print_closure_eof: fname_l fname_r pfname_l pfname_r context cont ->
+(!print_closure_eof: fname_l fname_r pfname_l pfname_r context ->
   ${printf "mov rdi, "};
   $size = {tree_size context};
   ${print_num {mul_func 8 {add_func 1 size}}};
@@ -1046,7 +1046,6 @@ print_closure:
   ${printf "mov [rax], "};
   ${print_num size};
   ${printf "\n"};
-  cont
 )
 
 closure_footer:
@@ -1099,7 +1098,7 @@ cont 0)
     (l r -> $l = {add_func l 2};
     (-> read_cexp new_context fname_l fname_r l r is_returning
     (l r extra_context cexp -> $l = {add_func l 1};
-    return ret l r old_context (print_function: cont ->
+    return ret l r fname_l fname_r old_context (print_function: cont ->
       ${printf "jmp {}_end\n" fname_l fname_r};
       ${map_tree_ret extra_context (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
       ${printf "{}:\n" fname_l fname_r};
@@ -1109,9 +1108,9 @@ cont 0)
       cexp (->
       ${if_ret is_returning (!-> printf "ret\n")};
       ${printf "{}_end:\n" fname_l fname_r};
-      print_closure_eof fname_l fname_r p_fname_l p_fname_r {make_internal {make_leaf fname_l fname_r} old_context} cont)))))))
+      cont)))))))
   )
-  (-> return ret l r old_context 0)
+  (-> return ret l r 0 0 old_context 0)
 )
 
 (read_func_operand_list: context fname_l fname_r l r cont -> read_func_operand_list_help context fname_l fname_r l r {make_nil} cont)
@@ -1135,10 +1134,11 @@ cont 0)
     $lb = [deref_byte l];
     ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r cont2)};
     ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r cont)};
-    $lo hi context func = [parse_function context fname_l fname_r l r];
+    $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
     (->
     ${if {ne func 0} (break -> 
       cont lo hi (cont -> func (->
+        ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
         ${printf "push rax\n"};
        cont))
     )};
@@ -1198,7 +1198,7 @@ cont 0)
 ; returns l r context cexp
 (read_cexp: context fname_l fname_r l r is_returning cont -> read_whitespace_func l r
 (l r -> $lb = {deref_byte l};
-     compare lb 36
+  ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning cont)};
   (-> $l = {add_func l 1};
   read_whitespace_func l r
     (l r -> 
@@ -1227,7 +1227,7 @@ cont 0)
     (l r context cexp -> cont l r context 
         (cont -> texp
         (a -> cexp cont)))))))))))
-  (-> read_function_application context fname_l fname_r l r is_returning cont)))
+  ))
 
 (read_function_application: context fname_l fname_r l r is_returning cont ->
   $l r = {decomp {read_whitespace_ret l r}};
@@ -1320,7 +1320,7 @@ cont 0)
 
 (parse_function_help: lo hi ->
   $nil = {make_nil};
-  $l r context func = {parse_function nil 0 0 lo hi};
+  $l r fl fr context func = {parse_function nil 0 0 lo hi};
   func (-> main_loop l r)
 )
 
