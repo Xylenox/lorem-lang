@@ -528,6 +528,14 @@ cont) cont)
 )
 (map_tree_ret: ret tree action -> callcc ret (ret -> map_tree_ret_help ret tree action))
 
+(map_tree_iota_help: ret n tree action ->
+  tree
+    (-> ret n {make_nil})
+    (l r -> ret {add_func n 1} {action n l r})
+    (a b -> map_tree_iota_help (na new_a -> map_tree_iota_help (nb new_b -> ret nb {make_internal new_a new_b}) na b action) n a action)
+)
+(map_tree_iota: ret tree action -> callcc ret (ret -> map_tree_iota_help (n t -> ret t) 0 tree action))
+
 (reverse_tree: tree cont -> tree (-> cont {make_nil}) ( l r -> cont {make_leaf l r})
 (a b -> reverse_tree a (new_a -> reverse_tree b (new_b -> cont {make_internal new_b new_a})))
 )
@@ -1015,28 +1023,24 @@ print_closure:
   ret
 
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
-  return (!l r -> callcc (ret ->
-    ${printf "mov rcx, "};
+  return (!n l r -> 
     ${if_else_ret {compare_bool l fname_l} (!->
-      ${printf "{}\nmov [rdx], rcx\nadd rdx, 8\n" l r};
-    )
-    (!->
-      ${printf "[{}{}]\nmov [rdx], rcx\nadd rdx, 8\n" pfname_l pfname_r l r};
+      ${printf "mov [rdx], {}\nadd rdx, 8\n" l r};
+    ) (!->
+      ${printf "mov rcx, [{}{}]\nmov [rdx], rcx\nadd rdx, 8\n" pfname_l pfname_r l r};
     )};
-    ret 0
   )
-))
+)
 
-(print_closure_eof_help: fname_l fname_r pfname_l pfname_r context cont ->
+(print_closure_eof: fname_l fname_r pfname_l pfname_r context cont ->
   ${printf "mov rdi, "};
   ${print_num {mul_func 8 {add_func 1 {tree_size context}}}};
   ${printf "\ncall malloc\nlea rdx, [rax+8]\n"};
   $map_arg = {eof_closure_map_arg fname_l fname_r pfname_l pfname_r};
-  ${map_tree_ret context map_arg};
+  ${map_tree_iota context map_arg};
   ${printf "sub rdx, rax\nshr rdx, 3\nsub rdx, 1\nmov [rax], rdx\n"};
   cont
 )
-
 
 closure_footer:
   dq "sub rdx,"
@@ -1056,13 +1060,6 @@ closure_footer:
     cont lo hi
   )
 )
-
-function_name:
-  dq 0
-  dq 0
-prev_function_name:
-  dq 0
-  dq 0
 
 (print_pop_arg: fname_l fname_r l r cont ->
 ${printf "pop [{}{}]\n" fname_l fname_r l r};
@@ -1111,7 +1108,7 @@ cont 0)
 (function_done: old_context fname_l fname_r p_fname_l p_fname_r is_returning cont ->
   ${if_ret is_returning (!-> printf "ret\n")};
   ${printf "{}_end:\n" fname_l fname_r};
-  print_closure_eof_help fname_l fname_r p_fname_l p_fname_r {make_internal {make_leaf fname_l fname_r} old_context} cont)
+  print_closure_eof fname_l fname_r p_fname_l p_fname_r {make_internal {make_leaf fname_l fname_r} old_context} cont)
 
 (read_func_operand_list: context fname_l fname_r l r cont -> read_func_operand_list_help context fname_l fname_r l r {make_nil} cont)
 (read_func_operand_list_help: context fname_l fname_r l r tree cont ->
