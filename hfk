@@ -1231,11 +1231,15 @@ cont 0)
 (read_token: ret l r ->
   $l r = {read_whitespace_ret l r};
   ${if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "[" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "]" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   error l
 )
 
-(read_assignment: ret context fname_l fname_r l r is_returning ->
+(read_assignment: ret context fname_l fname_r orig_l r is_returning ->
+  $l = orig_l;
   $l r t tl tr = {read_token l r};
+  ${if {not {matches "$" tl}} (break -> return ret orig_l r context 0)};
   ${if {or {compare_bool {deref_byte l} 123} {compare_bool {deref_byte l} 91}} (break ->
   $l r texp = [read_texp_ret context {make_nil} fname_l fname_r l r];
   $l r context cexp = [read_cexp context fname_l fname_r {add_func l 1} r is_returning];
