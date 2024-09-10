@@ -156,6 +156,16 @@ exit:
   mov r0, 60
   mov r7, 0
   syscall
+error:
+  mov [outf], 2
+  jmp error_help
+(error_help: num ->
+  ${printf "error "};
+  ${print_num num};
+  ${printf "\n"};
+  ${sysc 60 1 0 0 0 0 0};
+  exit
+)
 
 runtime_call:
   ; first input is closure containing | number of operands including function, function, environment |
@@ -1207,33 +1217,51 @@ cont 0)
 (read_cexp: ret context fname_l fname_r l r is_returning -> read_whitespace_func l r
 (l r -> $lb = {deref_byte l};
   ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning (l r ct cexp -> return ret l r ct cexp))};
-  $l r = {read_whitespace_ret {add_func l 1} r};
+  read_assignment ret context fname_l fname_r l r is_returning
+))
+
+(matches: ret a b -> 
+  ${if {compare_bool {deref_byte a} 0} (break -> return ret (a b -> a))};
+  ${if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
+  matches ret {add_func a 1} {add_func b 1}
+)
+
+; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
+; returns l r type il ir
+(read_token: ret l r ->
+  $l r = {read_whitespace_ret l r};
+  ${if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  error l
+)
+
+(read_assignment: ret context fname_l fname_r l r is_returning ->
+  $l r t tl tr = {read_token l r};
   ${if {or {compare_bool {deref_byte l} 123} {compare_bool {deref_byte l} 91}} (break ->
-    $l r texp = [read_texp_ret context {make_nil} fname_l fname_r l r];
-    $l r context cexp = [read_cexp context fname_l fname_r {add_func l 1} r is_returning];
-    return ret l r context (cont ->
-       texp (->
-      ${printf "add rsp, 8\n"};
-      cexp cont
-    ))
-  )};
-    read_identifier_func l r
-    (l r il ir -> read_identifier_list l r
-    (ids l r -> 
-    $ids = {make_internal {make_leaf il ir} ids};
-    $context = {make_internal context ids};
-    read_whitespace_func l r
-    (l r -> $l = {add_func l 1};
-    read_whitespace_func l r
-    (l r ->
-    $l r texp = [read_texp context ids fname_l fname_r l r];
-    read_whitespace_func l r
-    (l r -> $l = {add_func l 1};
-    $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
-    return ret l r context 
-        (cont -> texp
-        (a -> cexp cont)))))))
+  $l r texp = [read_texp_ret context {make_nil} fname_l fname_r l r];
+  $l r context cexp = [read_cexp context fname_l fname_r {add_func l 1} r is_returning];
+  return ret l r context (cont ->
+      texp (->
+    ${printf "add rsp, 8\n"};
+    cexp cont
   ))
+)};
+  read_identifier_func l r
+  (l r il ir -> read_identifier_list l r
+  (ids l r -> 
+  $ids = {make_internal {make_leaf il ir} ids};
+  $context = {make_internal context ids};
+  read_whitespace_func l r
+  (l r -> $l = {add_func l 1};
+  read_whitespace_func l r
+  (l r ->
+  $l r texp = [read_texp context ids fname_l fname_r l r];
+  read_whitespace_func l r
+  (l r -> $l = {add_func l 1};
+  $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
+  return ret l r context 
+      (cont -> texp
+      (a -> cexp cont)))))))
+)
 
 (read_function_application: context fname_l fname_r l r is_returning cont ->
   $l r = {read_whitespace_ret l r};
