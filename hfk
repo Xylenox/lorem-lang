@@ -1183,7 +1183,8 @@ cont 0)
     cexp
     (-> reverse_tree context
     (rev_context ->
-      ${printf "push rax\n"};
+      $[printf "push rax\n"];
+      $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
       ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
       ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
       cont
@@ -1191,14 +1192,14 @@ cont 0)
 )
 
 (read_block: context fname_l fname_r l r cont ->
-  $l = {add_func l 1};
-  $l r = {read_whitespace_ret l r};
+  $l = [add_func l 1];
+  $l r = [read_whitespace_ret l r];
   $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
   read_whitespace_func l r
-  (l r -> $l = {add_func l 1};
+  (l r -> $l = [add_func l 1];
   cont l r
     (cont -> cexp
-    (-> ${printf "push rax\n"};
+    (-> $u = [printf "push rax\n"];
      cont)))
 )
 
