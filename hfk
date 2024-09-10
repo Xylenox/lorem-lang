@@ -102,6 +102,10 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     push rsi
     jmp runtime_call
 
+(or: ret cont1 cont2 ->
+  cont1 (-> return ret cont1) (-> return ret cont2)
+)
+
 (if: ret v cont ->
   $break = (-> return ret 0);
   v (-> cont break) break
@@ -1128,6 +1132,11 @@ cont 0)
 
 (add_to_context: context l r cont -> cont {make_internal context {make_leaf l r}})
 
+(read_texp_ret: ret context ids fname_l fname_r l r ->
+  $l r texp = [read_texp context ids fname_l fname_r l r];
+  return ret l r texp
+)
+; returns l r texp
 (read_texp: ret context ids fname_l fname_r l r ->
   $return_pop = (l r t -> return ret l r (cont ->
     t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
@@ -1176,7 +1185,7 @@ cont 0)
     (rev_context ->
       ${printf "push rax\n"};
       ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-      ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]" fname_l fname_r l r)};
+      ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
       cont
     )))))
 )
@@ -1198,14 +1207,14 @@ cont 0)
 (l r -> $lb = {deref_byte l};
   ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning (l r ct cexp -> return ret l r ct cexp))};
   $l r = {read_whitespace_ret {add_func l 1} r};
-  ${if {compare_bool {deref_byte l} 123} (break ->
-    $l r texp = [read_texp context {make_nil} fname_l fname_r l r];
+  ${if {or {compare_bool {deref_byte l} 123} {compare_bool {deref_byte l} 91}} (break ->
+    $l r texp = [read_texp_ret context {make_nil} fname_l fname_r l r];
     $l r context cexp = [read_cexp context fname_l fname_r {add_func l 1} r is_returning];
     return ret l r context (cont ->
-      (-> texp (->
-        ${printf "add rsp, 8\n"};
-        cexp cont
-    )))
+       texp (->
+      ${printf "add rsp, 8\n"};
+      cexp cont
+    ))
   )};
     read_identifier_func l r
     (l r il ir -> read_identifier_list l r
