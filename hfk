@@ -1240,6 +1240,7 @@ cont 0)
   ${if {matches "[" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "]" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches ";" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   error l
 )
 
@@ -1264,22 +1265,19 @@ cont 0)
   )
 )
 
-(read_assignment: ret context fname_l fname_r l r is_returning ->
-  read_identifier_func l r
-  (l r il ir -> $l r ids = {read_identifier_list l r};
-  $ids = {make_internal {make_leaf il ir} ids};
+(read_assignment: ret context fname_l fname_r orig_l r is_returning ->
+  $l = orig_l;
+  $l r ids = {read_identifier_list l r};
   $context = {make_internal context ids};
-  read_whitespace_func l r
-  (l r -> $l = {add_func l 1};
-  read_whitespace_func l r
-  (l r ->
+  $l r t tl tr = {read_token l r};
+  ${if {not {matches "=" tl}} (break -> return ret orig_l r context 0)};
+  $l r = {read_whitespace_ret l r};
   $l r texp = [read_texp context ids fname_l fname_r l r];
-  read_whitespace_func l r
-  (l r -> $l = {add_func l 1};
+  $l r t tl tr = {read_token l r};
+  ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
   $assign = (cont -> cont texp);
-  return ret l r context assign))))
+  return ret l r context assign
 )
-
 (print_assignment: ret assign ->
   $texp = {decomp assign};
   texp (-> return ret 0)
