@@ -763,7 +763,7 @@ read_identifier_func: ; (r8 flen cont ->  l r r8 flen)
   push rcx
   jmp runtime_call
 
-read_identifier_list:
+read_identifier_list_help:
   pop r8
   pop [flen]
   call make_nil
@@ -794,6 +794,10 @@ read_identifier_list:
   push rax
   push rdi
   jmp runtime_call
+
+(read_identifier_list: ret l r -> 
+  read_identifier_list_help l r (ids l r -> return ret l r ids)
+)
 
 (format_string: l r cont -> format_string_helper {make_nil} l l r cont)
 (format_substring: base l r cont ->
@@ -1099,8 +1103,10 @@ cont 0)
     (pl_no_label: -> gen_label_func (fl fr -> cont pl pr fl fr is_returning)))))
   ))
 
-(read_new_context: old_context l r cont -> read_identifier_list l r 
-(new_args l r -> cont {make_internal old_context new_args} l r))
+(read_new_context: old_context l r cont ->
+  $l r new_args = {read_identifier_list l r}; 
+  cont {make_internal old_context new_args} l r
+)
 
 (parse_function: ret old_context p_fname_l p_fname_r l r ->
   $lb = {deref_byte l};
@@ -1217,7 +1223,7 @@ cont 0)
 (read_cexp: ret context fname_l fname_r l r is_returning -> read_whitespace_func l r
 (l r -> $lb = {deref_byte l};
   ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning (l r ct cexp -> return ret l r ct cexp))};
-  read_assignment ret context fname_l fname_r l r is_returning
+  read_statement ret context fname_l fname_r l r is_returning
 ))
 
 (matches: ret a b -> 
@@ -1233,25 +1239,34 @@ cont 0)
   ${if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "[" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "]" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   error l
 )
 
-(read_assignment: ret context fname_l fname_r orig_l r is_returning ->
+(read_statement: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {not {matches "$" tl}} (break -> return ret orig_l r context 0)};
   ${if {or {compare_bool {deref_byte l} 123} {compare_bool {deref_byte l} 91}} (break ->
-  $l r texp = [read_texp_ret context {make_nil} fname_l fname_r l r];
-  $l r context cexp = [read_cexp context fname_l fname_r {add_func l 1} r is_returning];
+    $l r texp = [read_texp_ret context {make_nil} fname_l fname_r l r];
+    $l r context cexp = [read_cexp context fname_l fname_r {add_func l 1} r is_returning];
+    return ret l r context (cont ->
+        texp (->
+      ${printf "add rsp, 8\n"};
+      cexp cont
+    ))
+  )};
+  $l r context assign = [read_assignment context fname_l fname_r l r is_returning];
+  $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
   return ret l r context (cont ->
-      texp (->
-    ${printf "add rsp, 8\n"};
+    ${print_assignment assign};
     cexp cont
-  ))
-)};
+  )
+)
+
+(read_assignment: ret context fname_l fname_r l r is_returning ->
   read_identifier_func l r
-  (l r il ir -> read_identifier_list l r
-  (ids l r -> 
+  (l r il ir -> $l r ids = {read_identifier_list l r};
   $ids = {make_internal {make_leaf il ir} ids};
   $context = {make_internal context ids};
   read_whitespace_func l r
@@ -1261,10 +1276,13 @@ cont 0)
   $l r texp = [read_texp context ids fname_l fname_r l r];
   read_whitespace_func l r
   (l r -> $l = {add_func l 1};
-  $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
-  return ret l r context 
-      (cont -> texp
-      (a -> cexp cont)))))))
+  $assign = (cont -> cont texp);
+  return ret l r context assign))))
+)
+
+(print_assignment: ret assign ->
+  $texp = {decomp assign};
+  texp (-> return ret 0)
 )
 
 (read_function_application: context fname_l fname_r l r is_returning cont ->
