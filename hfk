@@ -1235,28 +1235,13 @@ cont 0)
   $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
   ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning (l r ct cexp -> return ret l r ct cexp))};
-  $l r context stmt = [read_statement context fname_l fname_r orig_l r is_returning];
-  ${if {compare_bool stmt 0} (break -> return ret orig_l r context 0)};
+  $l r context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
+  ${if {compare_bool assign 0} (break -> return ret orig_l r context 0)};
   $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
   return ret l r context (cont ->
-    stmt (-> cexp cont)
+    $[print_assignment assign];
+    cexp cont
   )
-)
-
-(read_statement: ret context fname_l fname_r orig_l r is_returning ->
-  $l = orig_l;
-  $l r t tl tr = {read_token l r};
-  ${if {not {matches "$" tl}} (break -> return ret orig_l r context 0)};
-
-  $l r context assign = [read_assignment context fname_l fname_r l r is_returning];
-    return ret l r context (cont ->
-    print_assign_cont assign cont
-  )
-)
-
-(print_statement: ret assign ->
-  $[print_assignment assign];
-  return ret 0
 )
 
 (gen_label_tree: ret ->
@@ -1275,6 +1260,8 @@ cont 0)
 
 (read_assignment: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
+  $l r t tl tr = {read_token l r};
+  ${if {not {matches "$" tl}} (break -> return ret orig_l r context 0)};
   $l r ids = {read_identifier_list l r};
   $is_empty_ids = {compare_bool {tree_size ids} 0};
   $ids = {if_else_ret is_empty_ids (!-> 
