@@ -1219,13 +1219,6 @@ cont 0)
      cont)))
 )
 
-; returns l r context cexp
-(read_cexp: ret context fname_l fname_r l r is_returning -> read_whitespace_func l r
-(l r -> $lb = {deref_byte l};
-  ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning (l r ct cexp -> return ret l r ct cexp))};
-  read_statement ret context fname_l fname_r l r is_returning
-))
-
 (matches: ret a b -> 
   ${if {compare_bool {deref_byte a} 0} (break -> return ret (a b -> a))};
   ${if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
@@ -1244,25 +1237,44 @@ cont 0)
   error l
 )
 
+; returns l r context cexp
+(read_cexp: ret context fname_l fname_r orig_l r is_returning ->
+  $l = orig_l;
+  $l r = {read_whitespace_ret l r};
+  $lb = {deref_byte l};
+  ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning (l r ct cexp -> return ret l r ct cexp))};
+  $l r context stmt = [read_statement context fname_l fname_r orig_l r is_returning];
+  ${if {compare_bool stmt 0} (break -> return ret orig_l r context 0)};
+  $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
+  return ret l r context (cont ->
+    stmt (-> cexp cont)
+  )
+)
+
 (read_statement: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {not {matches "$" tl}} (break -> return ret orig_l r context 0)};
   ${if {or {compare_bool {deref_byte l} 123} {compare_bool {deref_byte l} 91}} (break ->
     $l r texp = [read_texp_ret context {make_nil} fname_l fname_r l r];
-    $l r context cexp = [read_cexp context fname_l fname_r {add_func l 1} r is_returning];
+    $l r t tl tr = {read_token l r};
+    ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
     return ret l r context (cont ->
         texp (->
       ${printf "add rsp, 8\n"};
-      cexp cont
+      cont
     ))
   )};
   $l r context assign = [read_assignment context fname_l fname_r l r is_returning];
-  $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
-  return ret l r context (cont ->
+    return ret l r context (cont ->
     ${print_assignment assign};
-    cexp cont
+    cont
   )
+)
+
+(print_statement: ret assign ->
+  $[print_assignment assign];
+  return ret 0
 )
 
 (read_assignment: ret context fname_l fname_r orig_l r is_returning ->
