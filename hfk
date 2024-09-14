@@ -153,9 +153,7 @@ error:
   mov [outf], 2
   jmp error_help
 (error_help: num ->
-  ${printf "error "};
-  ${print_num num};
-  ${printf "\n"};
+  ${printf "error {}\n" num {add_func num 10}};
   ${sysc 60 1 0 0 0 0 0};
   exit
 )
@@ -744,7 +742,7 @@ read_identifier: ; read identifier and return start and end pointers
   mov rdx, r8
   ret
 
-read_identifier_func: ; (r8 flen cont ->  l r r8 flen)
+read_identifier_func: ; (r8 flen cont ->  r8 flen l r)
   pop r8
   pop [flen]
   call read_identifier
@@ -755,6 +753,10 @@ read_identifier_func: ; (r8 flen cont ->  l r r8 flen)
   push r8
   push rcx
   jmp runtime_call
+
+(read_identifier_ret: ret l r ->
+  read_identifier_func l r (l r il ir -> return ret l r il ir)
+)
 
 read_identifier_list_help:
   pop r8
@@ -1078,23 +1080,20 @@ closure_footer:
   )
 )
 
-(print_pop_arg: fname_l fname_r l r cont ->
-${printf "pop [{}{}]\n" fname_l fname_r l r};
-cont 0)
-
 (parse_label: pl pr cont -> read_whitespace_func pl pr 
 (l r -> (rest_label -> $lb = {deref_byte l};
   compare lb 33 (-> $l = {add_func l 1};
                   rest_label l r (a b -> a))
                   (-> rest_label l r (a b -> b)))
-  (pl pr is_returning -> read_identifier_func pl pr
-  (l r fl fr -> read_whitespace_func l r 
-  (l r -> $l_char = {deref_byte l};
+  (pl pr is_returning ->
+    $l r fl fr = {read_identifier_ret pl pr};
+    $l r = {read_whitespace_ret l r};
+    $l_char = {deref_byte l};
     compare l_char 58
     (pl_has_label: -> $l = {add_func l 1};
      cont l r fl fr is_returning)
-    (pl_no_label: -> gen_label_func (fl fr -> cont pl pr fl fr is_returning)))))
-  ))
+    (pl_no_label: -> gen_label_func (fl fr -> cont pl pr fl fr is_returning))))
+)
 
 (read_new_context: old_context l r cont ->
   $l r new_args = {read_identifier_list l r}; 
@@ -1116,7 +1115,7 @@ cont 0)
       ${map_tree_ret extra_context (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
       ${printf "{}:\n" fname_l fname_r};
       ${if_ret is_returning (!-> printf "pop rax\n")};
-      ${map_tree_ret new_context (!l r -> callcc (ret -> print_pop_arg fname_l fname_r l r ret))};
+      ${map_tree_ret new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
       ${if_ret is_returning (!-> printf "push rax\n")};
       cexp (->
       ${if_ret is_returning (!-> printf "ret\n")};
@@ -1188,8 +1187,14 @@ cont 0)
   ${if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "[" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "]" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "(" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches ")" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "{" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "}" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches ";" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  $l r il ir = {read_identifier_ret l r};
+  ${if {ne il ir} (break -> return ret l r 1 il ir)};
   error l
 )
 
@@ -1232,14 +1237,13 @@ cont 0)
 ; returns l r context cexp
 (read_cexp: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
-  $l r = {read_whitespace_ret l r};
-  $lb = {deref_byte l};
-  ${if {ne lb 36} (break -> read_function_application context fname_l fname_r l r is_returning (l r ct cexp -> return ret l r ct cexp))};
+  $pl r t tl tr = {read_token l r};
   $l r context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
-  ${if {compare_bool assign 0} (break -> return ret orig_l r context 0)};
+  ${if {compare_bool assign 0} (break -> return ret l r context 0)};
   $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
   return ret l r context (cont ->
     $[print_assignment assign];
+    ${if {compare_bool cexp 0} (break -> cont)};
     cexp cont
   )
 )
@@ -1261,7 +1265,11 @@ cont 0)
 (read_assignment: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
-  ${if {not {matches "$" tl}} (break -> return ret orig_l r context 0)};
+  ${if {not {matches "$" tl}} (break -> 
+    $l r ct cexp = [read_function_application context fname_l fname_r orig_l r is_returning];
+    ${if {compare_bool cexp 0} (break -> return ret l r context 0)};
+    return ret l r ct (a b -> a cexp)
+  )};
   $l r ids = {read_identifier_list l r};
   $is_empty_ids = {compare_bool {tree_size ids} 0};
   $ids = {if_else_ret is_empty_ids (!-> 
@@ -1275,30 +1283,26 @@ cont 0)
   $l r texp = [read_texp context ids fname_l fname_r l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
-  $assign = (cont -> cont texp);
-  return ret l r context assign
+  return ret l r context (a b -> b texp)
 )
 (print_assignment: ret assign ->
-  $texp = {decomp assign};
-  texp (-> return ret 0)
-)
-(print_assign_cont: assign cont ->
-  $texp = {decomp assign};
-  texp cont
+  assign (appl -> appl (-> return ret 0)) (texp ->
+    texp (-> return ret 0)
+  )
 )
 
-(read_function_application: context fname_l fname_r l r is_returning cont ->
+(read_function_application: ret context fname_l fname_r l r is_returning ->
   $l r = {read_whitespace_ret l r};
   read_identifier_func l r
   (l r il ir -> read_func_operand_list context fname_l fname_r l r
     (op_list l r ->
     ${if {compare_bool il ir} (break ->
       ${if {compare_bool {tree_size op_list} 0} (break2 ->
-        cont l r context (cont2 -> cont2)
+        return ret l r context 0
       )};
       break
     )};
-    cont l r context
+    return ret l r context
       (cont2 ->
         print_cexp op_list (-> 
         ${if {ne il ir} (break ->
