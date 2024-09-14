@@ -1125,18 +1125,17 @@ closure_footer:
   (-> return ret l r 0 0 old_context 0)
 )
 
-(read_func_operand_list: context fname_l fname_r l r cont -> read_func_operand_list_help context fname_l fname_r l r {make_nil} cont)
-(read_func_operand_list_help: context fname_l fname_r l r tree cont ->
-  read_whitespace_func l r
-  (l r ->
+(read_func_operand_list: ret context fname_l fname_r l r -> 
+  $l r tree = [read_func_operand_list_help context fname_l fname_r l r {make_nil}];
+  return ret l r tree
+)
+(read_func_operand_list_help: ret context fname_l fname_r l r tree ->
   $l r texp = [read_texp context {make_nil} fname_l fname_r l r];
-  compare texp 0 (-> cont tree l r)
-  (->
-    $leaf = {make_leaf texp 0};
-    $tree = {make_internal tree leaf};
-    read_func_operand_list_help context fname_l fname_r l r tree cont
-  )
-))
+  ${if {compare_bool texp 0} (break -> return ret l r tree)};
+  $leaf = {make_leaf texp 0};
+  $tree = {make_internal tree leaf};
+  read_func_operand_list_help ret context fname_l fname_r l r tree
+)
 
 (add_to_context: context l r cont -> cont {make_internal context {make_leaf l r}})
 
@@ -1150,6 +1149,7 @@ closure_footer:
     t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     cont)
   ));
+  $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
   ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r (l r t -> return ret l r t))};
   ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r return_pop)};
@@ -1248,11 +1248,6 @@ closure_footer:
   )
 )
 
-(gen_label_tree: ret ->
-  $il ir = {gen_label_ret};
-  return ret {make_leaf il ir}
-)
-
 (read_eq_if: ret need l r ->
   ${if need (break ->
     $l r t tl tr = {read_token l r};
@@ -1273,7 +1268,8 @@ closure_footer:
   $l r ids = {read_identifier_list l r};
   $is_empty_ids = {compare_bool {tree_size ids} 0};
   $ids = {if_else_ret is_empty_ids (!-> 
-    return {gen_label_tree}
+    $il ir = {gen_label_ret};
+    return {make_leaf il ir}
   )
   (!-> return ids)};
   $context = {make_internal context ids};
@@ -1291,41 +1287,39 @@ closure_footer:
   )
 )
 
-(read_function_application: ret context fname_l fname_r l r is_returning ->
+(read_function_application: ret context fname_l fname_r orig_l r is_returning ->
+  $l = orig_l;
   $l r = {read_whitespace_ret l r};
-  read_identifier_func l r
-  (l r il ir -> read_func_operand_list context fname_l fname_r l r
-    (op_list l r ->
-    ${if {compare_bool il ir} (break ->
-      ${if {compare_bool {tree_size op_list} 0} (break2 ->
-        return ret l r context 0
-      )};
-      break
+  $l r il ir = {read_identifier_ret l r};
+  $l r op_list = [read_func_operand_list context fname_l fname_r l r];
+  ${if {compare_bool il ir} (break ->
+    ${if {compare_bool {tree_size op_list} 0} (break2 ->
+      return ret l r context 0
     )};
-    return ret l r context
-      (cont2 ->
-        print_cexp op_list (-> 
-        ${if {ne il ir} (break ->
-          ${if {search_tree_ret context il ir} (break2 -> 
-            ${printf "push [{}{}]\n" fname_l fname_r il ir};
-            break
-          )};
-          ${if is_returning (break2 ->
-            ${printf "call {}\n" il ir};
-            cont2
-          )};
-          ${printf "jmp {}\n" il ir};
-          cont2
-        )};
-        is_returning
-          (-> ${printf "call runtime_call_ret\n"};
-            cont2
-          )
-          (->
-            ${printf "jmp runtime_call\n"};
-           cont2)
-        )
+    break
+  )};
+  return ret l r context
+  (cont2 ->
+    print_cexp op_list (-> 
+    ${if {ne il ir} (break ->
+      ${if {search_tree_ret context il ir} (break2 -> 
+        ${printf "push [{}{}]\n" fname_l fname_r il ir};
+        break
+      )};
+      ${if is_returning (break2 ->
+        ${printf "call {}\n" il ir};
+        cont2
+      )};
+      ${printf "jmp {}\n" il ir};
+      cont2
+    )};
+    is_returning
+      (-> ${printf "call runtime_call_ret\n"};
+        cont2
       )
+      (->
+        ${printf "jmp runtime_call\n"};
+        cont2)
     )
   )
 )
