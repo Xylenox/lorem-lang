@@ -1125,10 +1125,10 @@ closure_footer:
   ${if_ret is_returning (!-> printf "pop rax\n")};
   ${map_tree_ret new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
   ${if_ret is_returning (!-> printf "push rax\n")};
-  cexp (->
+  $[print_cexp cexp];
   ${if_ret is_returning (!-> printf "ret\n")};
   ${printf "{}_end:\n" fname_l fname_r};
-  return ret 0)
+  return ret 0
 )
 
 (read_func_operand_list: ret context fname_l fname_r l r -> 
@@ -1171,7 +1171,7 @@ closure_footer:
   (a b l r -> compare a b (-> return ret l r 0) (-> return_pop l r (cont -> print_aexp context fname_l fname_r a b cont)))
 )))
 
-(print_cexp: aexp_list cont -> reverse_tree aexp_list
+(print_function_app: aexp_list cont -> reverse_tree aexp_list
   (aexp_list -> map_tree aexp_list (aexp r cont -> aexp (-> cont 0))
   (aexp_list -> cont)))
 
@@ -1216,15 +1216,15 @@ closure_footer:
       ret {make_leaf l r}
     ))};
     ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
-    cexp
-    (-> reverse_tree context
+    $[print_cexp cexp];
+    reverse_tree context
     (rev_context ->
       $[printf "push rax\n"];
       $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
       ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
       ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
       cont
-    )))
+    ))
 )
 
 (read_block: context fname_l fname_r l r cont ->
@@ -1234,9 +1234,9 @@ closure_footer:
   read_whitespace_func l r
   (l r -> $l = [add_func l 1];
   cont l r
-    (cont -> cexp
-    (-> $u = [printf "push rax\n"];
-     cont)))
+    (cont -> $[print_cexp cexp];
+    $u = [printf "push rax\n"];
+     cont))
 )
 
 ; returns l r context cexp
@@ -1246,11 +1246,15 @@ closure_footer:
   $l r context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
   ${if {compare_bool assign 0} (break -> return ret l r context 0)};
   $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
-  return ret l r context (cont ->
-    $[print_assignment assign];
-    ${if {compare_bool cexp 0} (break -> cont)};
-    cexp cont
-  )
+  return ret l r context (cont -> cont assign cexp)
+)
+
+(print_cexp: ret cexp ->
+  $assign cexp = {decomp cexp};
+  $[print_assignment assign];
+  ${if {compare_bool cexp 0} (break -> return ret 0)};
+  $[print_cexp cexp];
+  return ret 0
 )
 
 (read_eq_if: ret need l r ->
@@ -1305,7 +1309,7 @@ closure_footer:
   )};
   return ret l r context
   (cont2 ->
-    print_cexp op_list (-> 
+    print_function_app op_list (-> 
     ${if {ne il ir} (break ->
       ${if {search_tree_ret context il ir} (break2 -> 
         ${printf "push [{}{}]\n" fname_l fname_r il ir};
