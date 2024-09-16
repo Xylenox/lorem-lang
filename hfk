@@ -1114,17 +1114,21 @@ closure_footer:
   $l r extra_context cexp = [read_cexp new_context fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ")" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
-  return ret l r fname_l fname_r old_context (cont ->
-    ${printf "jmp {}_end\n" fname_l fname_r};
-    ${map_tree_ret extra_context (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
-    ${printf "{}:\n" fname_l fname_r};
-    ${if_ret is_returning (!-> printf "pop rax\n")};
-    ${map_tree_ret new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-    ${if_ret is_returning (!-> printf "push rax\n")};
-    cexp (->
-    ${if_ret is_returning (!-> printf "ret\n")};
-    ${printf "{}_end:\n" fname_l fname_r};
-    cont))
+  return ret l r fname_l fname_r old_context (cont -> cont fname_l fname_r new_context extra_context is_returning cexp)
+)
+
+(print_function: ret func ->
+  $fname_l fname_r new_context extra_context is_returning cexp = {decomp func};
+  ${printf "jmp {}_end\n" fname_l fname_r};
+  ${map_tree_ret extra_context (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
+  ${printf "{}:\n" fname_l fname_r};
+  ${if_ret is_returning (!-> printf "pop rax\n")};
+  ${map_tree_ret new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+  ${if_ret is_returning (!-> printf "push rax\n")};
+  cexp (->
+  ${if_ret is_returning (!-> printf "ret\n")};
+  ${printf "{}_end:\n" fname_l fname_r};
+  return ret 0)
 )
 
 (read_func_operand_list: ret context fname_l fname_r l r -> 
@@ -1152,10 +1156,11 @@ closure_footer:
   $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
   (->
   ${if {ne func 0} (break -> 
-    return_pop lo hi (cont -> func (->
+    return_pop lo hi (cont ->
+      $[print_function func];
       ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
       ${printf "push rax\n"};
-      cont))
+      cont)
   )};
   read_const_string context fname_l fname_r l r (lo hi string ->
   ${if {ne string 0} (break -> 
@@ -1377,7 +1382,8 @@ closure_footer:
 (parse_function_help: lo hi ->
   $nil = {make_nil};
   $l r fl fr context func = {parse_function nil 0 0 lo hi};
-  func (-> main_loop l r)
+  ${print_function func};
+  main_loop l r
 )
 
 (parse_closure_outer: lo hi -> parse_closure lo hi (l r -> main_loop l r)) ; takes (lo hi)
