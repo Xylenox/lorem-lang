@@ -1087,20 +1087,18 @@ closure_footer:
   };
   return ret l r (a b -> b)
 )
-(parse_label: pl pr cont ->
-  $l r fl fr = {read_identifier_ret pl pr};
-  $l r = {read_whitespace_ret l r};
-  $l_char = {deref_byte l};
-  ${if {compare_bool 58 {deref_byte l}} (break ->
-    cont {add_func l 1} r fl fr
+(parse_label: ret pl pr ->
+  $l r t fl fr = {read_token pl pr};
+  ${if {ne t 1} (break -> 
+    $fl fr = {gen_label_ret};
+    return ret pl pr fl fr
+  )};
+  $l r t tl tr = {read_token l r};
+  ${if {matches ":" tl} (break ->
+    return ret l r fl fr
   )};
   $fl fr = {gen_label_ret};
-  cont pl pr fl fr
-)
-
-(read_new_context: old_context l r cont ->
-  $l r new_args = {read_identifier_list l r}; 
-  cont {make_internal old_context new_args} l r
+  return ret pl pr fl fr
 )
 
 (parse_function: ret old_context p_fname_l p_fname_r orig_l r ->
@@ -1108,15 +1106,15 @@ closure_footer:
   $l r t tl tr = {read_token l r};
   ${if {not {matches "(" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
   $l r is_returning = {read_is_returning l r};
-  parse_label l r 
-  (l r fname_l fname_r -> read_new_context old_context l r 
-  (new_context l r ->
-  $l r = {read_whitespace_ret l r};
-  $l = {add_func l 2};
+  $l r fname_l fname_r = {parse_label l r}; 
+  $l r new_args = {read_identifier_list l r}; 
+  $new_context = {make_internal old_context new_args};
+  $l r t tl tr = {read_token l r};
+  ${if {not {matches "->" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
   $l r extra_context cexp = [read_cexp new_context fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ")" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
-  return ret l r fname_l fname_r old_context (print_function: cont ->
+  return ret l r fname_l fname_r old_context (cont ->
     ${printf "jmp {}_end\n" fname_l fname_r};
     ${map_tree_ret extra_context (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
     ${printf "{}:\n" fname_l fname_r};
@@ -1126,7 +1124,7 @@ closure_footer:
     cexp (->
     ${if_ret is_returning (!-> printf "ret\n")};
     ${printf "{}_end:\n" fname_l fname_r};
-    cont))))
+    cont))
 )
 
 (read_func_operand_list: ret context fname_l fname_r l r -> 
@@ -1193,6 +1191,7 @@ closure_footer:
   ${if {matches "}" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches ";" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches ":" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "->" l} (break -> return ret {add_func l 2} r 0 l {add_func l 2})};
   $l r il ir = {read_identifier_ret l r};
   ${if {ne il ir} (break -> return ret l r 1 il ir)};
