@@ -544,6 +544,14 @@ cont) cont)
 (reverse_tree: tree cont -> tree (-> cont {make_nil}) ( l r -> cont {make_leaf l r})
 (a b -> reverse_tree a (new_a -> reverse_tree b (new_b -> cont {make_internal new_b new_a})))
 )
+(reverse_tree_ret: ret tree ->
+  tree (-> return ret {make_nil}) (l r -> return ret {make_leaf l r})
+  (a b ->
+    $a = [reverse_tree_ret a];
+    $b = [reverse_tree_ret b];
+    return ret {make_internal b a}
+  )
+)
 
 (search_tree: tree l r cont -> tree (-> cont (a b -> b)) (a b -> str_equal_func l r a b cont)
 (a b -> search_tree a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree b l r cont))))
@@ -1114,13 +1122,14 @@ closure_footer:
   $l r extra_context cexp = [read_cexp new_context fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ")" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
-  return ret l r fname_l fname_r old_context (cont -> cont fname_l fname_r new_context extra_context is_returning cexp)
+  return ret l r fname_l fname_r old_context (cont -> cont fname_l fname_r new_context is_returning cexp)
 )
 
 (print_function: ret func ->
-  $fname_l fname_r new_context extra_context is_returning cexp = {decomp func};
+  $fname_l fname_r new_context is_returning cexp = {decomp func};
+  $cids = [get_cexp_vars cexp];
   ${printf "jmp {}_end\n" fname_l fname_r};
-  ${map_tree_ret extra_context (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
+  ${map_tree_ret {make_internal new_context cids} (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
   ${printf "{}:\n" fname_l fname_r};
   ${if_ret is_returning (!-> printf "pop rax\n")};
   ${map_tree_ret new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
@@ -1217,14 +1226,13 @@ closure_footer:
     ))};
     ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
     $[print_cexp cexp];
-    reverse_tree context
-    (rev_context ->
-      $[printf "push rax\n"];
-      $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
-      ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-      ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-      cont
-    ))
+    $rev_context = [reverse_tree_ret context];
+    $[printf "push rax\n"];
+    $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
+    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    cont
+    )
 )
 
 (read_block: context fname_l fname_r l r cont ->
@@ -1255,6 +1263,14 @@ closure_footer:
   ${if {compare_bool cexp 0} (break -> return ret 0)};
   $[print_cexp cexp];
   return ret 0
+)
+
+(get_cexp_vars: ret cexp ->
+  $assign cexp = {decomp cexp};
+  $ids = [get_assignment_vars assign];
+  ${if {compare_bool cexp 0} (break -> return ret ids)};
+  $ids2 = [get_cexp_vars cexp];
+  return ret {make_internal ids ids2}
 )
 
 (read_eq_if: ret need l r ->
@@ -1288,12 +1304,17 @@ closure_footer:
   $l r texp = [read_texp context ids fname_l fname_r l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
-  return ret l r context (a b -> b texp)
+  return ret l r context (a b -> b ids texp)
 )
 (print_assignment: ret assign ->
-  assign (appl -> appl (-> return ret 0)) (texp ->
+  assign (appl -> appl (-> return ret 0)) (ids texp ->
     texp (-> return ret 0)
   )
+)
+
+(get_assignment_vars: ret assign ->
+  assign (appl -> return ret {make_nil})
+  (ids texp -> return ret ids)
 )
 
 (read_function_application: ret context fname_l fname_r orig_l r is_returning ->
