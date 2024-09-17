@@ -528,7 +528,10 @@ cont) cont)
 (map_tree_ret_help: ret tree action ->
   tree
     (-> ret {make_nil})
-    (l r -> ret {action l r})
+    (l r ->
+      $res = [action l r];
+      ret res
+    )
     (a b -> map_tree_ret_help (new_a -> map_tree_ret_help (new_b -> ret {make_internal new_a new_b}) b action) a action)
 )
 (map_tree_ret: ret tree action -> callcc ret (ret -> map_tree_ret_help ret tree action))
@@ -560,12 +563,12 @@ cont) cont)
   search_tree tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
 ))
 
-(!merge_context: left right ->
+(!merge_tree: left right ->
   $nright = {map_tree_ret right (!l r -> callcc (ret ->
     ${if {search_tree_ret left l r} (break -> ret {make_nil})};
     ret {make_leaf l r}
   ))};
-  return {make_internal left right}
+  return {make_internal left nright}
 )
 
 reverse_tree_imperative:
@@ -1140,30 +1143,15 @@ closure_footer:
   return ret 0
 )
 
-(read_func_operand_list: ret context fname_l fname_r l r -> 
-  $l r tree = [read_func_operand_list_help context fname_l fname_r l r {make_nil}];
-  return ret l r tree
-)
-(read_func_operand_list_help: ret context fname_l fname_r l r tree ->
-  $l r texp = [read_texp context {make_nil} fname_l fname_r l r];
-  ${if {compare_bool texp 0} (break -> return ret l r tree)};
-  $leaf = {make_leaf texp 0};
-  $tree = {make_internal tree leaf};
-  read_func_operand_list_help ret context fname_l fname_r l r tree
-)
-
 ; returns l r texp
 (read_texp: ret context ids fname_l fname_r l r ->
-  $return_pop = (l r t -> return ret l r (cont ->
-    t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-    cont)
-  ));
+  $raba = (l r t -> return ret l r (x a -> x t));
+  $return_pop = (l r t -> return ret l r (x a -> a ids fname_l fname_r t));
   $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
-  ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r (l r t -> return ret l r t))};
+  ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r (l r t -> raba l r t))};
   ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r return_pop)};
   $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
-  (->
   ${if {ne func 0} (break -> 
     return_pop lo hi (cont ->
       $[print_function func];
@@ -1178,11 +1166,17 @@ closure_footer:
   )};
   read_id_or_closure_or_function_func l r
   (a b l r -> compare a b (-> return ret l r 0) (-> return_pop l r (cont -> print_aexp context fname_l fname_r a b cont)))
-)))
+))
 
-(print_function_app: aexp_list cont -> reverse_tree aexp_list
-  (aexp_list -> map_tree aexp_list (aexp r cont -> aexp (-> cont 0))
-  (aexp_list -> cont)))
+(print_texp: ret texp ->
+  ${if {compare_bool texp 0} (break -> return ret 0)};
+  texp (texp -> texp (-> return ret 0))
+  (ids fname_l fname_r t -> 
+    t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    return ret 0
+    )
+  )
+)
 
 (matches: ret a b -> 
   ${if {compare_bool {deref_byte a} 0} (break -> return ret (a b -> a))};
@@ -1308,13 +1302,26 @@ closure_footer:
 )
 (print_assignment: ret assign ->
   assign (appl -> appl (-> return ret 0)) (ids texp ->
-    texp (-> return ret 0)
+    $[print_texp texp];
+    (-> return ret 0)
   )
 )
 
 (get_assignment_vars: ret assign ->
   assign (appl -> return ret {make_nil})
   (ids texp -> return ret ids)
+)
+
+(read_func_operand_list: ret context fname_l fname_r l r -> 
+  $l r tree = [read_func_operand_list_help context fname_l fname_r l r {make_nil}];
+  return ret l r tree
+)
+(read_func_operand_list_help: ret context fname_l fname_r l r tree ->
+  $l r texp = [read_texp context {make_nil} fname_l fname_r l r];
+  ${if {compare_bool texp 0} (break -> return ret l r tree)};
+  $leaf = {make_leaf texp 0};
+  $tree = {make_internal tree leaf};
+  read_func_operand_list_help ret context fname_l fname_r l r tree
 )
 
 (read_function_application: ret context fname_l fname_r orig_l r is_returning ->
@@ -1330,7 +1337,7 @@ closure_footer:
   )};
   return ret l r context
   (cont2 ->
-    print_function_app op_list (-> 
+    $[map_tree_ret {reverse_tree_ret op_list} (!texp r -> print_texp texp)];
     ${if {ne il ir} (break ->
       ${if {search_tree_ret context il ir} (break2 -> 
         ${printf "push [{}{}]\n" fname_l fname_r il ir};
@@ -1350,7 +1357,6 @@ closure_footer:
       (->
         ${printf "jmp runtime_call\n"};
         cont2)
-    )
   )
 )
 
