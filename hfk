@@ -1174,16 +1174,20 @@ closure_footer:
 
 ; returns l r texp
 (read_texp: ret context ids fname_l fname_r l r ->
-  $return_pop = (l r t -> return ret l r (x a rec_block -> a ids fname_l fname_r t));
+  $return_pop = (l r t -> return ret l r (x a rec_block block -> a ids fname_l fname_r t));
   $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
   ${if {compare_bool lb 91} (break ->
     $l r block = [read_rec_block context ids fname_l fname_r l r];
-    return ret l r (x a rec_block -> rec_block block)
+    return ret l r (x a rec_block bb -> rec_block block)
   )};
   ${if {compare_bool lb 123} (break ->
-    $l r b = [read_block context fname_l fname_r l r];
-    return_pop l r (cont -> $[print_block b]; cont)
+    $l = [add_func l 1];
+    $l r = [read_whitespace_ret l r];
+    $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
+    $l r = {read_whitespace_ret l r};
+    $l = [add_func l 1];
+    return ret l r (x a rec_block block -> block (cont -> cont ids fname_l fname_r cexp))
   )};
   $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
   ${if {ne func 0} (break -> 
@@ -1216,6 +1220,13 @@ closure_footer:
     $[print_rec_block context ids fname_l fname_r cexp];
     return ret 0
   )
+  (block ->
+    $ids fname_l fname_r cexp = {decomp block};
+    $[print_cexp cexp];
+    $[printf "push rax\n"];
+    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    return ret 0
+  )
 )
 
 (read_rec_block: ret context ids fname_l fname_r orig_l r ->
@@ -1239,21 +1250,6 @@ closure_footer:
   $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
   ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
   ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-  return ret 0
-)
-
-(read_block: ret context fname_l fname_r l r ->
-  $l = [add_func l 1];
-  $l r = [read_whitespace_ret l r];
-  $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
-  $l r = {read_whitespace_ret l r};
-  $l = [add_func l 1];
-  return ret l r (cont -> cont cexp)
-)
-(print_block: ret block ->
-  $cexp = {decomp block};
-  $[print_cexp cexp];
-  $[printf "push rax\n"];
   return ret 0
 )
 
