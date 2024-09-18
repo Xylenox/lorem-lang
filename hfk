@@ -1091,6 +1091,35 @@ closure_footer:
   )
 )
 
+
+
+(matches: ret a b -> 
+  ${if {compare_bool {deref_byte a} 0} (break -> return ret (a b -> a))};
+  ${if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
+  matches ret {add_func a 1} {add_func b 1}
+)
+; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
+; returns l r type il ir
+(read_token: ret l r ->
+  $l r = {read_whitespace_ret l r};
+  ${if {compare_bool 34 {deref_byte l}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "!" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "[" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "]" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "(" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches ")" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "{" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "}" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches ";" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches ":" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "->" l} (break -> return ret {add_func l 2} r 0 l {add_func l 2})};
+  $l r il ir = {read_identifier_ret l r};
+  ${if {ne il ir} (break -> return ret l r 1 il ir)};
+  error l
+)
+
 (read_is_returning: ret l r ->
   $nl nr t tl tr = {read_token l r};
   ${if {matches "!" tl} (break ->
@@ -1145,11 +1174,14 @@ closure_footer:
 
 ; returns l r texp
 (read_texp: ret context ids fname_l fname_r l r ->
-  $raba = (l r t -> return ret l r (x a -> x t));
-  $return_pop = (l r t -> return ret l r (x a -> a ids fname_l fname_r t));
+  $raba = (l r t -> return ret l r (x a rec_block -> x t));
+  $return_pop = (l r t -> return ret l r (x a rec_block -> a ids fname_l fname_r t));
   $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
-  ${if {compare_bool lb 91} (break -> read_rec_block context ids fname_l fname_r l r (l r t -> raba l r t))};
+  ${if {compare_bool lb 91} (break ->
+    $l r block = [read_rec_block context ids fname_l fname_r l r];
+    return ret l r (x a rec_block -> rec_block block)
+  )};
   ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r return_pop)};
   $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
   ${if {ne func 0} (break -> 
@@ -1170,63 +1202,42 @@ closure_footer:
 
 (print_texp: ret texp ->
   ${if {compare_bool texp 0} (break -> return ret 0)};
-  texp (texp -> texp (-> return ret 0))
+  texp
+  (aba -> aba (-> return ret 0))
   (ids fname_l fname_r t -> 
     t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
     )
   )
+  (rec_block ->
+    $context ids fname_l fname_r cexp = {decomp rec_block};
+    $[print_rec_block context ids fname_l fname_r cexp];
+    return ret 0
+  )
 )
 
-(matches: ret a b -> 
-  ${if {compare_bool {deref_byte a} 0} (break -> return ret (a b -> a))};
-  ${if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
-  matches ret {add_func a 1} {add_func b 1}
-)
-
-; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
-; returns l r type il ir
-(read_token: ret l r ->
-  $l r = {read_whitespace_ret l r};
-  ${if {compare_bool 34 {deref_byte l}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "!" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "[" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "]" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "(" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches ")" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "{" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "}" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches ";" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches ":" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  ${if {matches "->" l} (break -> return ret {add_func l 2} r 0 l {add_func l 2})};
-  $l r il ir = {read_identifier_ret l r};
-  ${if {ne il ir} (break -> return ret l r 1 il ir)};
-  error l
-)
-
-(read_rec_block: context ids fname_l fname_r orig_l r cont ->
+(read_rec_block: ret context ids fname_l fname_r orig_l r ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {not {matches "[" tl}} (break -> return ret orig_l r 0)};
   $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
   $l r t tl tr = {read_token l r};
   ${if {not {matches "]" tl}} (break -> return ret orig_l r 0)};
-  cont l r (cont -> 
-    $context = {map_tree_ret context (!l r -> callcc (ret ->
-      ${if {search_tree_ret ids l r} (break -> ret {make_nil})};
-      ret {make_leaf l r}
-    ))};
-    ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
-    $[print_cexp cexp];
-    $rev_context = [reverse_tree_ret context];
-    $[printf "push rax\n"];
-    $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
-    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-    ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-    cont
-    )
+  return ret l r (cont -> cont context ids fname_l fname_r cexp)
+)
+(print_rec_block: ret context ids fname_l fname_r cexp ->
+  $context = {map_tree_ret context (!l r -> callcc (ret ->
+    ${if {search_tree_ret ids l r} (break -> ret {make_nil})};
+    ret {make_leaf l r}
+  ))};
+  ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
+  $[print_cexp cexp];
+  $rev_context = [reverse_tree_ret context];
+  $[printf "push rax\n"];
+  $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
+  ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+  ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+  return ret 0
 )
 
 (read_block: context fname_l fname_r l r cont ->
@@ -1239,6 +1250,41 @@ closure_footer:
     (cont -> $[print_cexp cexp];
     $u = [printf "push rax\n"];
      cont))
+)
+
+(read_until: c l r cont ->
+  $lb = {deref_byte l};
+  compare lb c (-> cont l r) (->
+  $l = {add_func l 1};
+  read_until c l r cont
+))
+
+(read_const_string: context fname_l fname_r l r cont ->
+  read_whitespace_func l r (l_start r ->
+  $lb = {deref_byte l_start};
+  ${if {ne lb 34} (break -> cont l r 0)};
+  $l = {add_func l_start 1};
+  read_until 34 l r (l r ->
+  $l_end = {add_func l 1};
+  cont l_end r (!->
+    $il ir = {gen_label_ret};
+    ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
+  )
+)))
+
+(print_aexp: comb_args fname_l fname_r l r cont ->
+  $dig = {deref_byte l};
+  $res = {is_alpha_ret dig};
+  ${if {compare_bool res 1} (break_o ->
+    search_tree comb_args l r (bool ->
+    ${if bool (break ->
+      ${printf "push [{}{}]\n" fname_l fname_r l r};
+      cont
+    )};
+    break_o
+  ))};
+  ${printf "push {}\n" l r};
+  cont
 )
 
 ; returns l r context cexp
@@ -1358,56 +1404,6 @@ closure_footer:
         ${printf "jmp runtime_call\n"};
         cont2)
   )
-)
-
-(read_until: c l r cont ->
-  $lb = {deref_byte l};
-  compare lb c (-> cont l r) (->
-  $l = {add_func l 1};
-  read_until c l r cont
-))
-
-(read_const_string: context fname_l fname_r l r cont ->
-  read_whitespace_func l r (l_start r ->
-  $lb = {deref_byte l_start};
-  ${if {ne lb 34} (break -> cont l r 0)};
-  $l = {add_func l_start 1};
-  read_until 34 l r (l r ->
-  $l_end = {add_func l 1};
-  cont l_end r (!->
-    $il ir = {gen_label_ret};
-    ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
-  )
-)))
-
-(print_aexp: context fname_l fname_r l r cont -> 
-  $lb = {deref_byte l};
-  compare lb 124
-  (-> aexp_closure_help context fname_l fname_r l r cont)
-  (-> not_body_closure_compare context fname_l fname_r l r cont)
-)
-
-(aexp_closure_help: context fname_l fname_r l r cont ->
-  parse_closure l r
-  (l r ->
-    ${printf "push rax\n"};
-    cont
-  )
-)
-
-(not_body_closure_compare: comb_args fname_l fname_r l r cont ->
-  $dig = {deref_byte l};
-  $res = {is_alpha_ret dig};
-  ${if {compare_bool res 1} (break_o ->
-    search_tree comb_args l r (bool ->
-    ${if bool (break ->
-      ${printf "push [{}{}]\n" fname_l fname_r l r};
-      cont
-    )};
-    break_o
-  ))};
-  ${printf "push {}\n" l r};
-  cont
 )
 
 (parse_function_help: lo hi ->
