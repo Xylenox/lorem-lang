@@ -1174,12 +1174,12 @@ closure_footer:
 
 ; returns l r texp
 (read_texp: ret context ids fname_l fname_r l r ->
-  $return_pop = (l r t -> return ret l r (x a rec_block block -> a ids fname_l fname_r t));
+  $return_pop = (l r t -> return ret l r (x a rec_block block func -> a ids fname_l fname_r t));
   $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
   ${if {compare_bool lb 91} (break ->
     $l r block = [read_rec_block context ids fname_l fname_r l r];
-    return ret l r (x a rec_block bb -> rec_block block)
+    return ret l r (x a rec_block bb func -> rec_block block)
   )};
   ${if {compare_bool lb 123} (break ->
     $l = [add_func l 1];
@@ -1187,15 +1187,11 @@ closure_footer:
     $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
     $l r = {read_whitespace_ret l r};
     $l = [add_func l 1];
-    return ret l r (x a rec_block block -> block (cont -> cont ids fname_l fname_r cexp))
+    return ret l r (x a rec_block block func -> block (cont -> cont ids fname_l fname_r cexp))
   )};
   $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
   ${if {ne func 0} (break -> 
-    return_pop lo hi (cont ->
-      $[print_function func];
-      ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
-      ${printf "push rax\n"};
-      cont)
+    return ret lo hi (x a r b ff -> ff (cont -> cont context ids fname_l fname_r fl fr func))
   )};
   read_const_string context fname_l fname_r l r (lo hi string ->
   ${if {ne string 0} (break -> 
@@ -1224,6 +1220,14 @@ closure_footer:
     $ids fname_l fname_r cexp = {decomp block};
     $[print_cexp cexp];
     $[printf "push rax\n"];
+    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    return ret 0
+  )
+  (func ->
+    $context ids fname_l fname_r fl fr func = {decomp func}; 
+    $[print_function func];
+    ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
+    ${printf "push rax\n"};
     ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
   )
