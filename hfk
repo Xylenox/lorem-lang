@@ -1174,7 +1174,6 @@ closure_footer:
 
 ; returns l r texp
 (read_texp: ret context ids fname_l fname_r l r ->
-  $raba = (l r t -> return ret l r (x a rec_block -> x t));
   $return_pop = (l r t -> return ret l r (x a rec_block -> a ids fname_l fname_r t));
   $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
@@ -1182,7 +1181,10 @@ closure_footer:
     $l r block = [read_rec_block context ids fname_l fname_r l r];
     return ret l r (x a rec_block -> rec_block block)
   )};
-  ${if {compare_bool lb 123} (break -> read_block context fname_l fname_r l r return_pop)};
+  ${if {compare_bool lb 123} (break ->
+    $l r b = [read_block context fname_l fname_r l r];
+    return_pop l r (cont -> $[print_block b]; cont)
+  )};
   $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
   ${if {ne func 0} (break -> 
     return_pop lo hi (cont ->
@@ -1240,16 +1242,19 @@ closure_footer:
   return ret 0
 )
 
-(read_block: context fname_l fname_r l r cont ->
+(read_block: ret context fname_l fname_r l r ->
   $l = [add_func l 1];
   $l r = [read_whitespace_ret l r];
   $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
-  read_whitespace_func l r
-  (l r -> $l = [add_func l 1];
-  cont l r
-    (cont -> $[print_cexp cexp];
-    $u = [printf "push rax\n"];
-     cont))
+  $l r = {read_whitespace_ret l r};
+  $l = [add_func l 1];
+  return ret l r (cont -> cont cexp)
+)
+(print_block: ret block ->
+  $cexp = {decomp block};
+  $[print_cexp cexp];
+  $[printf "push rax\n"];
+  return ret 0
 )
 
 (read_until: c l r cont ->
