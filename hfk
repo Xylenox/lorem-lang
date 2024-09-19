@@ -1178,8 +1178,12 @@ closure_footer:
   $l r = {read_whitespace_ret l r};
   $lb = {deref_byte l};
   ${if {compare_bool lb 91} (break ->
-    $l r block = [read_rec_block context ids fname_l fname_r l r];
-    return ret l r (x a rec_block bb func -> rec_block block)
+    $l r t tl tr = {read_token l r};
+    ${if {not {matches "[" tl}} (break -> return ret orig_l r 0)};
+    $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
+    $l r t tl tr = {read_token l r};
+    ${if {not {matches "]" tl}} (break -> return ret orig_l r 0)};
+    return ret l r (x a rec_block bb func -> rec_block (cont -> cont context ids fname_l fname_r cexp))
   )};
   ${if {compare_bool lb 123} (break ->
     $l = [add_func l 1];
@@ -1213,7 +1217,16 @@ closure_footer:
   )
   (rec_block ->
     $context ids fname_l fname_r cexp = {decomp rec_block};
-    $[print_rec_block context ids fname_l fname_r cexp];
+    $context = {map_tree_ret context (!l r -> callcc (ret ->
+      ${if {search_tree_ret ids l r} (break -> ret {make_nil})};
+      ret {make_leaf l r}
+    ))};
+    ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
+    $[print_cexp cexp];
+    $rev_context = [reverse_tree_ret context];
+    $[printf "push rax\n"];
+    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
   )
   (block ->
@@ -1231,30 +1244,6 @@ closure_footer:
     ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
   )
-)
-
-(read_rec_block: ret context ids fname_l fname_r orig_l r ->
-  $l = orig_l;
-  $l r t tl tr = {read_token l r};
-  ${if {not {matches "[" tl}} (break -> return ret orig_l r 0)};
-  $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
-  $l r t tl tr = {read_token l r};
-  ${if {not {matches "]" tl}} (break -> return ret orig_l r 0)};
-  return ret l r (cont -> cont context ids fname_l fname_r cexp)
-)
-(print_rec_block: ret context ids fname_l fname_r cexp ->
-  $context = {map_tree_ret context (!l r -> callcc (ret ->
-    ${if {search_tree_ret ids l r} (break -> ret {make_nil})};
-    ret {make_leaf l r}
-  ))};
-  ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
-  $[print_cexp cexp];
-  $rev_context = [reverse_tree_ret context];
-  $[printf "push rax\n"];
-  $[if_ret {compare_bool {tree_size ids} 0} (!-> printf "add rsp, 8\n")];
-  ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-  ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-  return ret 0
 )
 
 (read_until: c l r cont ->
