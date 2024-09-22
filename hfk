@@ -131,19 +131,11 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (!compare_bool: a b ->
   callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))
 )
-constant_strings:
-push_string:
-dq "push "
-jmp_string:
-dq "jmp "
 newline_string:
 dq 10
 
-inpf: dq 0
 outf: dq 0
 flen: dq 0
-iter: dq 0
-ofar: dq 0  ; offset array
 
 exit:
   mov r0, 60
@@ -259,7 +251,7 @@ malloc:
   pop rcx
   ret
 
-malloc_f:
+malloc_func:
   pop rcx
   pop rdi
   push rcx
@@ -274,6 +266,11 @@ malloc_f:
 (!make_nil: -> return (cont_nil cont_leaf cont_internal -> cont_nil))
 (!make_leaf: l r -> return (cont_nil cont_leaf cont_internal -> cont_leaf l r))
 (!make_internal: a b -> return (cont_nil cont_leaf cont_internal -> cont_internal a b))
+
+(if_nil: ret v cont ->
+  $break = (-> return ret 0);
+  v (-> cont break) break break
+)
 
 make_leaf_imperative:
   push rsi
@@ -346,7 +343,7 @@ scmp:
 
 cur_label:
   dq 1
-gen_label:
+gen_label_ret:
   |cur_label|
   mov rdx, rax
   mov rcx, [cur_label]
@@ -362,17 +359,9 @@ gen_label:
   shr rcx, 3
   cmp rcx, 0
   jne gen_label_loop
-  ret
-
-gen_label_func: ;  -> (cont l r)
-  call gen_label
   pop rcx
   push rdx
-  push rax
-  push rcx
-  jmp runtime_call
-
-(gen_label_ret: ret -> gen_label_func (l r -> return ret l r))
+  jmp rcx
 
 str_equal_func: ; (a b l r cont)
   pop rdi
@@ -396,9 +385,6 @@ str_equal_func: ; (a b l r cont)
   push rcx
   jmp runtime_call
   
-id_func:
-  jmp runtime_call
-
 print_range: ; FOLLOWS SYSTEM V ABI
   ; prints [rdi, rsi) to outf
   mov rdx, rsi        ; length of print
@@ -434,50 +420,6 @@ print_char:
   call print_char_help
   ret
 
-print_range_line_func:
-  ; takes l r cont and prints l r then calls cont
-  pop rdi
-  pop rsi
-  call print_range_line
-  jmp runtime_call
-
-
-print_string_func:
-  ; takes l len cont and prints l r then calls cont
-  pop rdi
-  pop rsi
-  add rsi, rdi
-  call print_range
-  jmp runtime_call
-
-print_substring_func:
-  ; takes l a b cont and prints (l+a, l+b) then calls cont
-  pop rax
-  pop rdi
-  pop rsi
-  add rdi, rax
-  add rsi, rax
-  call print_range
-  jmp runtime_call
-
-print_substring_line_func:
-  ; takes l a b cont and prints (l+a, l+b) then calls cont
-  pop rax
-  pop rdi
-  pop rsi
-  add rdi, rax
-  add rsi, rax
-  call print_range_line
-  jmp runtime_call
-
-print_string_line_func:
-  ; takes l len cont and prints l r then calls cont
-  pop rdi
-  pop rsi
-  add rsi, rdi
-  call print_range_line
-  jmp runtime_call
-
 (print_num_help: v cont ->
   ${if {compare_bool v 0} (break -> cont)};
   print_num_help {div_func v 10} (->
@@ -487,54 +429,43 @@ print_string_line_func:
 )
 (print_num: ret v -> callcc ret (ret -> print_num_help v (-> ret 0)))
 
-(printf_help: cont l ->
+(printf: ret l ->
   $lb = {deref_byte l};
   ${if {compare_bool lb 0} (break ->
-    cont
+    return ret 0
   )};
   ${if {compare_bool lb 123} (break a b ->
     ${print_range_ret a b};
-    printf_help cont {add_func l 2}
+    printf ret {add_func l 2}
   )};
   ${print_char {deref_byte l}};
-  printf_help cont {add_func l 1}
-)
-(printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
-
-(tree_size_help: tree cont ->
-tree
-  (-> cont 0)
-  (l r ->
-    cont 1
-  )
-  (a b -> tree_size_help a (count_a -> (-> tree_size_help b (count_b -> cont {add_func count_a count_b}))))
+  printf ret {add_func l 1}
 )
 
-(!tree_size: tree -> callcc (ret -> tree_size_help tree ret))
-(print_tree: tree cont -> traverse_tree tree
-(l r cont -> ${print_range_ret l r};
-cont) cont)
-
-(traverse_tree: tree action cont -> tree cont (l r -> action l r cont) 
-(traverse_internal: a b -> traverse_tree a action (-> traverse_tree b action cont)))
-
-; calls cont with new_tree
-(map_tree: tree action cont -> tree
-  (-> $nil = {make_nil};
-      cont nil)
-  (l r -> action l r cont) 
-(map_internal: a b -> map_tree a action (new_a -> map_tree b action (new_b -> cont {make_internal new_a new_b}))))
-
-(map_tree_ret_help: ret tree action ->
+(tree_size: ret tree -> 
   tree
-    (-> ret {make_nil})
-    (l r ->
-      $res = [action l r];
-      ret res
-    )
-    (a b -> map_tree_ret_help (new_a -> map_tree_ret_help (new_b -> ret {make_internal new_a new_b}) b action) a action)
+  (-> return ret 0)
+  (l r -> return ret 1)
+  (a b -> 
+    $a = [tree_size a];
+    $b = [tree_size b];
+    return ret {add_func a b}
+  )
 )
-(map_tree_ret: ret tree action -> callcc ret (ret -> map_tree_ret_help ret tree action))
+
+(map_tree: ret tree action -> 
+  tree
+  (-> return ret {make_nil})
+  (l r ->
+    $res = [action l r];
+    return ret res
+  )
+  (a b -> 
+    $a = [map_tree a action];
+    $b = [map_tree b action];
+    return ret {make_internal a b}
+  )
+)
 
 (map_tree_iota_help: ret n tree action ->
   tree
@@ -544,14 +475,11 @@ cont) cont)
 )
 (map_tree_iota: ret tree action -> callcc ret (ret -> map_tree_iota_help (n t -> ret t) 0 tree action))
 
-(reverse_tree: tree cont -> tree (-> cont {make_nil}) ( l r -> cont {make_leaf l r})
-(a b -> reverse_tree a (new_a -> reverse_tree b (new_b -> cont {make_internal new_b new_a})))
-)
-(reverse_tree_ret: ret tree ->
+(reverse_tree: ret tree ->
   tree (-> return ret {make_nil}) (l r -> return ret {make_leaf l r})
   (a b ->
-    $a = [reverse_tree_ret a];
-    $b = [reverse_tree_ret b];
+    $a = [reverse_tree a];
+    $b = [reverse_tree b];
     return ret {make_internal b a}
   )
 )
@@ -564,42 +492,12 @@ cont) cont)
 ))
 
 (!merge_tree: left right ->
-  $nright = {map_tree_ret right (!l r -> callcc (ret ->
+  $nright = {map_tree right (!l r -> callcc (ret ->
     ${if {search_tree_ret left l r} (break -> ret {make_nil})};
     ret {make_leaf l r}
   ))};
   return {make_internal left nright}
 )
-
-reverse_tree_imperative:
-  sub rsp, 16
-  mov [rsp], rdi
-  |reverse_tree_lambda|
-  mov [rsp+8], rax
-  jmp reverse_tree
-  reverse_tree_lambda:
-    pop rax
-    ret
-
-map_tree_imperative:
-  sub rsp, 24
-  mov [rsp], rdi
-  mov [rsp+8], rsi
-  |map_tree_imperative_lambda|
-  mov [rsp+16], rax
-  jmp map_tree
-  map_tree_imperative_lambda:
-    pop rax
-    ret
-
-print_tree_imperative:
-  sub rsp, 16
-  mov [rsp], rdi
-  |print_tree_imperative_done|
-  mov [rsp+8], rax
-  jmp print_tree
-  print_tree_imperative_done:
-  ret
 
 print_range_pair:
   push rdi
@@ -968,18 +866,16 @@ closure_map_arg:
   lea rdi, [mov_string]
   lea rsi, [mov_string+9]
   call print_range
+  pop rax
   pop rdi
   pop rsi
+  push rax
   call print_range_line
   lea rdi, [suff_strings]
   lea rsi, [suff_strings+26]
   call print_range
 
-  pop rax
-  push 0
-  push rax
-  jmp runtime_call
-
+  ret
 
 closure_header:
   dq "mov rdi,"
@@ -1015,18 +911,16 @@ print_closure:
   call print_ranges
   lea rdi, [closure_header+16]
   lea rsi, [closure_header+27]
-  call make_leaf_imperative
-  mov rdi, rax
-  call print_tree_imperative
-  call println
+  call print_range_line
   lea rdi, [closure_header+32]
   lea rsi, [closure_header+48]
   call print_range_line
 
   |closure_map_arg|
-  mov rsi, rax
   pop rdi
-  call map_tree_imperative
+  push rax
+  push rdi
+  call map_tree
 
   
   lea rdi, [closure_footer]
@@ -1154,17 +1048,21 @@ closure_footer:
   $l r extra_context cexp = [read_cexp new_context fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ")" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
-  return ret l r fname_l fname_r old_context (cont -> cont fname_l fname_r new_context is_returning cexp)
+  return ret l r fname_l fname_r old_context (cont -> cont fname_l fname_r new_args is_returning cexp)
 )
-
-(print_function: ret func ->
-  $fname_l fname_r new_context is_returning cexp = {decomp func};
+(get_func_free_vars: ret old_context func ->
+  return ret old_context
+)
+(print_function: ret old_context func ->
+  $fname_l fname_r func_args is_returning cexp = {decomp func};
+  $old_context = {get_func_free_vars old_context func};
+  $new_context = {make_internal old_context func_args};
   $cids = [get_cexp_vars cexp];
   ${printf "jmp {}_end\n" fname_l fname_r};
-  ${map_tree_ret {make_internal new_context cids} (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
+  ${map_tree {make_internal new_context cids} (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
   ${printf "{}:\n" fname_l fname_r};
   ${if_ret is_returning (!-> printf "pop rax\n")};
-  ${map_tree_ret new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+  ${map_tree new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
   ${if_ret is_returning (!-> printf "push rax\n")};
   $[print_cexp cexp];
   ${if_ret is_returning (!-> printf "ret\n")};
@@ -1211,37 +1109,37 @@ closure_footer:
   texp
   (aba -> aba (-> return ret 0))
   (ids fname_l fname_r t -> 
-    t (-> ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    t (-> ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
     )
   )
   (rec_block ->
     $context ids fname_l fname_r cexp = {decomp rec_block};
-    $context = {map_tree_ret context (!l r -> callcc (ret ->
+    $context = {map_tree context (!l r -> callcc (ret ->
       ${if {search_tree_ret ids l r} (break -> ret {make_nil})};
       ret {make_leaf l r}
     ))};
-    ${map_tree_ret context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
     $[print_cexp cexp];
-    $rev_context = [reverse_tree_ret context];
+    $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
-    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-    ${map_tree_ret rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
   )
   (block ->
     $ids fname_l fname_r cexp = {decomp block};
     $[print_cexp cexp];
     $[printf "push rax\n"];
-    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
   )
   (func ->
     $context ids fname_l fname_r fl fr func = {decomp func}; 
-    $[print_function func];
+    $[print_function context func];
     ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
     ${printf "push rax\n"};
-    ${map_tree_ret ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
     return ret 0
   )
 )
@@ -1377,7 +1275,7 @@ closure_footer:
   )};
   return ret l r context
   (cont2 ->
-    $[map_tree_ret {reverse_tree_ret op_list} (!texp r -> print_texp texp)];
+    $[map_tree {reverse_tree op_list} (!texp r -> print_texp texp)];
     ${if {ne il ir} (break ->
       ${if {search_tree_ret context il ir} (break2 -> 
         ${printf "push [{}{}]\n" fname_l fname_r il ir};
@@ -1403,7 +1301,7 @@ closure_footer:
 (parse_function_help: lo hi ->
   $nil = {make_nil};
   $l r fl fr context func = {parse_function nil 0 0 lo hi};
-  ${print_function func};
+  ${print_function nil func};
   main_loop l r
 )
 
@@ -1490,7 +1388,6 @@ mov r14, r0             ; save instruction location array end
 mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
-mov [iter], 2
 push r14
 push r8
 
