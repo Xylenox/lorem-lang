@@ -131,8 +131,6 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 (!compare_bool: a b ->
   callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))
 )
-newline_string:
-dq 10
 
 outf: dq 0
 flen: dq 0
@@ -344,7 +342,8 @@ scmp:
 cur_label:
   dq 1
 gen_label_ret:
-  |cur_label|
+  mov rdi, 8
+  call malloc
   mov rdx, rax
   mov rcx, [cur_label]
   add [cur_label], 1
@@ -522,25 +521,6 @@ make_pair_imperative:
     pop rax
     ret
 
-print_ranges_function:
-
-print_ranges:
-  cmp rdi, 0
-  jne print_ranges_continue
-  ret
-  print_ranges_continue:
-  push rdi
-  |print_ranges_lambda|
-  pop rdi
-  push rax
-  push rdi
-  jmp runtime_call
-  print_ranges_lambda:
-    pop rdi
-    call print_range_pair
-    pop rdi
-    jmp print_ranges
-
 print_range_line:
   call print_range
   call println
@@ -600,72 +580,64 @@ peek_character:
   peek_character_ret:
   ret
 
-read_whitespace:
-  cmp r8, [flen]
-  je done_whitespace
-  cmpb [r8], " "
-  je not_done_whitespace
-  cmpb [r8], 10
-  je not_done_whitespace
-  done_whitespace:
-  ret
-  not_done_whitespace:
-  add r8, 1
-  jmp read_whitespace
-
-read_whitespace_func: ; (r8 flen cont)
-  pop r8
-  pop [flen]
-  call read_whitespace
-  pop rax
+read_whitespace_imp:
   push [flen]
   push r8
-  push rax
-  jmp runtime_call
+  call read_whitespace
+  mov r8, rax
+  pop [flen]
+  ret
 
-(read_whitespace_ret: ret l r ->
-  read_whitespace_func l r (l r -> return ret l r)
+(read_whitespace: ret l r ->
+  $lb = {deref_byte l};
+  ${if {compare_bool l r} (break -> return ret l r)};
+  ${if {or {compare_bool lb 10} {compare_bool lb 32}} (break -> read_whitespace ret {add_func l 1} r)};
+  return ret l r
 )
 
 read_identifier: ; read identifier and return start and end pointers
-  ; call read_whitespace
+  ; call read_whitespace_imp
+  push [flen]
   push r8
-  iloo:
+  call read_identifier_ret
+  mov r8, rax
+  pop [flen]
+  pop rax
+  pop rdx
+  ret
+
+read_identifier_ret:
+  pop rcx
+  pop r8
+  pop [flen]
+  push rcx
+; call read_whitespace_imp
+  push r8
+  irloo:
   sub rcx, rcx
   movb cl, [r8]
   mov rdi, rcx
   call is_alpha
   cmp rax, 1
-  je identifier_loop_continue
+  je identifier_ret_loop_continue
   call is_digit
   cmp rax, 1
-  je identifier_loop_continue
+  je identifier_ret_loop_continue
   cmp rcx, "_"
-  je identifier_loop_continue
-  jmp idon
-  identifier_loop_continue:
+  je identifier_ret_loop_continue
+  jmp irdon
+  identifier_ret_loop_continue:
   add r8, 1
-  jmp iloo
-  idon:
+  jmp irloo
+  irdon:
   pop rax
   mov rdx, r8
-  ret
-
-read_identifier_func: ; (r8 flen cont ->  r8 flen l r)
-  pop r8
-  pop [flen]
-  call read_identifier
   pop rcx
   push rdx
   push rax
   push [flen]
-  push r8
-  push rcx
-  jmp runtime_call
-
-(read_identifier_ret: ret l r ->
-  read_identifier_func l r (l r il ir -> return ret l r il ir)
-)
+  mov rax, r8
+  jmp rcx
 
 read_identifier_list_help:
   pop r8
@@ -674,7 +646,7 @@ read_identifier_list_help:
   push rax
 
   id_list_loop:
-  call read_whitespace
+  call read_whitespace_imp
   call read_identifier
   cmp rax, rdx
   je id_list_done
@@ -737,7 +709,7 @@ read_operand_list:
   push rax
 
   op_list_loop:
-  call read_whitespace
+  call read_whitespace_imp
   call read_operand
   cmp rax, rdx
   je op_list_done
@@ -761,19 +733,6 @@ read_operand_list:
   push rax
   push rdi
   jmp runtime_call
-
-read_operand_list_imperative:
-  sub rsp, 24
-  mov [rsp], rdi
-  mov [rsp+8], rsi
-  |read_operand_list_imperative_lambda|
-  mov [rsp+16], rax
-  jmp read_operand_list
-  read_operand_list_imperative_lambda:
-    pop rax
-    pop r8
-    pop [flen]
-    ret
 
 read_operand:
   cmpb [r8], "\["
@@ -844,7 +803,7 @@ read_id_or_closure_or_function_func: ; (l r -> a b l r)
   pop r8
   pop [flen]
 
-  call read_whitespace
+  call read_whitespace_imp
 
   call read_id_or_closure_or_function
   pop rcx
@@ -894,21 +853,9 @@ print_closure_help:
   jmp print_closure
 print_closure:
   push rdi
-  lea rdi, [newline_string]
-  lea rsi, [newline_string+1]
-  call make_pair_imperative
-  mov rdi, rax
-  mov rsi, 0
-  call make_pair_imperative
-  push rax
   lea rdi, [closure_header]
   lea rsi, [closure_header+12]
-  call make_pair_imperative
-  mov rdi, rax
-  pop rsi
-  call make_pair_imperative
-  mov rdi, rax
-  call print_ranges
+  call print_range_line
   lea rdi, [closure_header+16]
   lea rsi, [closure_header+27]
   call print_range_line
@@ -995,7 +942,7 @@ closure_footer:
 ; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r type il ir
 (read_token: ret l r ->
-  $l r = {read_whitespace_ret l r};
+  $l r = {read_whitespace l r};
   ${if {compare_bool 34 {deref_byte l}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "!" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
@@ -1073,7 +1020,7 @@ closure_footer:
 ; returns l r texp
 (read_texp: ret context ids fname_l fname_r l r ->
   $return_pop = (l r t -> return ret l r (x a rec_block block func -> a ids fname_l fname_r t));
-  $l r = {read_whitespace_ret l r};
+  $l r = {read_whitespace l r};
   $lb = {deref_byte l};
   ${if {compare_bool lb 91} (break ->
     $l r t tl tr = {read_token l r};
@@ -1085,9 +1032,9 @@ closure_footer:
   )};
   ${if {compare_bool lb 123} (break ->
     $l = [add_func l 1];
-    $l r = [read_whitespace_ret l r];
+    $l r = [read_whitespace l r];
     $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
-    $l r = {read_whitespace_ret l r};
+    $l r = {read_whitespace l r};
     $l = [add_func l 1];
     return ret l r (x a rec_block block func -> block (cont -> cont ids fname_l fname_r cexp))
   )};
@@ -1152,7 +1099,7 @@ closure_footer:
 ))
 
 (read_const_string: context fname_l fname_r l r cont ->
-  read_whitespace_func l r (l_start r ->
+  $l_start r = {read_whitespace l r};
   $lb = {deref_byte l_start};
   ${if {ne lb 34} (break -> cont l r 0)};
   $l = {add_func l_start 1};
@@ -1162,7 +1109,7 @@ closure_footer:
     $il ir = {gen_label_ret};
     ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
   )
-)))
+))
 
 (print_aexp: comb_args fname_l fname_r l r cont ->
   $dig = {deref_byte l};
@@ -1232,7 +1179,7 @@ closure_footer:
   $context = {make_internal context ids};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {compare_bool 0 l} (break -> return ret orig_l r context 0)};
-  $l r = {read_whitespace_ret l r};
+  $l r = {read_whitespace l r};
   $l r texp = [read_texp context ids fname_l fname_r l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
@@ -1264,7 +1211,7 @@ closure_footer:
 
 (read_function_application: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
-  $l r = {read_whitespace_ret l r};
+  $l r = {read_whitespace l r};
   $l r il ir = {read_identifier_ret l r};
   $l r op_list = [read_func_operand_list context fname_l fname_r l r];
   ${if {compare_bool il ir} (break ->
