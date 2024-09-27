@@ -124,12 +124,17 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
 )
 
 (!ne: a b -> 
-  callcc (ret -> compare a b (-> ret (x y -> y)) (-> ret (x y -> x)))
+  $res = [callcc (ret -> compare a b (-> ret (x y -> y)) (-> ret (x y -> x)))];
+  ! res
 )
-(!not: x -> callcc (ret -> x (-> ret (a b -> b)) (-> ret (a b -> a))))
+(!not: x ->
+  $res = [callcc (ret -> x (-> ret (a b -> b)) (-> ret (a b -> a)))];
+  ! res
+)
 
 (!compare_bool: a b ->
-  callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))
+  $res = [callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))];
+  ! res
 )
 
 outf: dq 0
@@ -262,13 +267,8 @@ malloc_func:
 (make_pair: cont a b -> cont (cont -> cont a b))
 
 (!make_nil: -> ! (cont_nil cont_leaf cont_internal -> cont_nil))
-(!make_leaf: l r -> return (cont_nil cont_leaf cont_internal -> cont_leaf l r))
-(!make_internal: a b -> return (cont_nil cont_leaf cont_internal -> cont_internal a b))
-
-(!if_nil: v cont ->
-  $break = (-> ! 0);
-  v (-> cont break) break break
-)
+(!make_leaf: l r -> ! (cont_nil cont_leaf cont_internal -> cont_leaf l r))
+(!make_internal: a b -> ! (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
 make_leaf_imperative:
   push rsi
@@ -486,9 +486,12 @@ print_char:
 (search_tree: tree l r cont -> tree (-> cont (a b -> b)) (a b -> str_equal_func l r a b cont)
 (a b -> search_tree a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree b l r cont))))
 
-(!search_tree_ret: tree l r -> callcc (ret ->
-  search_tree tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
-))
+(!search_tree_ret: tree l r ->
+  $res = [callcc (ret ->
+    search_tree tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
+  )];
+  ! res
+)
 
 print_range_pair:
   push rdi
@@ -550,7 +553,10 @@ is_alpha_func:
   push rcx
   jmp runtime_call
 
-(!is_alpha_ret: c -> callcc (ret -> is_alpha_func c ret))
+(!is_alpha_ret: c ->
+  $res = [callcc (ret -> is_alpha_func c ret)];
+  ! res  
+)
 
 is_digit:           ; is alpha
   cmp r7, "0"
@@ -580,11 +586,14 @@ read_whitespace_imp:
   pop [flen]
   ret
 
-(read_whitespace: ret l r ->
+(!read_whitespace: l r ->
   $lb = {deref_byte l};
-  ${if {compare_bool l r} (break -> return ret l r)};
-  ${if {or {compare_bool lb 10} {compare_bool lb 32}} (break -> read_whitespace ret {add_func l 1} r)};
-  return ret l r
+  ${if {compare_bool l r} (break -> ! l r)};
+  ${if {or {compare_bool lb 10} {compare_bool lb 32}} (break -> 
+    $l r = [read_whitespace {add_func l 1} r];
+    ! l r
+  )};
+  ! l r
 )
 
 read_identifier: ; read identifier and return start and end pointers
@@ -880,7 +889,7 @@ print_closure:
   ret
 
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
-  return (!n l r -> 
+  ! (!n l r -> 
     ${if_else_ret {compare_bool l fname_l} (!->
       ${printf "mov [rax+"};
       ${print_num {mul_func 8 {add_func 1 n}}};
@@ -998,13 +1007,13 @@ closure_footer:
   $new_context = {make_internal old_context func_args};
   $cids = [get_cexp_vars cexp];
   ${printf "jmp {}_end\n" fname_l fname_r};
-  ${map_tree {make_internal new_context cids} (!l r -> printf "{}{}: dq 0\n" fname_l fname_r l r)};
+  ${map_tree {make_internal new_context cids} (!l r -> ${printf "{}{}: dq 0\n" fname_l fname_r l r};)};
   ${printf "{}:\n" fname_l fname_r};
-  ${if_ret is_returning (!-> printf "pop rax\n")};
-  ${map_tree new_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-  ${if_ret is_returning (!-> printf "push rax\n")};
+  ${if_ret is_returning (!-> ${printf "pop rax\n"};)};
+  ${map_tree new_context (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+  ${if_ret is_returning (!-> ${printf "push rax\n"};)};
   $[print_cexp cexp];
-  ${if_ret is_returning (!-> printf "ret\n")};
+  ${if_ret is_returning (!-> ${printf "ret\n"};)};
   ${printf "{}_end:\n" fname_l fname_r};
   return ret 0
 )
@@ -1048,29 +1057,29 @@ closure_footer:
   texp
   (aba -> aba (-> return ret 0))
   (ids fname_l fname_r t -> 
-    t (-> ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    t (-> ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
     )
   )
   (rec_block ->
     $context ids fname_l fname_r cexp = {decomp rec_block};
-    $context = {map_tree context (!l r -> callcc (ret ->
-      ${if {search_tree_ret ids l r} (break -> ret {make_nil})};
-      ret {make_leaf l r}
-    ))};
-    ${map_tree context (!l r -> printf "push [{}{}]\n" fname_l fname_r l r)};
+    $context = {map_tree context (!l r ->
+      ${if {search_tree_ret ids l r} (break -> ! {make_nil})};
+      ! {make_leaf l r}
+    )};
+    ${map_tree context (!l r -> ${printf "push [{}{}]\n" fname_l fname_r l r};)};
     $[print_cexp cexp];
     $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
-    ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
-    ${map_tree rev_context (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+    ${map_tree rev_context (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
   )
   (block ->
     $ids fname_l fname_r cexp = {decomp block};
     $[print_cexp cexp];
     $[printf "push rax\n"];
-    ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
   )
   (func ->
@@ -1078,7 +1087,7 @@ closure_footer:
     $[print_function context func];
     ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
     ${printf "push rax\n"};
-    ${map_tree ids (!l r -> printf "pop [{}{}]\n" fname_l fname_r l r)};
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
   )
 )
@@ -1169,9 +1178,9 @@ closure_footer:
   $is_empty_ids = {compare_bool {tree_size ids} 0};
   $ids = {if_else_ret is_empty_ids (!-> 
     $il ir = {gen_label_ret};
-    return {make_leaf il ir}
+    ! {make_leaf il ir}
   )
-  (!-> return ids)};
+  (!-> ! ids)};
   $context = {make_internal context ids};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {compare_bool 0 l} (break -> return ret orig_l r context 0)};
@@ -1227,7 +1236,7 @@ closure_footer:
   )};
   return ret l r context
   (cont2 ->
-    $[map_tree {reverse_tree op_list} (!texp r -> print_texp texp)];
+    $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp texp};)];
     ${if {ne il ir} (break ->
       ${if {search_tree_ret context il ir} (break2 -> 
         ${printf "push [{}{}]\n" fname_l fname_r il ir};
