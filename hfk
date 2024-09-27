@@ -491,11 +491,11 @@ print_char:
 ))
 
 (!merge_tree: left right ->
-  $nright = {map_tree right (!l r -> callcc (ret ->
-    ${if {search_tree_ret left l r} (break -> ret {make_nil})};
-    ret {make_leaf l r}
-  ))};
-  return {make_internal left nright}
+  $nright = {map_tree right (!l r ->
+    ${if {search_tree_ret left l r} (break -> !{make_nil})};
+    !{make_leaf l r}
+  )};
+  !{make_internal left nright}
 )
 
 print_range_pair:
@@ -1129,7 +1129,6 @@ closure_footer:
 ; returns l r context cexp
 (read_cexp: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
-  $pl r t tl tr = {read_token l r};
   $l r context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
   ${if {compare_bool assign 0} (break -> return ret l r context 0)};
   $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
@@ -1143,6 +1142,7 @@ closure_footer:
   $[print_cexp cexp];
   return ret 0
 )
+
 
 (get_cexp_vars: ret cexp ->
   $assign cexp = {decomp cexp};
@@ -1164,10 +1164,14 @@ closure_footer:
 (read_assignment: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
+  ${if {matches "!" tl} (break ->
+    $l r texps = {read_func_operand_list context fname_l fname_r l r};
+    return ret l r context (a b c -> c texps)
+  )};
   ${if {not {matches "$" tl}} (break -> 
     $l r ct cexp = [read_function_application context fname_l fname_r orig_l r is_returning];
     ${if {compare_bool cexp 0} (break -> return ret l r context 0)};
-    return ret l r ct (a b -> a cexp)
+    return ret l r ct (a b c -> a cexp)
   )};
   $l r ids = {read_identifier_list l r};
   $is_empty_ids = {compare_bool {tree_size ids} 0};
@@ -1183,18 +1187,27 @@ closure_footer:
   $l r texp = [read_texp context ids fname_l fname_r l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
-  return ret l r context (a b -> b ids texp)
+  return ret l r context (a b c -> b ids texp)
 )
 (print_assignment: ret assign ->
   assign (appl -> appl (-> return ret 0)) (ids texp ->
     $[print_texp texp];
     (-> return ret 0)
   )
+  (texps ->
+    ${map_tree {reverse_tree texps} (!texp r ->
+      ${print_texp texp};
+      ${printf "pop rax\npop rcx\npush rcx\npush rax\n"};
+    )};
+    ${printf "pop rcx\npop rax\njmp rcx\n"};
+    return ret 0
+  )
 )
 
 (get_assignment_vars: ret assign ->
   assign (appl -> return ret {make_nil})
   (ids texp -> return ret ids)
+  (texps -> return ret {make_nil})
 )
 
 (read_func_operand_list: ret context fname_l fname_r l r -> 
