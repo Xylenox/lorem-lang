@@ -261,12 +261,12 @@ malloc_func:
 
 (make_pair: cont a b -> cont (cont -> cont a b))
 
-(!make_nil: -> return (cont_nil cont_leaf cont_internal -> cont_nil))
+(!make_nil: -> ! (cont_nil cont_leaf cont_internal -> cont_nil))
 (!make_leaf: l r -> return (cont_nil cont_leaf cont_internal -> cont_leaf l r))
 (!make_internal: a b -> return (cont_nil cont_leaf cont_internal -> cont_internal a b))
 
-(if_nil: ret v cont ->
-  $break = (-> return ret 0);
+(!if_nil: v cont ->
+  $break = (-> ! 0);
   v (-> cont break) break break
 )
 
@@ -489,14 +489,6 @@ print_char:
 (!search_tree_ret: tree l r -> callcc (ret ->
   search_tree tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
 ))
-
-(!merge_tree: left right ->
-  $nright = {map_tree right (!l r ->
-    ${if {search_tree_ret left l r} (break -> !{make_nil})};
-    !{make_leaf l r}
-  )};
-  !{make_internal left nright}
-)
 
 print_range_pair:
   push rdi
@@ -1196,8 +1188,8 @@ closure_footer:
   )
   (texps ->
     ${map_tree {reverse_tree texps} (!texp r ->
-      ${print_texp texp};
-      ${printf "pop rax\npop rcx\npush rcx\npush rax\n"};
+      $[print_texp texp];
+      ${printf "pop rax\npop rcx\npush rax\npush rcx\n"};
     )};
     ${printf "pop rcx\npop rax\njmp rcx\n"};
     return ret 0
