@@ -1124,23 +1124,22 @@ closure_footer:
 ; returns l r context cexp
 (read_cexp: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
-  $l r context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
+  $l r new_context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
   ${if {compare_bool assign 0} (break -> return ret l r 0)};
-  $l r cexp = [read_cexp context fname_l fname_r l r is_returning];
-  return ret l r (cont -> cont assign cexp)
+  $l r cexp = [read_cexp new_context fname_l fname_r l r is_returning];
+  return ret l r (cont -> cont context assign cexp)
 )
 
 (print_cexp: ret cexp ->
-  $assign cexp = {decomp cexp};
-  $[print_assignment assign];
+  $context assign cexp = {decomp cexp};
+  $[print_assignment context assign];
   ${if {compare_bool cexp 0} (break -> return ret 0)};
   $[print_cexp cexp];
   return ret 0
 )
 
-
 (get_cexp_vars: ret cexp ->
-  $assign cexp = {decomp cexp};
+  $context assign cexp = {decomp cexp};
   $ids = [get_assignment_vars assign];
   ${if {compare_bool cexp 0} (break -> return ret ids)};
   $ids2 = [get_cexp_vars cexp];
@@ -1175,16 +1174,15 @@ closure_footer:
     ! {make_leaf il ir}
   )
   (!-> ! ids)};
-  $context = {make_internal context ids};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {compare_bool 0 l} (break -> return ret orig_l r context 0)};
-  $l r = {read_whitespace l r};
   $l r texp = [read_texp context ids fname_l fname_r l r];
+  $context = {make_internal context ids};
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
   return ret l r context (a b c -> b ids texp)
 )
-(print_assignment: ret assign ->
+(print_assignment: ret context assign ->
   assign (appl -> appl (-> return ret 0)) (ids texp ->
     $[print_texp texp];
     (-> return ret 0)
