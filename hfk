@@ -1036,7 +1036,7 @@ closure_footer:
   (a b l r -> compare a b (-> return ret l r 0) (-> return_pop l r (cont -> print_aexp context fname_l fname_r a b cont)))
 ))
 
-(print_texp: ret texp ->
+(print_texp: ret old_context texp ->
   ${if {compare_bool texp 0} (break -> return ret 0)};
   texp
   (aba -> aba (-> return ret 0))
@@ -1069,7 +1069,7 @@ closure_footer:
   (func ->
     $context ids fname_l fname_r func = {decomp func}; 
     $fl fr func_args is_returning cexp = {decomp func};
-    $[print_function context func];
+    $[print_function old_context func];
     $context = {make_internal {make_leaf fl fr} context};
     ${printf "mov rdi, "};
     $size = {tree_size context};
@@ -1130,6 +1130,13 @@ closure_footer:
   return ret l r (cont -> cont context assign cexp)
 )
 
+(print_cexp_context: ret context cexp ->
+  $ccc assign cexp = {decomp cexp};
+  $[print_assignment context assign];
+  ${if {compare_bool cexp 0} (break -> return ret 0)};
+  $[print_cexp cexp];
+  return ret 0
+)
 (print_cexp: ret cexp ->
   $context assign cexp = {decomp cexp};
   $[print_assignment context assign];
@@ -1184,12 +1191,12 @@ closure_footer:
 )
 (print_assignment: ret context assign ->
   assign (appl -> appl (-> return ret 0)) (ids texp ->
-    $[print_texp texp];
+    $[print_texp context texp];
     (-> return ret 0)
   )
   (texps ->
     ${map_tree {reverse_tree texps} (!texp r ->
-      $[print_texp texp];
+      $[print_texp context texp];
       ${printf "pop rax\npop rcx\npush rax\npush rcx\n"};
     )};
     ${printf "pop rcx\npop rax\njmp rcx\n"};
@@ -1228,7 +1235,7 @@ closure_footer:
   )};
   return ret l r context
   (cont2 ->
-    $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp texp};)];
+    $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp context texp};)];
     ${if {ne il ir} (break ->
       ${if {search_tree_ret context il ir} (break2 -> 
         ${printf "push [{}{}]\n" fname_l fname_r il ir};
