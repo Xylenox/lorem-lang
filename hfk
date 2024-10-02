@@ -996,7 +996,7 @@ closure_footer:
   ${if_ret is_returning (!-> ${printf "pop rax\n"};)};
   ${map_tree new_context (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
   ${if_ret is_returning (!-> ${printf "push rax\n"};)};
-  $[print_cexp cexp];
+  $[print_cexp new_context cexp];
   ${if_ret is_returning (!-> ${printf "ret\n"};)};
   ${printf "{}_end:\n" fname_l fname_r};
   return ret 0
@@ -1052,7 +1052,7 @@ closure_footer:
       ! {make_leaf l r}
     )};
     ${map_tree context (!l r -> ${printf "push [{}{}]\n" fname_l fname_r l r};)};
-    $[print_cexp cexp];
+    $[print_cexp old_context cexp];
     $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
@@ -1061,7 +1061,7 @@ closure_footer:
   )
   (block ->
     $ids fname_l fname_r cexp = {decomp block};
-    $[print_cexp cexp];
+    $[print_cexp old_context cexp];
     $[printf "push rax\n"];
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
@@ -1130,18 +1130,12 @@ closure_footer:
   return ret l r (cont -> cont context assign cexp)
 )
 
-(print_cexp_context: ret context cexp ->
+(print_cexp: ret context cexp ->
   $ccc assign cexp = {decomp cexp};
   $[print_assignment context assign];
   ${if {compare_bool cexp 0} (break -> return ret 0)};
-  $[print_cexp cexp];
-  return ret 0
-)
-(print_cexp: ret cexp ->
-  $context assign cexp = {decomp cexp};
-  $[print_assignment context assign];
-  ${if {compare_bool cexp 0} (break -> return ret 0)};
-  $[print_cexp cexp];
+  $assign_vars = [get_assignment_vars assign];
+  $[print_cexp {make_internal context assign_vars} cexp];
   return ret 0
 )
 
