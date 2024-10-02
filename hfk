@@ -110,6 +110,10 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
   $break = (-> return ret 0);
   v (-> cont break) break
 )
+(if_else: ret v cont1 cont2 ->
+  $break = (-> return ret 0);
+  v (-> cont1 break) (-> cont2 break)
+)
 (if_ret: ret v cont ->
   $break = (-> return ret 0);
   v (->
@@ -1184,7 +1188,11 @@ closure_footer:
   return ret l r context (a b c -> b ids texp)
 )
 (print_assignment: ret context assign ->
-  assign (appl -> appl (-> return ret 0)) (ids texp ->
+  assign (appl ->
+    $[print_function_application appl];
+    return ret 0
+  )
+  (ids texp ->
     $[print_texp context texp];
     (-> return ret 0)
   )
@@ -1228,28 +1236,30 @@ closure_footer:
     break
   )};
   return ret l r context
-  (cont2 ->
-    $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp context texp};)];
-    ${if {ne il ir} (break ->
-      ${if {search_tree_ret context il ir} (break2 -> 
-        ${printf "push [{}{}]\n" fname_l fname_r il ir};
-        break
-      )};
-      ${if is_returning (break2 ->
-        ${printf "call {}\n" il ir};
-        cont2
-      )};
-      ${printf "jmp {}\n" il ir};
-      cont2
+  (cont -> cont context op_list fname_l fname_r il ir is_returning)
+)
+(print_function_application: ret appl ->
+  $context op_list fname_l fname_r il ir is_returning = {decomp appl};
+  $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp context texp};)];
+  ${if {ne il ir} (break ->
+    ${if {search_tree_ret context il ir} (break2 -> 
+      ${printf "push [{}{}]\n" fname_l fname_r il ir};
+      break
     )};
-    is_returning
-      (-> ${printf "call runtime_call_ret\n"};
-        cont2
-      )
-      (->
-        ${printf "jmp runtime_call\n"};
-        cont2)
+    ${if is_returning (break2 ->
+      ${printf "call {}\n" il ir};
+      return ret 0
+    )};
+    ${printf "jmp {}\n" il ir};
+    return ret 0
+  )};
+  ${if_else_ret is_returning (!->
+    ${printf "call runtime_call_ret\n"};
   )
+  (!->
+    ${printf "jmp runtime_call\n"};
+  )};
+  return ret 0
 )
 
 (parse_function_help: lo hi ->
