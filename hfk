@@ -975,17 +975,16 @@ closure_footer:
   return ret pl pr fl fr
 )
 
-(parse_function: ret old_context p_fname_l p_fname_r orig_l r ->
+(read_function: ret p_fname_l p_fname_r orig_l r ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {not {matches "(" tl}} (break -> return ret orig_l r 0)};
   $l r is_returning = {read_is_returning l r};
   $l r fname_l fname_r = {parse_label l r}; 
   $l r new_args = {read_identifier_list l r}; 
-  $new_context = {make_internal old_context new_args};
   $l r t tl tr = {read_token l r};
   ${if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
-  $l r cexp = [read_cexp new_context fname_l fname_r l r is_returning];
+  $l r cexp = [read_cexp fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ")" tl}} (break -> return ret orig_l r 0)};
   return ret l r (cont -> cont fname_l fname_r new_args is_returning cexp)
@@ -1018,7 +1017,7 @@ closure_footer:
   ${if {compare_bool lb 91} (break ->
     $l r t tl tr = {read_token l r};
     ${if {not {matches "[" tl}} (break -> return ret orig_l r 0)};
-    $l r cexp = [read_cexp 0 fname_l fname_r l r (a b -> a)];
+    $l r cexp = [read_cexp fname_l fname_r l r (a b -> a)];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "]" tl}} (break -> return ret orig_l r 0)};
     return_rec_block l r (cont -> cont ids fname_l fname_r cexp)
@@ -1026,12 +1025,12 @@ closure_footer:
   ${if {compare_bool lb 123} (break ->
     $l = [add_func l 1];
     $l r = [read_whitespace l r];
-    $l r cexp = [read_cexp 0 fname_l fname_r l r (a b -> a)];
+    $l r cexp = [read_cexp fname_l fname_r l r (a b -> a)];
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
     return_block l r (cont -> cont ids fname_l fname_r cexp)
   )};
-  $lo hi func = [parse_function 0 fname_l fname_r l r];
+  $lo hi func = [read_function fname_l fname_r l r];
   ${if {ne func 0} (break -> 
     return_func lo hi (cont -> cont ids fname_l fname_r func)
   )};
@@ -1134,12 +1133,12 @@ closure_footer:
   return ret 0
 )
 
-; returns l r context cexp
-(read_cexp: ret context fname_l fname_r orig_l r is_returning ->
+; returns l r cexp
+(read_cexp: ret fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
-  $l r new_context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
+  $l r assign = [read_assignment fname_l fname_r orig_l r is_returning];
   ${if {compare_bool assign 0} (break -> return ret l r 0)};
-  $l r cexp = [read_cexp new_context fname_l fname_r l r is_returning];
+  $l r cexp = [read_cexp fname_l fname_r l r is_returning];
   return ret l r (cont -> cont assign cexp)
 )
 
@@ -1169,17 +1168,17 @@ closure_footer:
   return ret l r
 )
 
-(read_assignment: ret context fname_l fname_r orig_l r is_returning ->
+(read_assignment: ret fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {matches "!" tl} (break ->
-    $l r texps = {read_func_operand_list context fname_l fname_r l r};
-    return ret l r context (a b c -> c texps)
+    $l r texps = {read_func_operand_list fname_l fname_r l r};
+    return ret l r (a b c -> c texps)
   )};
   ${if {not {matches "$" tl}} (break -> 
-    $l r ct cexp = [read_function_application context fname_l fname_r orig_l r is_returning];
-    ${if {compare_bool cexp 0} (break -> return ret l r context 0)};
-    return ret l r ct (a b c -> a cexp)
+    $l r cexp = [read_function_application fname_l fname_r orig_l r is_returning];
+    ${if {compare_bool cexp 0} (break -> return ret l r 0)};
+    return ret l r (a b c -> a cexp)
   )};
   $l r ids = {read_identifier_list l r};
   $is_empty_ids = {compare_bool {tree_size ids} 0};
@@ -1189,12 +1188,11 @@ closure_footer:
   )
   (!-> ! ids)};
   $l r = {read_eq_if {not is_empty_ids} l r};
-  ${if {compare_bool 0 l} (break -> return ret orig_l r context 0)};
+  ${if {compare_bool 0 l} (break -> return ret orig_l r 0)};
   $l r texp = [read_texp ids fname_l fname_r l r];
-  $context = {make_internal context ids};
   $l r t tl tr = {read_token l r};
-  ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
-  return ret l r context (a b c -> b ids texp)
+  ${if {not {matches ";" tl}} (break -> return ret orig_l r 0)};
+  return ret l r (a b c -> b ids texp)
 )
 (print_assignment: ret context assign ->
   assign (appl ->
@@ -1221,31 +1219,30 @@ closure_footer:
   (texps -> return ret {make_nil})
 )
 
-(read_func_operand_list: ret context fname_l fname_r l r -> 
-  $l r tree = [read_func_operand_list_help context fname_l fname_r l r {make_nil}];
+(read_func_operand_list: ret fname_l fname_r l r -> 
+  $l r tree = [read_func_operand_list_help fname_l fname_r l r {make_nil}];
   return ret l r tree
 )
-(read_func_operand_list_help: ret context fname_l fname_r l r tree ->
+(read_func_operand_list_help: ret fname_l fname_r l r tree ->
   $l r texp = [read_texp {make_nil} fname_l fname_r l r];
   ${if {compare_bool texp 0} (break -> return ret l r tree)};
   $leaf = {make_leaf texp 0};
   $tree = {make_internal tree leaf};
-  read_func_operand_list_help ret context fname_l fname_r l r tree
+  read_func_operand_list_help ret fname_l fname_r l r tree
 )
 
-(read_function_application: ret context fname_l fname_r orig_l r is_returning ->
+(read_function_application: ret fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r = {read_whitespace l r};
   $l r il ir = {read_identifier_ret l r};
-  $l r op_list = [read_func_operand_list context fname_l fname_r l r];
+  $l r op_list = [read_func_operand_list fname_l fname_r l r];
   ${if {compare_bool il ir} (break ->
     ${if {compare_bool {tree_size op_list} 0} (break2 ->
-      return ret l r context 0
+      return ret l r 0
     )};
     break
   )};
-  return ret l r context
-  (cont -> cont op_list fname_l fname_r il ir is_returning)
+  return ret l r (cont -> cont op_list fname_l fname_r il ir is_returning)
 )
 (print_function_application: ret context appl ->
   $op_list fname_l fname_r il ir is_returning = {decomp appl};
@@ -1273,7 +1270,7 @@ closure_footer:
 
 (parse_function_help: lo hi ->
   $nil = {make_nil};
-  $l r func = {parse_function nil 0 0 lo hi};
+  $l r func = {read_function 0 0 lo hi};
   ${print_function nil func};
   main_loop l r
 )
