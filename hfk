@@ -1189,7 +1189,7 @@ closure_footer:
 )
 (print_assignment: ret context assign ->
   assign (appl ->
-    $[print_function_application appl];
+    $[print_function_application context appl];
     return ret 0
   )
   (ids texp ->
@@ -1236,10 +1236,10 @@ closure_footer:
     break
   )};
   return ret l r context
-  (cont -> cont context op_list fname_l fname_r il ir is_returning)
+  (cont -> cont op_list fname_l fname_r il ir is_returning)
 )
-(print_function_application: ret appl ->
-  $context op_list fname_l fname_r il ir is_returning = {decomp appl};
+(print_function_application: ret context appl ->
+  $op_list fname_l fname_r il ir is_returning = {decomp appl};
   $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp context texp};)];
   ${if {ne il ir} (break ->
     ${if {search_tree_ret context il ir} (break2 -> 
