@@ -902,18 +902,6 @@ print_closure:
   )
 )
 
-(!print_closure_eof: fname_l fname_r pfname_l pfname_r context ->
-  ${printf "mov rdi, "};
-  $size = {tree_size context};
-  ${print_num {mul_func 8 {add_func 1 size}}};
-  ${printf "\ncall malloc\n"};
-  $map_arg = {eof_closure_map_arg fname_l fname_r pfname_l pfname_r};
-  ${map_tree_iota context map_arg};
-  ${printf "mov [rax], "};
-  ${print_num size};
-  ${printf "\n"};
-)
-
 closure_footer:
   dq "sub rdx,"
   dq " rax"
@@ -986,17 +974,17 @@ closure_footer:
 (parse_function: ret old_context p_fname_l p_fname_r orig_l r ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
-  ${if {not {matches "(" tl}} (break -> return ret orig_l r 0 0 0)};
+  ${if {not {matches "(" tl}} (break -> return ret orig_l r 0)};
   $l r is_returning = {read_is_returning l r};
   $l r fname_l fname_r = {parse_label l r}; 
   $l r new_args = {read_identifier_list l r}; 
   $new_context = {make_internal old_context new_args};
   $l r t tl tr = {read_token l r};
-  ${if {not {matches "->" tl}} (break -> return ret orig_l r 0 0 0)};
+  ${if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
   $l r cexp = [read_cexp new_context fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
-  ${if {not {matches ")" tl}} (break -> return ret orig_l r 0 0 0)};
-  return ret l r fname_l fname_r (cont -> cont fname_l fname_r new_args is_returning cexp)
+  ${if {not {matches ")" tl}} (break -> return ret orig_l r 0)};
+  return ret l r (cont -> cont fname_l fname_r new_args is_returning cexp)
 )
 (print_function: ret old_context func ->
   $fname_l fname_r func_args is_returning cexp = {decomp func};
@@ -1035,9 +1023,9 @@ closure_footer:
     $l = [add_func l 1];
     return ret l r (x a rec_block block func -> block (cont -> cont ids fname_l fname_r cexp))
   )};
-  $lo hi fl fr func = [parse_function context fname_l fname_r l r];
+  $lo hi func = [parse_function context fname_l fname_r l r];
   ${if {ne func 0} (break -> 
-    return ret lo hi (x a r b ff -> ff (cont -> cont context ids fname_l fname_r fl fr func))
+    return ret lo hi (x a r b ff -> ff (cont -> cont context ids fname_l fname_r func))
   )};
   read_const_string context fname_l fname_r l r (lo hi string ->
   ${if {ne string 0} (break -> 
@@ -1079,9 +1067,19 @@ closure_footer:
     return ret 0
   )
   (func ->
-    $context ids fname_l fname_r fl fr func = {decomp func}; 
+    $context ids fname_l fname_r func = {decomp func}; 
+    $fl fr func_args is_returning cexp = {decomp func};
     $[print_function context func];
-    ${print_closure_eof fl fr fname_l fname_r {make_internal {make_leaf fl fr} context}};
+    $context = {make_internal {make_leaf fl fr} context};
+    ${printf "mov rdi, "};
+    $size = {tree_size context};
+    ${print_num {mul_func 8 {add_func 1 size}}};
+    ${printf "\ncall malloc\n"};
+    $map_arg = {eof_closure_map_arg fl fr fname_l fname_r};
+    ${map_tree_iota context map_arg};
+    ${printf "mov [rax], "};
+    ${print_num size};
+    ${printf "\n"};
     ${printf "push rax\n"};
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
@@ -1257,7 +1255,7 @@ closure_footer:
 
 (parse_function_help: lo hi ->
   $nil = {make_nil};
-  $l r fl fr func = {parse_function nil 0 0 lo hi};
+  $l r func = {parse_function nil 0 0 lo hi};
   ${print_function nil func};
   main_loop l r
 )
