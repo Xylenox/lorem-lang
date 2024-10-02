@@ -986,24 +986,20 @@ closure_footer:
 (parse_function: ret old_context p_fname_l p_fname_r orig_l r ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
-  ${if {not {matches "(" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
+  ${if {not {matches "(" tl}} (break -> return ret orig_l r 0 0 0)};
   $l r is_returning = {read_is_returning l r};
   $l r fname_l fname_r = {parse_label l r}; 
   $l r new_args = {read_identifier_list l r}; 
   $new_context = {make_internal old_context new_args};
   $l r t tl tr = {read_token l r};
-  ${if {not {matches "->" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
-  $l r extra_context cexp = [read_cexp new_context fname_l fname_r l r is_returning];
+  ${if {not {matches "->" tl}} (break -> return ret orig_l r 0 0 0)};
+  $l r cexp = [read_cexp new_context fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
-  ${if {not {matches ")" tl}} (break -> return ret orig_l r 0 0 old_context 0)};
-  return ret l r fname_l fname_r old_context (cont -> cont fname_l fname_r new_args is_returning cexp)
-)
-(get_func_free_vars: ret old_context func ->
-  return ret old_context
+  ${if {not {matches ")" tl}} (break -> return ret orig_l r 0 0 0)};
+  return ret l r fname_l fname_r (cont -> cont fname_l fname_r new_args is_returning cexp)
 )
 (print_function: ret old_context func ->
   $fname_l fname_r func_args is_returning cexp = {decomp func};
-  $old_context = {get_func_free_vars old_context func};
   $new_context = {make_internal old_context func_args};
   $cids = [get_cexp_vars cexp];
   ${printf "jmp {}_end\n" fname_l fname_r};
@@ -1026,7 +1022,7 @@ closure_footer:
   ${if {compare_bool lb 91} (break ->
     $l r t tl tr = {read_token l r};
     ${if {not {matches "[" tl}} (break -> return ret orig_l r 0)};
-    $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
+    $l r cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "]" tl}} (break -> return ret orig_l r 0)};
     return ret l r (x a rec_block bb func -> rec_block (cont -> cont context ids fname_l fname_r cexp))
@@ -1034,12 +1030,12 @@ closure_footer:
   ${if {compare_bool lb 123} (break ->
     $l = [add_func l 1];
     $l r = [read_whitespace l r];
-    $l r context cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
+    $l r cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
     return ret l r (x a rec_block block func -> block (cont -> cont ids fname_l fname_r cexp))
   )};
-  $lo hi fl fr context func = [parse_function context fname_l fname_r l r];
+  $lo hi fl fr func = [parse_function context fname_l fname_r l r];
   ${if {ne func 0} (break -> 
     return ret lo hi (x a r b ff -> ff (cont -> cont context ids fname_l fname_r fl fr func))
   )};
@@ -1131,9 +1127,9 @@ closure_footer:
 (read_cexp: ret context fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
-  ${if {compare_bool assign 0} (break -> return ret l r context 0)};
-  $l r context cexp = [read_cexp context fname_l fname_r l r is_returning];
-  return ret l r context (cont -> cont assign cexp)
+  ${if {compare_bool assign 0} (break -> return ret l r 0)};
+  $l r cexp = [read_cexp context fname_l fname_r l r is_returning];
+  return ret l r (cont -> cont assign cexp)
 )
 
 (print_cexp: ret cexp ->
@@ -1261,7 +1257,7 @@ closure_footer:
 
 (parse_function_help: lo hi ->
   $nil = {make_nil};
-  $l r fl fr context func = {parse_function nil 0 0 lo hi};
+  $l r fl fr func = {parse_function nil 0 0 lo hi};
   ${print_function nil func};
   main_loop l r
 )
