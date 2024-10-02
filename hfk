@@ -1131,11 +1131,11 @@ closure_footer:
   $l r new_context assign = [read_assignment context fname_l fname_r orig_l r is_returning];
   ${if {compare_bool assign 0} (break -> return ret l r 0)};
   $l r cexp = [read_cexp new_context fname_l fname_r l r is_returning];
-  return ret l r (cont -> cont context assign cexp)
+  return ret l r (cont -> cont assign cexp)
 )
 
 (print_cexp: ret context cexp ->
-  $ccc assign cexp = {decomp cexp};
+  $assign cexp = {decomp cexp};
   $[print_assignment context assign];
   ${if {compare_bool cexp 0} (break -> return ret 0)};
   $assign_vars = [get_assignment_vars assign];
@@ -1144,7 +1144,7 @@ closure_footer:
 )
 
 (get_cexp_vars: ret cexp ->
-  $context assign cexp = {decomp cexp};
+  $assign cexp = {decomp cexp};
   $ids = [get_assignment_vars assign];
   ${if {compare_bool cexp 0} (break -> return ret ids)};
   $ids2 = [get_cexp_vars cexp];
@@ -1246,11 +1246,11 @@ closure_footer:
       ${printf "push [{}{}]\n" fname_l fname_r il ir};
       break
     )};
-    ${if is_returning (break2 ->
+    ${if_else_ret is_returning (!->
       ${printf "call {}\n" il ir};
-      return ret 0
+    ) (!->
+      ${printf "jmp {}\n" il ir};
     )};
-    ${printf "jmp {}\n" il ir};
     return ret 0
   )};
   ${if_else_ret is_returning (!->
