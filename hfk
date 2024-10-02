@@ -1007,51 +1007,60 @@ closure_footer:
 )
 
 ; returns l r texp
-(read_texp: ret context ids fname_l fname_r l r ->
-  $return_pop = (l r t -> return ret l r (x a rec_block block func -> a ids fname_l fname_r t));
+(read_texp: ret ids fname_l fname_r l r ->
+  $return_pop =        (l r t -> return ret l r (x aexp rec_block block func -> x ids fname_l fname_r t));
+  $return_rec_block = (l r rb -> return ret l r (x aexp rec_block block func -> rec_block rb));
+  $return_block =      (l r b -> return ret l r (x aexp rec_block block func -> block b));
+  $return_func =       (l r f -> return ret l r (x aexp rec_block block func -> func f));
+  $return_aexp =       (l r a -> return ret l r (x aexp rec_block block func -> aexp a));
   $l r = {read_whitespace l r};
   $lb = {deref_byte l};
   ${if {compare_bool lb 91} (break ->
     $l r t tl tr = {read_token l r};
     ${if {not {matches "[" tl}} (break -> return ret orig_l r 0)};
-    $l r cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
+    $l r cexp = [read_cexp 0 fname_l fname_r l r (a b -> a)];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "]" tl}} (break -> return ret orig_l r 0)};
-    return ret l r (x a rec_block bb func -> rec_block (cont -> cont context ids fname_l fname_r cexp))
+    return_rec_block l r (cont -> cont ids fname_l fname_r cexp)
   )};
   ${if {compare_bool lb 123} (break ->
     $l = [add_func l 1];
     $l r = [read_whitespace l r];
-    $l r cexp = [read_cexp context fname_l fname_r l r (a b -> a)];
+    $l r cexp = [read_cexp 0 fname_l fname_r l r (a b -> a)];
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
-    return ret l r (x a rec_block block func -> block (cont -> cont ids fname_l fname_r cexp))
+    return_block l r (cont -> cont ids fname_l fname_r cexp)
   )};
-  $lo hi func = [parse_function context fname_l fname_r l r];
+  $lo hi func = [parse_function 0 fname_l fname_r l r];
   ${if {ne func 0} (break -> 
-    return ret lo hi (x a r b ff -> ff (cont -> cont context ids fname_l fname_r func))
+    return_func lo hi (cont -> cont ids fname_l fname_r func)
   )};
-  read_const_string context fname_l fname_r l r (lo hi string ->
+  read_const_string fname_l fname_r l r (lo hi string ->
   ${if {ne string 0} (break -> 
     return_pop lo hi (cont -> ${string}; 
       cont)
   )};
   read_id_or_closure_or_function_func l r
-  (a b l r -> compare a b (-> return ret l r 0) (-> return_pop l r (cont -> print_aexp context fname_l fname_r a b cont)))
+  (a b l r -> compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont ids fname_l fname_r a b)))
 ))
 
 (print_texp: ret old_context texp ->
   ${if {compare_bool texp 0} (break -> return ret 0)};
   texp
-  (aba -> aba (-> return ret 0))
-  (ids fname_l fname_r t -> 
+  (ids fname_l fname_r t ->
     t (-> ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
     )
   )
+  (aexp ->
+    $ids fname_l fname_r a b = {decomp aexp};
+    $[print_aexp old_context fname_l fname_r a b];
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+    return ret 0
+  )
   (rec_block ->
-    $context ids fname_l fname_r cexp = {decomp rec_block};
-    $context = {map_tree context (!l r ->
+    $ids fname_l fname_r cexp = {decomp rec_block};
+    $context = {map_tree old_context (!l r ->
       ${if {search_tree_ret ids l r} (break -> ! {make_nil})};
       ! {make_leaf l r}
     )};
@@ -1071,10 +1080,10 @@ closure_footer:
     return ret 0
   )
   (func ->
-    $context ids fname_l fname_r func = {decomp func}; 
+    $ids fname_l fname_r func = {decomp func}; 
     $fl fr func_args is_returning cexp = {decomp func};
     $[print_function old_context func];
-    $context = {make_internal {make_leaf fl fr} context};
+    $context = {make_internal {make_leaf fl fr} old_context};
     ${printf "mov rdi, "};
     $size = {tree_size context};
     ${print_num {mul_func 8 {add_func 1 size}}};
@@ -1097,7 +1106,7 @@ closure_footer:
   read_until c l r cont
 ))
 
-(read_const_string: context fname_l fname_r l r cont ->
+(read_const_string: fname_l fname_r l r cont ->
   $l_start r = {read_whitespace l r};
   $lb = {deref_byte l_start};
   ${if {ne lb 34} (break -> cont l r 0)};
@@ -1110,19 +1119,19 @@ closure_footer:
   )
 ))
 
-(print_aexp: comb_args fname_l fname_r l r cont ->
+(print_aexp: ret comb_args fname_l fname_r l r ->
   $dig = {deref_byte l};
   $res = {is_alpha_ret dig};
   ${if {compare_bool res 1} (break_o ->
     search_tree comb_args l r (bool ->
     ${if bool (break ->
       ${printf "push [{}{}]\n" fname_l fname_r l r};
-      cont
+      return ret 0
     )};
     break_o
   ))};
   ${printf "push {}\n" l r};
-  cont
+  return ret 0
 )
 
 ; returns l r context cexp
@@ -1181,7 +1190,7 @@ closure_footer:
   (!-> ! ids)};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {compare_bool 0 l} (break -> return ret orig_l r context 0)};
-  $l r texp = [read_texp context ids fname_l fname_r l r];
+  $l r texp = [read_texp ids fname_l fname_r l r];
   $context = {make_internal context ids};
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}} (break -> return ret orig_l r context 0)};
@@ -1217,7 +1226,7 @@ closure_footer:
   return ret l r tree
 )
 (read_func_operand_list_help: ret context fname_l fname_r l r tree ->
-  $l r texp = [read_texp context {make_nil} fname_l fname_r l r];
+  $l r texp = [read_texp {make_nil} fname_l fname_r l r];
   ${if {compare_bool texp 0} (break -> return ret l r tree)};
   $leaf = {make_leaf texp 0};
   $tree = {make_internal tree leaf};
