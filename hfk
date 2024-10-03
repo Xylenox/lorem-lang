@@ -975,7 +975,7 @@ closure_footer:
   return ret pl pr fl fr
 )
 
-(read_function: ret p_fname_l p_fname_r orig_l r ->
+(read_function: ret p_fname_l p_fname_r orig_l r) {
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {not {matches "(" tl}} (break -> return ret orig_l r 0)};
@@ -983,12 +983,20 @@ closure_footer:
   $l r fname_l fname_r = {parse_label l r}; 
   $l r new_args = {read_identifier_list l r}; 
   $l r t tl tr = {read_token l r};
+  ${if {matches ")" tl} (break ->
+    $l r t tl tr = {read_token l r};
+    ${if {not {matches "{" tl}} (break) { return ret orig_l r 0 }};
+    $l r cexp = [read_cexp fname_l fname_r l r is_returning];
+    $l r t tl tr = {read_token l r};
+    ${if {not {matches "}" tl}} (break) { return ret orig_l r 0 }};
+    return ret l r (cont) { cont fname_l fname_r new_args is_returning cexp }
+  )};
   ${if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
   $l r cexp = [read_cexp fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ")" tl}} (break -> return ret orig_l r 0)};
   return ret l r (cont -> cont fname_l fname_r new_args is_returning cexp)
-)
+}
 (print_function: ret old_context func ->
   $fname_l fname_r func_args is_returning cexp = {decomp func};
   $new_context = {make_internal old_context func_args};
