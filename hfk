@@ -102,44 +102,44 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     push rsi
     jmp runtime_call
 
-(or: ret cont1 cont2 ->
-  cont1 (-> return ret cont1) (-> return ret cont2)
-)
+(or: ret cont1 cont2) {
+  cont1 () { return ret cont1 } () { return ret cont2 }
+}
 
-(if: ret v cont ->
-  $break = (-> return ret 0);
-  v (-> cont break) break
-)
-(if_else: ret v cont1 cont2 ->
-  $break = (-> return ret 0);
-  v (-> cont1 break) (-> cont2 break)
-)
-(if_ret: ret v cont ->
-  $break = (-> return ret 0);
-  v (->
+(if: ret v cont) {
+  $break = () { return ret 0 };
+  v () { cont break } break
+}
+(if_else: ret v cont1 cont2) {
+  $break = () { return ret 0 };
+  v () { cont1 break } () { cont2 break }
+}
+(if_ret: ret v cont) {
+  $break = () { return ret 0 };
+  v () {
     ${cont};
     break
-  )
+  }
   break
-)
-(if_else_ret: ret v cont1 cont2 ->
-  v (-> return ret {cont1})
-  (-> return ret {cont2})
-)
+}
+(if_else_ret: ret v cont1 cont2) {
+  v () { return ret {cont1} }
+  () { return ret {cont2} }
+}
 
-(!ne: a b -> 
-  $res = [callcc (ret -> compare a b (-> ret (x y -> y)) (-> ret (x y -> x)))];
+(!ne: a b) {
+  $res = [callcc (ret) { compare a b () { ret (x y) {y} } () { ret (x y) {x} } }];
   ! res
-)
-(!not: x ->
-  $res = [callcc (ret -> x (-> ret (a b -> b)) (-> ret (a b -> a)))];
+}
+(!not: x) {
+  $res = [callcc (ret) { x () { ret (a b) {b} } () { ret (a b) {a} } }];
   ! res
-)
+}
 
-(!compare_bool: a b ->
-  $res = [callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))];
+(!compare_bool: a b) {
+  $res = [callcc (ret) { compare a b () { ret (x y) {x} } () { ret (x y) {y} } }];
   ! res
-)
+}
 
 outf: dq 0
 flen: dq 0
@@ -151,11 +151,11 @@ exit:
 error:
   mov [outf], 2
   jmp error_help
-(error_help: num ->
+(error_help: num) {
   ${printf "error {}\n" num {add_func num 10}};
   ${sysc 60 1 0 0 0 0 0};
   exit
-)
+}
 
 runtime_call:
   ; first input is closure containing | number of operands including function, function, environment |
@@ -264,15 +264,15 @@ malloc_func:
   push rcx
   jmp malloc
 
-(bool_true: cont_true cont_false -> cont_true)
-(bool_false: cont_true cont_false -> cont_false)
+(bool_true: cont_true cont_false) { cont_true }
+(bool_false: cont_true cont_false) { cont_false }
 
 
-(make_pair: cont a b -> cont (cont -> cont a b))
+(make_pair: cont a b) { cont (cont) {cont a b} }
 
-(!make_nil: -> ! (cont_nil cont_leaf cont_internal -> cont_nil))
-(!make_leaf: l r -> ! (cont_nil cont_leaf cont_internal -> cont_leaf l r))
-(!make_internal: a b -> ! (cont_nil cont_leaf cont_internal -> cont_internal a b))
+(!make_nil:) { ! (cont_nil cont_leaf cont_internal) {cont_nil} }
+(!make_leaf: l r) { ! (cont_nil cont_leaf cont_internal) {cont_leaf l r} }
+(!make_internal: a b) { ! (cont_nil cont_leaf cont_internal) {cont_internal a b} }
 
 make_leaf_imperative:
   push rsi
@@ -983,14 +983,14 @@ closure_footer:
   $l r fname_l fname_r = {parse_label l r}; 
   $l r new_args = {read_identifier_list l r}; 
   $l r t tl tr = {read_token l r};
-  ${if {matches ")" tl} (break ->
+  ${if {matches ")" tl} (break) {
     $l r t tl tr = {read_token l r};
     ${if {not {matches "{" tl}} (break) { return ret orig_l r 0 }};
     $l r cexp = [read_cexp fname_l fname_r l r is_returning];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "}" tl}} (break) { return ret orig_l r 0 }};
     return ret l r (cont) { cont fname_l fname_r new_args is_returning cexp }
-  )};
+  }};
   ${if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
   $l r cexp = [read_cexp fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
@@ -1180,7 +1180,7 @@ closure_footer:
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {matches "!" tl} (break ->
-    $l r texps = {read_func_operand_list fname_l fname_r l r};
+    $l r texps = {read_texp_list fname_l fname_r l r};
     return ret l r (a b c -> c texps)
   )};
   ${if {not {matches "$" tl}} (break -> 
@@ -1227,23 +1227,23 @@ closure_footer:
   (texps -> return ret {make_nil})
 )
 
-(read_func_operand_list: ret fname_l fname_r l r -> 
-  $l r tree = [read_func_operand_list_help fname_l fname_r l r {make_nil}];
+(read_texp_list: ret fname_l fname_r l r -> 
+  $l r tree = [read_texp_list_help fname_l fname_r l r {make_nil}];
   return ret l r tree
 )
-(read_func_operand_list_help: ret fname_l fname_r l r tree ->
+(read_texp_list_help: ret fname_l fname_r l r tree ->
   $l r texp = [read_texp {make_nil} fname_l fname_r l r];
   ${if {compare_bool texp 0} (break -> return ret l r tree)};
   $leaf = {make_leaf texp 0};
   $tree = {make_internal tree leaf};
-  read_func_operand_list_help ret fname_l fname_r l r tree
+  read_texp_list_help ret fname_l fname_r l r tree
 )
 
 (read_function_application: ret fname_l fname_r orig_l r is_returning ->
   $l = orig_l;
   $l r = {read_whitespace l r};
   $l r il ir = {read_identifier_ret l r};
-  $l r op_list = [read_func_operand_list fname_l fname_r l r];
+  $l r op_list = [read_texp_list fname_l fname_r l r];
   ${if {compare_bool il ir} (break ->
     ${if {compare_bool {tree_size op_list} 0} (break2 ->
       return ret l r 0
