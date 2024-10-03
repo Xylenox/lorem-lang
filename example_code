@@ -1,0 +1,8 @@
+foo = (a: int, b: int): int { a + b }
+foo = (a, b) { a + b }
+main = () {
+    a = 1
+    b = 2
+    c = foo(a, b)
+    x
+}
