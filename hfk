@@ -477,19 +477,19 @@ print_char:
       return ret, (cont) { cont nb {make_internal na nb } }
     }
 }
-(map_tree_iota: ret tree action ->
+(map_tree_iota: ret tree action) {
   $n t = [ decomp { map_tree_iota_help 0 tree action } ];
   return ret t
-)
+}
 
-(reverse_tree: ret tree ->
-  tree (-> return ret {make_nil}) (l r -> return ret {make_leaf l r})
-  (a b ->
+(reverse_tree: ret tree) {
+  tree, () { return ret {make_nil} } (l r -> return ret {make_leaf l r})
+  (a b) {
     $a = [reverse_tree a];
     $b = [reverse_tree b];
     return ret {make_internal b a}
-  )
-)
+  }
+}
 
 (search_tree: tree l r cont -> tree (-> cont (a b -> b)) (a b -> str_equal_func l r a b cont)
 (a b -> search_tree a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree b l r cont))))
@@ -970,7 +970,7 @@ closure_footer:
   return ret pl pr fl fr
 )
 
-(read_function: ret p_fname_l p_fname_r orig_l r) {
+(read_function: ret orig_l r) {
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {not {matches "(" tl}} (break -> return ret orig_l r 0)};
@@ -1010,7 +1010,7 @@ closure_footer:
 
 ; returns l r texp
 (read_texp: ret ids fname_l fname_r l r) {
-  $return_pop =        (l r t) { return ret l r (x aexp rec_block block func) { x ids fname_l fname_r t } };
+  $return_string =        (l r t) { return ret l r (x aexp rec_block block func) { x ids fname_l fname_r t } };
   $return_rec_block = (l r rb) { return ret l r (x aexp rec_block block func) { rec_block rb } };
   $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
   $return_func =       (l r f) { return ret l r (x aexp rec_block block func) { func f } };
@@ -1033,29 +1033,26 @@ closure_footer:
     $l = [add_func l 1];
     return_block l r (cont) { cont ids fname_l fname_r cexp }
   }};
-  $lo hi func = [read_function fname_l fname_r l r];
+  $lo hi func = [read_function l r];
   ${if {ne func 0} (break) {
     return_func lo hi (cont) { cont ids fname_l fname_r func }
   }};
-  $lo hi string = [read_const_string fname_l fname_r l r];
+  $lo hi string = [read_const_string l r];
   ${if {ne string 0} (break) {
-    return_pop lo hi (cont) {
-      ${string}; 
-      cont
-    }
+    return_string lo hi string
   }};
   read_id_or_closure_or_function_func l r
   (a b l r -> compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont ids fname_l fname_r a b)))
 }
 
-(print_texp: ret old_context texp ->
+(print_texp: ret fl fr old_context texp) {
   ${if {compare_bool texp 0} (break -> return ret 0)};
   texp
-  (ids fname_l fname_r t ->
-    t (-> ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+  (ids fname_l fname_r string) {
+    ${print_const_string string};
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
-    )
-  )
+  }
   (aexp ->
     $ids fname_l fname_r a b = {decomp aexp};
     $[print_aexp old_context fname_l fname_r a b];
@@ -1101,27 +1098,29 @@ closure_footer:
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
   )
-)
+}
 
-(read_until: c l r cont ->
+(read_until: ret c l r ->
   $lb = {deref_byte l};
-  compare lb c (-> cont l r) (->
-  $l = {add_func l 1};
-  read_until c l r cont
+  compare lb c (-> return ret l r) (->
+  read_until ret c {add_func l 1} r
 ))
 
-(read_const_string: ret fname_l fname_r l r ->
+(read_const_string: ret l r) {
   $l_start r = {read_whitespace l r};
   $lb = {deref_byte l_start};
   ${if {ne lb 34} (break -> return ret l r 0)};
   $l = {add_func l_start 1};
-  read_until 34 l r (l r ->
+  $l r = {read_until 34 l r};
   $l_end = {add_func l 1};
-  return ret l_end r (!->
-    $il ir = {gen_label_ret};
-    ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
-  )
-))
+  return ret l_end r (cont) { cont l_start l_end }
+}
+(print_const_string: ret str) {
+  $l_start l_end = {decomp str};
+  $il ir = {gen_label_ret};
+  ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
+  return ret 0
+}
 
 (print_aexp: ret comb_args fname_l fname_r l r ->
   $dig = {deref_byte l};
@@ -1178,7 +1177,7 @@ closure_footer:
   $l r t tl tr = {read_token l r};
   ${if {matches "!" tl} (break ->
     $l r texps = {read_texp_list fname_l fname_r l r};
-    return ret l r (a b c -> c texps)
+    return ret l r (a b c -> c fname_l fname_r texps)
   )};
   ${if {not {matches "$" tl}} (break) {
     $l r cexp = [read_function_application fname_l fname_r orig_l r is_returning];
@@ -1197,20 +1196,20 @@ closure_footer:
   $l r texp = [read_texp ids fname_l fname_r l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}}, (break) { return ret orig_l r 0 }};
-  return ret l r, (a b c) { b ids texp }
+  return ret l r, (a b c) { b fname_l fname_r ids texp }
 )
 (print_assignment: ret context assign ->
   assign, (appl) {
     $[print_function_application context appl];
     return ret 0
   },
-  (ids texp) {
-    $[print_texp context texp];
+  (fl fr ids texp) {
+    $[print_texp fl fr context texp];
     return ret 0
   },
-  (texps) {
+  (fl fr texps) {
     ${map_tree, {reverse_tree texps}, (!texp r) {
-      $[print_texp context texp];
+      $[print_texp fl fr context texp];
       ${printf "pop rax\npop rcx\npush rax\npush rcx\n"};
     }};
     ${printf "pop rcx\npop rax\njmp rcx\n"};
@@ -1220,8 +1219,8 @@ closure_footer:
 
 (get_assignment_vars: ret assign) {
   assign, (appl) { return ret {make_nil} },
-  (ids texp) { return ret ids },
-  (texps) { return ret {make_nil} }
+  (fl fr ids texp) { return ret ids },
+  (fl fr texps) { return ret {make_nil} }
 }
 
 (read_texp_list: ret fname_l fname_r l r -> 
@@ -1255,7 +1254,7 @@ closure_footer:
 }
 (print_function_application: ret context appl ->
   $op_list fname_l fname_r il ir is_returning = {decomp appl};
-  $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp context texp};)];
+  $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp fname_l fname_r context texp};)];
   ${if {ne il ir} (break ->
     ${if {search_tree_ret context il ir} (break2 -> 
       ${printf "push [{}{}]\n" fname_l fname_r il ir};
@@ -1279,7 +1278,7 @@ closure_footer:
 
 (parse_function_help: lo hi ->
   $nil = {make_nil};
-  $l r func = {read_function 0 0 lo hi};
+  $l r func = {read_function lo hi};
   ${print_function nil func};
   main_loop l r
 )
