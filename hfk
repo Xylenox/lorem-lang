@@ -1002,7 +1002,7 @@ closure_footer:
   ${if_ret is_returning (!) { ${printf "pop rax\n"}; }};
   ${map_tree new_context (!l r) { ${printf "pop [{}{}]\n" fname_l fname_r l r}; }};
   ${if_ret is_returning (!) { ${printf "push rax\n"}; }};
-  $[print_cexp new_context cexp];
+  $[print_cexp fname_l fname_r new_context cexp];
   ${if_ret is_returning (!) { ${printf "ret\n"}; }};
   ${printf "{}_end:\n" fname_l fname_r};
   return ret 0
@@ -1066,7 +1066,7 @@ closure_footer:
       ! {make_leaf l r}
     )};
     ${map_tree context (!l r -> ${printf "push [{}{}]\n" fl fr l r};)};
-    $[print_cexp old_context cexp];
+    $[print_cexp fl fr old_context cexp];
     $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
@@ -1075,7 +1075,7 @@ closure_footer:
   )
   (block ->
     $ids cexp = {decomp block};
-    $[print_cexp old_context cexp];
+    $[print_cexp fl fr old_context cexp];
     $[printf "push rax\n"];
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
@@ -1143,20 +1143,20 @@ closure_footer:
   $l r assign = [read_assignment fname_l fname_r orig_l r is_returning];
   ${if {compare_bool assign 0} (break -> return ret l r 0)};
   $l r cexp = [read_cexp fname_l fname_r l r is_returning];
-  return ret l r (cont -> cont fname_l fname_r assign cexp)
+  return ret l r (cont -> cont assign cexp)
 )
 
-(print_cexp: ret context cexp ->
-  $fl fr assign cexp = {decomp cexp};
+(print_cexp: ret fl fr context cexp ->
+  $assign cexp = {decomp cexp};
   $[print_assignment fl fr context assign];
   ${if {compare_bool cexp 0} (break -> return ret 0)};
   $assign_vars = [get_assignment_vars assign];
-  $[print_cexp {make_internal context assign_vars} cexp];
+  $[print_cexp fl fr {make_internal context assign_vars} cexp];
   return ret 0
 )
 
 (get_cexp_vars: ret cexp ->
-  $fl fr assign cexp = {decomp cexp};
+  $assign cexp = {decomp cexp};
   $ids = [get_assignment_vars assign];
   ${if {compare_bool cexp 0} (break -> return ret ids)};
   $ids2 = [get_cexp_vars cexp];
