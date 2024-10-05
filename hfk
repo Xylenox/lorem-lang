@@ -1010,7 +1010,7 @@ closure_footer:
 
 ; returns l r texp
 (read_texp: ret ids fname_l fname_r l r) {
-  $return_string =        (l r t) { return ret l r (x aexp rec_block block func) { x ids fname_l fname_r t } };
+  $return_string =        (l r t) { return ret l r (x aexp rec_block block func) { x ids t } };
   $return_rec_block = (l r rb) { return ret l r (x aexp rec_block block func) { rec_block rb } };
   $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
   $return_func =       (l r f) { return ret l r (x aexp rec_block block func) { func f } };
@@ -1023,7 +1023,7 @@ closure_footer:
     $l r cexp = [read_cexp fname_l fname_r l r (a b) { a }];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "]" tl}} (break) { return ret orig_l r 0 }};
-    return_rec_block l r (cont) { cont ids fname_l fname_r cexp }
+    return_rec_block l r (cont) { cont ids cexp }
   }};
   ${if {compare_bool lb 123} (break) {
     $l = [add_func l 1];
@@ -1031,71 +1031,71 @@ closure_footer:
     $l r cexp = [read_cexp fname_l fname_r l r (a b) {a}];
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
-    return_block l r (cont) { cont ids fname_l fname_r cexp }
+    return_block l r (cont) { cont ids cexp }
   }};
   $lo hi func = [read_function l r];
   ${if {ne func 0} (break) {
-    return_func lo hi (cont) { cont ids fname_l fname_r func }
+    return_func lo hi (cont) { cont ids func }
   }};
   $lo hi string = [read_const_string l r];
   ${if {ne string 0} (break) {
     return_string lo hi string
   }};
   read_id_or_closure_or_function_func l r
-  (a b l r -> compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont ids fname_l fname_r a b)))
+  (a b l r -> compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont ids a b)))
 }
 
 (print_texp: ret fl fr old_context texp) {
   ${if {compare_bool texp 0} (break -> return ret 0)};
   texp
-  (ids fname_l fname_r string) {
+  (ids string) {
     ${print_const_string string};
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
   }
   (aexp ->
-    $ids fname_l fname_r a b = {decomp aexp};
-    $[print_aexp old_context fname_l fname_r a b];
-    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+    $ids a b = {decomp aexp};
+    $[print_aexp old_context fl fr a b];
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   )
   (rec_block ->
-    $ids fname_l fname_r cexp = {decomp rec_block};
+    $ids cexp = {decomp rec_block};
     $context = {map_tree old_context (!l r ->
       ${if {search_tree_ret ids l r} (break -> ! {make_nil})};
       ! {make_leaf l r}
     )};
-    ${map_tree context (!l r -> ${printf "push [{}{}]\n" fname_l fname_r l r};)};
+    ${map_tree context (!l r -> ${printf "push [{}{}]\n" fl fr l r};)};
     $[print_cexp old_context cexp];
     $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
-    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
-    ${map_tree rev_context (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
+    ${map_tree rev_context (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   )
   (block ->
-    $ids fname_l fname_r cexp = {decomp block};
+    $ids cexp = {decomp block};
     $[print_cexp old_context cexp];
     $[printf "push rax\n"];
-    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   )
   (func ->
-    $ids fname_l fname_r func = {decomp func}; 
-    $fl fr func_args is_returning cexp = {decomp func};
+    $ids func = {decomp func}; 
+    $fname_l fname_r func_args is_returning cexp = {decomp func};
     $[print_function old_context func];
-    $context = {make_internal {make_leaf fl fr} old_context};
+    $context = {make_internal {make_leaf fname_l fname_r} old_context};
     ${printf "mov rdi, "};
     $size = {tree_size context};
     ${print_num {mul_func 8 {add_func 1 size}}};
     ${printf "\ncall malloc\n"};
-    $map_arg = {eof_closure_map_arg fl fr fname_l fname_r};
+    $map_arg = {eof_closure_map_arg fname_l fname_r fl fr};
     ${map_tree_iota context map_arg};
     ${printf "mov [rax], "};
     ${print_num size};
     ${printf "\n"};
     ${printf "push rax\n"};
-    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   )
 }
