@@ -981,13 +981,13 @@ closure_footer:
   ${if {matches ")" tl} (break) {
     $l r t tl tr = {read_token l r};
     ${if {not {matches "{" tl}} (break) { return ret orig_l r 0 }};
-    $l r cexp = [read_cexp fname_l fname_r l r is_returning];
+    $l r cexp = [read_cexp l r is_returning];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "}" tl}} (break) { return ret orig_l r 0 }};
     return ret l r (cont) { cont fname_l fname_r new_args is_returning cexp }
   }};
   ${if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
-  $l r cexp = [read_cexp fname_l fname_r l r is_returning];
+  $l r cexp = [read_cexp l r is_returning];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ")" tl}} (break) { return ret orig_l r 0 }};
   return ret l r (cont -> cont fname_l fname_r new_args is_returning cexp)
@@ -1009,7 +1009,7 @@ closure_footer:
 }
 
 ; returns l r texp
-(read_texp: ret ids fname_l fname_r l r) {
+(read_texp: ret ids l r) {
   $return_string =     (l r t) { return ret l r (x aexp rec_block block func) { x ids t } };
   $return_rec_block = (l r rb) { return ret l r (x aexp rec_block block func) { rec_block rb } };
   $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
@@ -1020,7 +1020,7 @@ closure_footer:
   ${if {compare_bool lb 91} (break) {
     $l r t tl tr = {read_token l r};
     ${if {not {matches "[" tl}} (break) { return ret orig_l r 0 }};
-    $l r cexp = [read_cexp fname_l fname_r l r (a b) { a }];
+    $l r cexp = [read_cexp l r (a b) { a }];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "]" tl}} (break) { return ret orig_l r 0 }};
     return_rec_block l r (cont) { cont ids cexp }
@@ -1028,7 +1028,7 @@ closure_footer:
   ${if {compare_bool lb 123} (break) {
     $l = [add_func l 1];
     $l r = [read_whitespace l r];
-    $l r cexp = [read_cexp fname_l fname_r l r (a b) {a}];
+    $l r cexp = [read_cexp l r (a b) {a}];
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
     return_block l r (cont) { cont ids cexp }
@@ -1138,11 +1138,11 @@ closure_footer:
 )
 
 ; returns l r cexp
-(read_cexp: ret fname_l fname_r orig_l r is_returning ->
+(read_cexp: ret orig_l r is_returning ->
   $l = orig_l;
-  $l r assign = [read_assignment fname_l fname_r orig_l r is_returning];
+  $l r assign = [read_assignment orig_l r is_returning];
   ${if {compare_bool assign 0} (break -> return ret l r 0)};
-  $l r cexp = [read_cexp fname_l fname_r l r is_returning];
+  $l r cexp = [read_cexp l r is_returning];
   return ret l r (cont -> cont assign cexp)
 )
 
@@ -1172,15 +1172,15 @@ closure_footer:
   return ret l r
 )
 
-(read_assignment: ret fname_l fname_r orig_l r is_returning ->
+(read_assignment: ret orig_l r is_returning ->
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {matches "!" tl} (break ->
-    $l r texps = {read_texp_list fname_l fname_r l r};
+    $l r texps = {read_texp_list l r};
     return ret l r (a b c -> c texps)
   )};
   ${if {not {matches "$" tl}} (break) {
-    $l r cexp = [read_function_application fname_l fname_r orig_l r is_returning];
+    $l r cexp = [read_function_application orig_l r is_returning];
     ${if {compare_bool cexp 0} (break) { return ret l r 0 }};
     return ret l r, (a b c) { a cexp }
   }};
@@ -1193,7 +1193,7 @@ closure_footer:
   (!) { ! ids }};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {compare_bool 0 l}, (break) { return ret orig_l r 0 }};
-  $l r texp = [read_texp ids fname_l fname_r l r];
+  $l r texp = [read_texp ids l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}}, (break) { return ret orig_l r 0 }};
   return ret l r, (a b c) { b ids texp }
@@ -1223,27 +1223,27 @@ closure_footer:
   (texps) { return ret {make_nil} }
 }
 
-(read_texp_list: ret fname_l fname_r l r -> 
-  $l r tree = [read_texp_list_help fname_l fname_r l r {make_nil}];
+(read_texp_list: ret l r) {
+  $l r tree = [read_texp_list_help l r {make_nil}];
   return ret l r tree
-)
-(read_texp_list_help: ret fname_l fname_r l r tree) {
+}
+(read_texp_list_help: ret l r tree) {
   $nl nr t tl tr = [read_token l r];
   ${if {matches "," tl} (break) {
-    read_texp_list_help ret fname_l fname_r nl nr tree
+    read_texp_list_help ret nl nr tree
   }};
-  $l r texp = [read_texp {make_nil} fname_l fname_r l r];
+  $l r texp = [read_texp {make_nil} l r];
   ${if {compare_bool texp 0} (break) { return ret l r tree }};
   $leaf = {make_leaf texp 0};
   $tree = {make_internal tree leaf};
-  read_texp_list_help ret fname_l fname_r l r tree
+  read_texp_list_help ret l r tree
 }
 
-(read_function_application: ret fname_l fname_r orig_l r is_returning) {
+(read_function_application: ret orig_l r is_returning) {
   $l = orig_l;
   $l r = {read_whitespace l r};
   $l r il ir = {read_identifier_ret l r};
-  $l r op_list = [read_texp_list fname_l fname_r l r];
+  $l r op_list = [read_texp_list l r];
   ${if {compare_bool il ir} (break ->
     ${if {compare_bool {tree_size op_list} 0} (break2 ->
       return ret l r 0
