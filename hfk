@@ -948,6 +948,7 @@ closure_footer:
   ${if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches ";" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches ":" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
+  ${if {matches "," l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "->" l} (break -> return ret {add_func l 2} r 0 l {add_func l 2})};
   $l r il ir = {read_identifier_ret l r};
   ${if {ne il ir} (break -> return ret l r 1 il ir)};
@@ -994,62 +995,64 @@ closure_footer:
   ${if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
   $l r cexp = [read_cexp fname_l fname_r l r is_returning];
   $l r t tl tr = {read_token l r};
-  ${if {not {matches ")" tl}} (break -> return ret orig_l r 0)};
+  ${if {not {matches ")" tl}} (break) { return ret orig_l r 0 }};
   return ret l r (cont -> cont fname_l fname_r new_args is_returning cexp)
 }
-(print_function: ret old_context func ->
+(print_function: ret old_context func) {
   $fname_l fname_r func_args is_returning cexp = {decomp func};
   $new_context = {make_internal old_context func_args};
   $cids = [get_cexp_vars cexp];
   ${printf "jmp {}_end\n" fname_l fname_r};
-  ${map_tree {make_internal new_context cids} (!l r -> ${printf "{}{}: dq 0\n" fname_l fname_r l r};)};
+  ${map_tree {make_internal new_context cids} (!l r) { ${printf "{}{}: dq 0\n" fname_l fname_r l r}; }};
   ${printf "{}:\n" fname_l fname_r};
-  ${if_ret is_returning (!-> ${printf "pop rax\n"};)};
-  ${map_tree new_context (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
-  ${if_ret is_returning (!-> ${printf "push rax\n"};)};
+  ${if_ret is_returning (!) { ${printf "pop rax\n"}; }};
+  ${map_tree new_context (!l r) { ${printf "pop [{}{}]\n" fname_l fname_r l r}; }};
+  ${if_ret is_returning (!) { ${printf "push rax\n"}; }};
   $[print_cexp new_context cexp];
-  ${if_ret is_returning (!-> ${printf "ret\n"};)};
+  ${if_ret is_returning (!) { ${printf "ret\n"}; }};
   ${printf "{}_end:\n" fname_l fname_r};
   return ret 0
-)
+}
 
 ; returns l r texp
-(read_texp: ret ids fname_l fname_r l r ->
-  $return_pop =        (l r t -> return ret l r (x aexp rec_block block func -> x ids fname_l fname_r t));
-  $return_rec_block = (l r rb -> return ret l r (x aexp rec_block block func -> rec_block rb));
-  $return_block =      (l r b -> return ret l r (x aexp rec_block block func -> block b));
-  $return_func =       (l r f -> return ret l r (x aexp rec_block block func -> func f));
-  $return_aexp =       (l r a -> return ret l r (x aexp rec_block block func -> aexp a));
+(read_texp: ret ids fname_l fname_r l r) {
+  $return_pop =        (l r t) { return ret l r (x aexp rec_block block func) { x ids fname_l fname_r t } };
+  $return_rec_block = (l r rb) { return ret l r (x aexp rec_block block func) { rec_block rb } };
+  $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
+  $return_func =       (l r f) { return ret l r (x aexp rec_block block func) { func f } };
+  $return_aexp =       (l r a) { return ret l r (x aexp rec_block block func) { aexp a } };
   $l r = {read_whitespace l r};
   $lb = {deref_byte l};
-  ${if {compare_bool lb 91} (break ->
+  ${if {compare_bool lb 91} (break) {
     $l r t tl tr = {read_token l r};
-    ${if {not {matches "[" tl}} (break -> return ret orig_l r 0)};
-    $l r cexp = [read_cexp fname_l fname_r l r (a b -> a)];
+    ${if {not {matches "[" tl}} (break) { return ret orig_l r 0 }};
+    $l r cexp = [read_cexp fname_l fname_r l r (a b) { a }];
     $l r t tl tr = {read_token l r};
-    ${if {not {matches "]" tl}} (break -> return ret orig_l r 0)};
-    return_rec_block l r (cont -> cont ids fname_l fname_r cexp)
-  )};
-  ${if {compare_bool lb 123} (break ->
+    ${if {not {matches "]" tl}} (break) { return ret orig_l r 0 }};
+    return_rec_block l r (cont) { cont ids fname_l fname_r cexp }
+  }};
+  ${if {compare_bool lb 123} (break) {
     $l = [add_func l 1];
     $l r = [read_whitespace l r];
-    $l r cexp = [read_cexp fname_l fname_r l r (a b -> a)];
+    $l r cexp = [read_cexp fname_l fname_r l r (a b) {a}];
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
-    return_block l r (cont -> cont ids fname_l fname_r cexp)
-  )};
+    return_block l r (cont) { cont ids fname_l fname_r cexp }
+  }};
   $lo hi func = [read_function fname_l fname_r l r];
-  ${if {ne func 0} (break -> 
-    return_func lo hi (cont -> cont ids fname_l fname_r func)
-  )};
-  read_const_string fname_l fname_r l r (lo hi string ->
-  ${if {ne string 0} (break -> 
-    return_pop lo hi (cont -> ${string}; 
-      cont)
-  )};
+  ${if {ne func 0} (break) {
+    return_func lo hi (cont) { cont ids fname_l fname_r func }
+  }};
+  $lo hi string = [read_const_string fname_l fname_r l r];
+  ${if {ne string 0} (break) {
+    return_pop lo hi (cont) {
+      ${string}; 
+      cont
+    }
+  }};
   read_id_or_closure_or_function_func l r
   (a b l r -> compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont ids fname_l fname_r a b)))
-))
+}
 
 (print_texp: ret old_context texp ->
   ${if {compare_bool texp 0} (break -> return ret 0)};
@@ -1113,14 +1116,14 @@ closure_footer:
   read_until c l r cont
 ))
 
-(read_const_string: fname_l fname_r l r cont ->
+(read_const_string: ret fname_l fname_r l r ->
   $l_start r = {read_whitespace l r};
   $lb = {deref_byte l_start};
-  ${if {ne lb 34} (break -> cont l r 0)};
+  ${if {ne lb 34} (break -> return ret l r 0)};
   $l = {add_func l_start 1};
   read_until 34 l r (l r ->
   $l_end = {add_func l 1};
-  cont l_end r (!->
+  return ret l_end r (!->
     $il ir = {gen_label_ret};
     ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
   )
@@ -1231,15 +1234,19 @@ closure_footer:
   $l r tree = [read_texp_list_help fname_l fname_r l r {make_nil}];
   return ret l r tree
 )
-(read_texp_list_help: ret fname_l fname_r l r tree ->
+(read_texp_list_help: ret fname_l fname_r l r tree) {
+  $nl nr t tl tr = [read_token l r];
+  ${if {matches "," tl} (break) {
+    read_texp_list_help ret fname_l fname_r nl nr tree
+  }};
   $l r texp = [read_texp {make_nil} fname_l fname_r l r];
-  ${if {compare_bool texp 0} (break -> return ret l r tree)};
+  ${if {compare_bool texp 0} (break) { return ret l r tree }};
   $leaf = {make_leaf texp 0};
   $tree = {make_internal tree leaf};
   read_texp_list_help ret fname_l fname_r l r tree
-)
+}
 
-(read_function_application: ret fname_l fname_r orig_l r is_returning ->
+(read_function_application: ret fname_l fname_r orig_l r is_returning) {
   $l = orig_l;
   $l r = {read_whitespace l r};
   $l r il ir = {read_identifier_ret l r};
@@ -1251,7 +1258,7 @@ closure_footer:
     break
   )};
   return ret l r (cont -> cont op_list fname_l fname_r il ir is_returning)
-)
+}
 (print_function_application: ret context appl ->
   $op_list fname_l fname_r il ir is_returning = {decomp appl};
   $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp context texp};)];
