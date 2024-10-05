@@ -1008,6 +1008,12 @@ closure_footer:
   return ret 0
 }
 
+(get_aexp_from_texp: ret texp) {
+  $none = (a) { return ret 0 };
+  ${if {compare_bool texp 0} (break) { return ret 0}};
+  texp(none, (aexp) { return ret aexp }, none, none, none)
+}
+
 ; returns l r texp
 (read_texp: ret l r) {
   $return_string =     (l r t) { return ret l r (x aexp rec_block block func) { x t } };
@@ -1126,13 +1132,13 @@ closure_footer:
   $dig = {deref_byte l};
   $res = {is_alpha_ret dig};
   ${if {compare_bool res 1} (break_o ->
-    search_tree comb_args l r (bool ->
+    $bool = {search_tree_ret comb_args l r};
     ${if bool (break ->
       ${printf "push [{}{}]\n" fname_l fname_r l r};
       return ret 0
     )};
     break_o
-  ))};
+  )};
   ${printf "push {}\n" l r};
   return ret 0
 )
@@ -1242,7 +1248,7 @@ closure_footer:
 (read_func_appl_args: ret l r) {
   $nl nr t tl tr = [read_token l r];
   ${if {matches "(" tl} (break) {
-    $l r op_list = [read_texp_list nl nr];
+    $l r op_list = [read_texp_list(nl, nr)];
     $l r t tl tr = [read_token l r];
     ${if {not {matches ")" tl}} (break2) { break }};
     $nl nr t tl tr = [read_token l r];
@@ -1253,34 +1259,37 @@ closure_footer:
   return(ret, l, r, op_list)
 }
 
+(aexp_to_range: ret aexp) {
+  ${if {compare_bool aexp 0} (break) {
+    return ret 0 0
+  }};
+  $l r = {decomp aexp};
+  return ret l r
+}
+
 (read_function_application: ret orig_l r) {
   $l = orig_l;
-  $l r = {read_whitespace l r};
-  $l r il ir = {read_identifier_ret l r};
-  $l r op_list = [read_func_appl_args l r];
-  ${if {compare_bool il ir} (break ->
-    ${if {compare_bool {tree_size op_list} 0} (break2 ->
-      return ret l r 0
-    )};
-    break
+  $l r texp = [read_texp l r];
+  ${if {compare_bool texp 0} (break ->
+    return ret orig_l r 0
   )};
-  return ret l r (cont -> cont op_list il ir)
+  $l r op_list = [read_func_appl_args l r];
+  return ret l r (cont) { cont op_list texp }
 }
-(print_function_application: ret fl fr context is_returning appl ->
-  $op_list il ir = {decomp appl};
+(print_function_application: ret fl fr context is_returning appl) {
+  $op_list texp = {decomp appl};
+  $al ar = {aexp_to_range {get_aexp_from_texp texp}};
   $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp fl fr context {make_nil} texp};)];
-  ${if {ne il ir} (break ->
-    ${if {search_tree_ret context il ir} (break2 -> 
-      ${printf "push [{}{}]\n" fl fr il ir};
-      break
-    )};
+  ${if {ne al ar} (break ->
+    ${if {search_tree_ret context al ar} (break2) { break }};
     ${if_else_ret is_returning (!->
-      ${printf "call {}\n" il ir};
+      ${printf "call {}\n" al ar};
     ) (!->
-      ${printf "jmp {}\n" il ir};
+      ${printf "jmp {}\n" al ar};
     )};
     return ret 0
   )};
+  $[print_texp fl fr context {make_nil} texp];
   ${if_else_ret is_returning (!->
     ${printf "call runtime_call_ret\n"};
   )
@@ -1288,7 +1297,7 @@ closure_footer:
     ${printf "jmp runtime_call\n"};
   )};
   return ret 0
-)
+}
 
 (parse_function_help: lo hi ->
   $nil = {make_nil};
