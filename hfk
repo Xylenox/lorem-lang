@@ -949,14 +949,14 @@ closure_footer:
   error l
 )
 
-(read_is_returning: ret l r ->
+(read_is_returning: ret l r) {
   $nl nr t tl tr = {read_token l r};
-  ${if {matches "!" tl} (break ->
-    return ret nl nr (a b -> a))
-  };
+  ${if {matches "!" tl} (break) {
+    return ret nl nr (a b -> a)
+  }};
   return ret l r (a b -> b)
-)
-(parse_label: ret pl pr ->
+}
+(read_label: ret pl pr ->
   $l r t fl fr = {read_token pl pr};
   ${if {ne t 1} (break -> 
     $fl fr = {gen_label_ret};
@@ -975,7 +975,7 @@ closure_footer:
   $l r t tl tr = {read_token l r};
   ${if {not {matches "(" tl}} (break -> return ret orig_l r 0)};
   $l r is_returning = {read_is_returning l r};
-  $l r fname_l fname_r = {parse_label l r}; 
+  $l r fname_l fname_r = {read_label l r}; 
   $l r new_args = {read_identifier_list l r}; 
   $l r t tl tr = {read_token l r};
   ${if {matches ")" tl} (break) {
@@ -1146,22 +1146,22 @@ closure_footer:
   return ret l r (cont -> cont assign cexp)
 )
 
-(print_cexp: ret fl fr context is_returning cexp ->
+(print_cexp: ret fl fr context is_returning cexp) {
   $assign cexp = {decomp cexp};
   $[print_assignment fl fr context is_returning assign];
   ${if {compare_bool cexp 0} (break -> return ret 0)};
   $assign_vars = [get_assignment_vars assign];
   $[print_cexp fl fr {make_internal context assign_vars} is_returning cexp];
   return ret 0
-)
+}
 
-(get_cexp_vars: ret cexp ->
+(get_cexp_vars: ret cexp) {
   $assign cexp = {decomp cexp};
   $ids = [get_assignment_vars assign];
   ${if {compare_bool cexp 0} (break -> return ret ids)};
   $ids2 = [get_cexp_vars cexp];
   return ret {make_internal ids ids2}
-)
+}
 
 (read_eq_if: ret need l r ->
   ${if need (break ->
@@ -1172,7 +1172,7 @@ closure_footer:
   return ret l r
 )
 
-(read_assignment: ret orig_l r ->
+(read_assignment: ret orig_l r) {
   $l = orig_l;
   $l r t tl tr = {read_token l r};
   ${if {matches "!" tl} (break ->
@@ -1197,8 +1197,8 @@ closure_footer:
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}}, (break) { return ret orig_l r 0 }};
   return ret l r, (a b c) { b ids texp }
-)
-(print_assignment: ret fl fr context is_returning assign ->
+}
+(print_assignment: ret fl fr context is_returning assign) {
   assign, (appl) {
     $[print_function_application fl fr context is_returning appl];
     return ret 0
@@ -1215,7 +1215,7 @@ closure_footer:
     ${printf "pop rcx\npop rax\njmp rcx\n"};
     return ret 0
   }
-)
+}
 
 (get_assignment_vars: ret assign) {
   assign, (appl) { return ret {make_nil} },
@@ -1239,11 +1239,25 @@ closure_footer:
   read_texp_list_help ret l r tree
 }
 
+(read_func_appl_args: ret l r) {
+  $nl nr t tl tr = [read_token l r];
+  ${if {matches "(" tl} (break) {
+    $l r op_list = [read_texp_list nl nr];
+    $l r t tl tr = [read_token l r];
+    ${if {not {matches ")" tl}} (break2) { break }};
+    $nl nr t tl tr = [read_token l r];
+    ${if {matches "{" tl} (break2) { break }};
+    return ret l r op_list
+  }};
+  $l r op_list = [read_texp_list l r];
+  return(ret, l, r, op_list)
+}
+
 (read_function_application: ret orig_l r) {
   $l = orig_l;
   $l r = {read_whitespace l r};
   $l r il ir = {read_identifier_ret l r};
-  $l r op_list = [read_texp_list l r];
+  $l r op_list = [read_func_appl_args l r];
   ${if {compare_bool il ir} (break ->
     ${if {compare_bool {tree_size op_list} 0} (break2 ->
       return ret l r 0
