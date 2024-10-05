@@ -1009,8 +1009,8 @@ closure_footer:
 }
 
 ; returns l r texp
-(read_texp: ret ids l r) {
-  $return_string =     (l r t) { return ret l r (x aexp rec_block block func) { x ids t } };
+(read_texp: ret l r) {
+  $return_string =     (l r t) { return ret l r (x aexp rec_block block func) { x t } };
   $return_rec_block = (l r rb) { return ret l r (x aexp rec_block block func) { rec_block rb } };
   $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
   $return_func =       (l r f) { return ret l r (x aexp rec_block block func) { func f } };
@@ -1023,7 +1023,7 @@ closure_footer:
     $l r cexp = [read_cexp l r (a b) { a }];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "]" tl}} (break) { return ret orig_l r 0 }};
-    return_rec_block l r (cont) { cont ids cexp }
+    return_rec_block l r (cont) { cont cexp }
   }};
   ${if {compare_bool lb 123} (break) {
     $l = [add_func l 1];
@@ -1031,36 +1031,36 @@ closure_footer:
     $l r cexp = [read_cexp l r (a b) {a}];
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
-    return_block l r (cont) { cont ids cexp }
+    return_block l r (cont) { cont cexp }
   }};
   $lo hi func = [read_function l r];
   ${if {ne func 0} (break) {
-    return_func lo hi (cont) { cont ids func }
+    return_func lo hi (cont) { cont func }
   }};
   $lo hi string = [read_const_string l r];
   ${if {ne string 0} (break) {
     return_string lo hi string
   }};
   read_id_or_closure_or_function_func l r
-  (a b l r -> compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont ids a b)))
+  (a b l r -> compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont a b)))
 }
 
-(print_texp: ret fl fr old_context texp) {
+(print_texp: ret fl fr old_context ids texp) {
   ${if {compare_bool texp 0} (break -> return ret 0)};
   texp
-  (ids string) {
+  (string) {
     ${print_const_string string};
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fname_l fname_r l r};)};
     return ret 0
   }
   (aexp ->
-    $ids a b = {decomp aexp};
+    $a b = {decomp aexp};
     $[print_aexp old_context fl fr a b];
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   )
   (rec_block ->
-    $ids cexp = {decomp rec_block};
+    $cexp = {decomp rec_block};
     $context = {map_tree old_context (!l r ->
       ${if {search_tree_ret ids l r} (break -> ! {make_nil})};
       ! {make_leaf l r}
@@ -1074,14 +1074,14 @@ closure_footer:
     return ret 0
   )
   (block ->
-    $ids cexp = {decomp block};
+    $cexp = {decomp block};
     $[print_cexp fl fr old_context cexp];
     $[printf "push rax\n"];
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   )
   (func ->
-    $ids func = {decomp func}; 
+    $func = {decomp func}; 
     $fname_l fname_r func_args is_returning cexp = {decomp func};
     $[print_function old_context func];
     $context = {make_internal {make_leaf fname_l fname_r} old_context};
@@ -1193,7 +1193,7 @@ closure_footer:
   (!) { ! ids }};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {compare_bool 0 l}, (break) { return ret orig_l r 0 }};
-  $l r texp = [read_texp ids l r];
+  $l r texp = [read_texp l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}}, (break) { return ret orig_l r 0 }};
   return ret l r, (a b c) { b ids texp }
@@ -1204,12 +1204,12 @@ closure_footer:
     return ret 0
   },
   (ids texp) {
-    $[print_texp fl fr context texp];
+    $[print_texp fl fr context ids texp];
     return ret 0
   },
   (texps) {
     ${map_tree, {reverse_tree texps}, (!texp r) {
-      $[print_texp fl fr context texp];
+      $[print_texp fl fr context {make_nil} texp];
       ${printf "pop rax\npop rcx\npush rax\npush rcx\n"};
     }};
     ${printf "pop rcx\npop rax\njmp rcx\n"};
@@ -1232,7 +1232,7 @@ closure_footer:
   ${if {matches "," tl} (break) {
     read_texp_list_help ret nl nr tree
   }};
-  $l r texp = [read_texp {make_nil} l r];
+  $l r texp = [read_texp l r];
   ${if {compare_bool texp 0} (break) { return ret l r tree }};
   $leaf = {make_leaf texp 0};
   $tree = {make_internal tree leaf};
@@ -1254,7 +1254,7 @@ closure_footer:
 }
 (print_function_application: ret fl fr context appl ->
   $op_list il ir is_returning = {decomp appl};
-  $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp fl fr context texp};)];
+  $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp fl fr context {make_nil} texp};)];
   ${if {ne il ir} (break ->
     ${if {search_tree_ret context il ir} (break2 -> 
       ${printf "push [{}{}]\n" fl fr il ir};
