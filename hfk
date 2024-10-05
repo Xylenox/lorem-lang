@@ -103,41 +103,41 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     jmp runtime_call
 
 (or: ret cont1 cont2) {
-  cont1 () { return ret cont1 } () { return ret cont2 }
+  cont1, () { return ret cont1 }, () { return ret cont2 }
 }
 
 (if: ret v cont) {
   $break = () { return ret 0 };
-  v () { cont break } break
+  v, () { cont break }, break
 }
 (if_else: ret v cont1 cont2) {
   $break = () { return ret 0 };
-  v () { cont1 break } () { cont2 break }
+  v, () { cont1 break }, () { cont2 break }
 }
 (if_ret: ret v cont) {
   $break = () { return ret 0 };
-  v () {
+  v, () {
     ${cont};
     break
-  }
+  },
   break
 }
 (if_else_ret: ret v cont1 cont2) {
-  v () { return ret {cont1} }
+  v, () { return ret {cont1} },
   () { return ret {cont2} }
 }
 
 (!ne: a b) {
-  $res = [callcc (ret) { compare a b () { ret (x y) {y} } () { ret (x y) {x} } }];
+  $res = [callcc, (ret) { compare a b, () { ret (x y) {y} }, () { ret (x y) {x} } }];
   ! res
 }
 (!not: x) {
-  $res = [callcc (ret) { x () { ret (a b) {b} } () { ret (a b) {a} } }];
+  $res = [callcc, (ret) { x, () { ret (a b) {b} }, () { ret (a b) {a} } }];
   ! res
 }
 
 (!compare_bool: a b) {
-  $res = [callcc (ret) { compare a b () { ret (x y) {x} } () { ret (x y) {y} } }];
+  $res = [callcc, (ret) { compare a b, () { ret (x y) {x} }, () { ret (x y) {y} } }];
   ! res
 }
 
@@ -266,9 +266,6 @@ malloc_func:
 
 (bool_true: cont_true cont_false) { cont_true }
 (bool_false: cont_true cont_false) { cont_false }
-
-
-(make_pair: cont a b) { cont (cont) {cont a b} }
 
 (!make_nil:) { ! (cont_nil cont_leaf cont_internal) {cont_nil} }
 (!make_leaf: l r) { ! (cont_nil cont_leaf cont_internal) {cont_leaf l r} }
@@ -423,60 +420,67 @@ print_char:
   call print_char_help
   ret
 
-(print_num_help: v cont ->
-  ${if {compare_bool v 0} (break -> cont)};
-  print_num_help {div_func v 10} (->
+(print_num_help: v cont) {
+  ${if {compare_bool v 0}, (break) { cont }};
+  print_num_help {div_func v 10}, () {
     ${print_char {add_func {deref_byte "0"} {mod_func v 10}}};
     cont
-  )
-)
-(print_num: ret v -> callcc ret (ret -> print_num_help v (-> ret 0)))
+  }
+}
+(print_num: ret v) { callcc ret, (ret) { print_num_help, v, () {ret 0} } }
 
-(printf: ret l ->
+(printf: ret l) {
   $lb = {deref_byte l};
-  ${if {compare_bool lb 0} (break ->
+  ${if {compare_bool lb 0}, (break) {
     return ret 0
-  )};
-  ${if {compare_bool lb 123} (break a b ->
+  }};
+  ${if {compare_bool lb 123}, (break a b) {
     ${print_range_ret a b};
     printf ret {add_func l 2}
-  )};
+  }};
   ${print_char {deref_byte l}};
   printf ret {add_func l 1}
-)
+}
 
-(tree_size: ret tree -> 
-  tree
-  (-> return ret 0)
-  (l r -> return ret 1)
-  (a b -> 
+(tree_size: ret tree) {
+  tree,
+  () { return ret 0 },
+  (l r) { return ret 1 }
+  (a b) {
     $a = [tree_size a];
     $b = [tree_size b];
     return ret {add_func a b}
-  )
-)
+  }
+}
 
-(map_tree: ret tree action -> 
-  tree
-  (-> return ret {make_nil})
-  (l r ->
+(map_tree: ret tree action) {
+  tree,
+  () { return ret {make_nil} },
+  (l r) {
     $res = [action l r];
     return ret res
-  )
-  (a b -> 
+  },
+  (a b) {
     $a = [map_tree a action];
     $b = [map_tree b action];
     return ret {make_internal a b}
-  )
-)
+  }
+}
 
-(map_tree_iota_help: ret n tree action ->
-  tree
-    (-> ret n {make_nil})
-    (l r -> ret {add_func n 1} {action n l r})
-    (a b -> map_tree_iota_help (na new_a -> map_tree_iota_help (nb new_b -> ret nb {make_internal new_a new_b}) na b action) n a action)
+(map_tree_iota_help: ret n tree action) {
+  tree,
+    () { return ret, (cont) { cont n {make_nil} } },
+    (l r) { return ret, (cont) { cont {add_func n 1} {action n l r} } },
+    (a b) {
+      $na new_a = [ decomp { map_tree_iota_help n a action } ];
+      $nb new_b = [ decomp { map_tree_iota_help na b action } ];
+      return ret, (cont) { cont nb {make_internal na nb } }
+    }
+}
+(map_tree_iota: ret tree action ->
+  $n t = [ decomp { map_tree_iota_help 0 tree action } ];
+  return ret t
 )
-(map_tree_iota: ret tree action -> callcc ret (ret -> map_tree_iota_help (n t -> ret t) 0 tree action))
 
 (reverse_tree: ret tree ->
   tree (-> return ret {make_nil}) (l r -> return ret {make_leaf l r})
@@ -508,16 +512,6 @@ print_range_pair:
     pop rdi
     pop rsi
     call print_range
-    ret
-
-make_pair_imperative:
-  push rsi
-  push rdi
-  |make_pair_imperative_lambda|
-  push rax
-  jmp make_pair
-  make_pair_imperative_lambda:
-    pop rax
     ret
 
 print_range_line:
@@ -1186,49 +1180,49 @@ closure_footer:
     $l r texps = {read_texp_list fname_l fname_r l r};
     return ret l r (a b c -> c texps)
   )};
-  ${if {not {matches "$" tl}} (break -> 
+  ${if {not {matches "$" tl}} (break) {
     $l r cexp = [read_function_application fname_l fname_r orig_l r is_returning];
-    ${if {compare_bool cexp 0} (break -> return ret l r 0)};
-    return ret l r (a b c -> a cexp)
-  )};
+    ${if {compare_bool cexp 0} (break) { return ret l r 0 }};
+    return ret l r, (a b c) { a cexp }
+  }};
   $l r ids = {read_identifier_list l r};
   $is_empty_ids = {compare_bool {tree_size ids} 0};
-  $ids = {if_else_ret is_empty_ids (!-> 
+  $ids = {if_else_ret is_empty_ids, (!) {
     $il ir = {gen_label_ret};
     ! {make_leaf il ir}
-  )
-  (!-> ! ids)};
+  },
+  (!) { ! ids }};
   $l r = {read_eq_if {not is_empty_ids} l r};
-  ${if {compare_bool 0 l} (break -> return ret orig_l r 0)};
+  ${if {compare_bool 0 l}, (break) { return ret orig_l r 0 }};
   $l r texp = [read_texp ids fname_l fname_r l r];
   $l r t tl tr = {read_token l r};
-  ${if {not {matches ";" tl}} (break -> return ret orig_l r 0)};
-  return ret l r (a b c -> b ids texp)
+  ${if {not {matches ";" tl}}, (break) { return ret orig_l r 0 }};
+  return ret l r, (a b c) { b ids texp }
 )
 (print_assignment: ret context assign ->
-  assign (appl ->
+  assign, (appl) {
     $[print_function_application context appl];
     return ret 0
-  )
-  (ids texp ->
+  },
+  (ids texp) {
     $[print_texp context texp];
-    (-> return ret 0)
-  )
-  (texps ->
-    ${map_tree {reverse_tree texps} (!texp r ->
+    return ret 0
+  },
+  (texps) {
+    ${map_tree, {reverse_tree texps}, (!texp r) {
       $[print_texp context texp];
       ${printf "pop rax\npop rcx\npush rax\npush rcx\n"};
-    )};
+    }};
     ${printf "pop rcx\npop rax\njmp rcx\n"};
     return ret 0
-  )
+  }
 )
 
-(get_assignment_vars: ret assign ->
-  assign (appl -> return ret {make_nil})
-  (ids texp -> return ret ids)
-  (texps -> return ret {make_nil})
-)
+(get_assignment_vars: ret assign) {
+  assign, (appl) { return ret {make_nil} },
+  (ids texp) { return ret ids },
+  (texps) { return ret {make_nil} }
+}
 
 (read_texp_list: ret fname_l fname_r l r -> 
   $l r tree = [read_texp_list_help fname_l fname_r l r {make_nil}];
