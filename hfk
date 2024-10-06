@@ -1150,7 +1150,7 @@ closure_footer:
 (read_eq_if: ret need l r ->
   ${if need (break ->
     $l r t tl tr = {read_token l r};
-    ${if {not {matches "=" tl}} (break -> return 0 0)};
+    ${if {not {matches "=" tl}} (break) { return 0 0 }};
     return ret l r
   )};
   return ret l r
@@ -1159,10 +1159,10 @@ closure_footer:
 (read_assignment: ret orig_l r) {
   $l = orig_l;
   $l r t tl tr = {read_token l r};
-  ${if {matches "!" tl} (break ->
-    $l r texps = {read_texp_list l r};
-    return ret l r (a b c -> c texps)
-  )};
+  ${if {matches "!" tl} (break) {
+    $l r call_exps = read_call_exp_list(l, r);
+    return ret l r (a b c) { c(call_exps) }
+  }};
   ${if {not {matches "$" tl}} (break) {
     $l r cexp = [read_function_application orig_l r];
     ${if {eq cexp 0} (break) { return ret l r 0 }};
@@ -1177,8 +1177,8 @@ closure_footer:
   (!) { ! ids }};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {eq 0 l}, (break) { return ret orig_l r 0 }};
-  $l r call_exp = [read_call_expression l r];
-  $l r t tl tr = {read_token l r};
+  $l r call_exp = read_call_expression(l, r);
+  $l r t tl tr = read_token(l, r);
   ${if {not {matches ";" tl}}, (break) { return ret orig_l r 0 }};
   return ret l r, (a b c) { b ids call_exp }
 }
@@ -1191,9 +1191,9 @@ closure_footer:
     $[print_call_expression fl fr context ids call_exp];
     return ret 0
   },
-  (texps) {
-    ${map_tree, {reverse_tree texps}, (!texp r) {
-      $[print_texp fl fr context {make_nil} texp];
+  (call_exps) {
+    ${map_tree, {reverse_tree call_exps}, (!call_exp r) {
+      $[print_call_expression fl fr context {make_nil} call_exp];
       ${printf "pop rax\npop rcx\npush rax\npush rcx\n"};
     }};
     ${printf "pop rcx\npop rax\njmp rcx\n"};
@@ -1204,9 +1204,24 @@ closure_footer:
 (get_assignment_vars: ret assign) {
   assign, (appl) { return ret {make_nil} },
   (ids call_exp) { return ret ids },
-  (texps) { return ret {make_nil} }
+  (call_exps) { return ret {make_nil} }
 }
 
+(read_call_exp_list: ret l r) {
+  $l r tree = read_call_exp_list_help(l, r, {make_nil});
+  return ret l r tree
+}
+(read_call_exp_list_help: ret l r tree) {
+  $nl nr t tl tr = [read_token l r];
+  ${if {matches "," tl} (break) {
+    read_call_exp_list_help ret nl nr tree
+  }};
+  $l r call_exp = read_call_expression(l, r);
+  ${if {eq call_exp 0} (break) { return ret l r tree }};
+  $leaf = {make_leaf call_exp 0};
+  $tree = {make_internal tree leaf};
+  read_call_exp_list_help ret l r tree
+}
 (read_texp_list: ret l r) {
   $l r tree = [read_texp_list_help l r {make_nil}];
   return ret l r tree
@@ -1216,7 +1231,7 @@ closure_footer:
   ${if {matches "," tl} (break) {
     read_texp_list_help ret nl nr tree
   }};
-  $l r texp = [read_texp l r];
+  $l r texp = read_texp(l, r);
   ${if {eq texp 0} (break) { return ret l r tree }};
   $leaf = {make_leaf texp 0};
   $tree = {make_internal tree leaf};
@@ -1224,10 +1239,23 @@ closure_footer:
 }
 
 (read_call_expression_args: ret l r) {
-  $nl nr t tl tr = [read_token l r];
+  $nl nr t tl tr = read_token(l, r);
   ${if {matches "(" tl} (break) {
-    $l r op_list = [read_texp_list(nl, nr)];
-    $l r t tl tr = [read_token l r];
+    $l r op_list = read_texp_list(nl, nr);
+    $l r t tl tr = read_token(l, r);
+    ${if {not {matches ")" tl}} (break2) { break }};
+    $nl nr t tl tr = [read_token l r];
+    ${if {matches "{" tl} (break2) { break }};
+    return ret l r op_list
+  }};
+  return(ret, l, r, 0)
+}
+
+(read_call_expression_args_with_cexp: ret l r) {
+  $nl nr t tl tr = read_token(l, r);
+  ${if {matches "(" tl} (break) {
+    $l r op_list = read_call_exp_list(nl, nr);
+    $l r t tl tr = read_token(l, r);
     ${if {not {matches ")" tl}} (break2) { break }};
     $nl nr t tl tr = [read_token l r];
     ${if {matches "{" tl} (break2) { break }};
@@ -1242,13 +1270,13 @@ closure_footer:
   ${if {eq texp 0} (break) {
     return ret orig_l r 0
   }};
-  $l r op_list = [read_call_expression_args l r];
+  $l r op_list = read_call_expression_args_with_cexp(l, r);
   ${if {eq op_list 0} (break) { return(ret, l, r, (t1, t2) { t1(texp) }) }};
   return ret l r (t1, t2) { t2(texp, op_list) }
 }
 
 (print_call_expression: ret fl fr old_context ids call_exp) {
-  ${if {eq call_exp 0} (break -> return ret 0)};
+  ${if {eq call_exp 0} (break) { return ret 0 }};
   call_exp
   (texp) {
     $[print_texp fl fr old_context ids texp];
@@ -1262,7 +1290,7 @@ closure_footer:
     ${map_tree context (!l r) { ${printf "push [{}{}]\n" fl fr l r}; }};
     
     $al ar = {aexp_to_range {get_aexp_from_texp texp}};
-    $[map_tree {reverse_tree op_list} (!texp r) { ${print_texp fl fr old_context {make_nil} texp}; }];
+    $[map_tree {reverse_tree op_list} (!call_exp r) { !print_call_expression(fl, fr, old_context, {make_nil}, call_exp) }];
     ${if_else {or {eq al ar} {search_tree_ret old_context al ar}} (break) {
       $[print_texp fl fr old_context {make_nil} texp];
       ${printf "call runtime_call_ret\n"};
@@ -1273,19 +1301,18 @@ closure_footer:
       break
     }};
 
-
     $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
-    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
+    ${map_tree ids (!l r) { ${printf "pop [{}{}]\n" fl fr l r}; }};
     ${map_tree rev_context (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   }
 }
 
 (read_func_appl_args: ret l r) {
-  $nl nr op_list = [read_call_expression_args l r];
+  $nl nr op_list = read_call_expression_args(l, r);
   ${if {ne op_list 0} (break) { return(ret, nl, nr, op_list) }};
-  $l r op_list = [read_texp_list l r];
+  $l r op_list = read_texp_list(l, r);
   return(ret, l, r, op_list)
 }
 
