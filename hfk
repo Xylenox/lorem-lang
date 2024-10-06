@@ -491,12 +491,12 @@ print_char:
   }
 }
 
-(search_tree: tree l r cont -> tree (-> cont (a b -> b)) (a b -> str_equal_func l r a b cont)
-(a b -> search_tree a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree b l r cont))))
+(search_tree_help: tree l r cont -> tree (-> cont (a b -> b)) (a b -> str_equal_func l r a b cont)
+(a b -> search_tree_help a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree_help b l r cont))))
 
-(!search_tree_ret: tree l r ->
+(!search_tree: tree l r ->
   $res = [callcc (ret ->
-    search_tree tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
+    search_tree_help tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
   )];
   ! res
 )
@@ -1046,7 +1046,7 @@ closure_footer:
   (rec_block) {
     $cexp = {decomp rec_block};
     $context = {map_tree old_context (!l r) {
-      ${if {search_tree_ret ids l r} (break) { ! {make_nil} }};
+      ${if {search_tree ids l r} (break) { ! {make_nil} }};
       ! {make_leaf l r}
     }};
     ${map_tree context (!l r) { ${printf "push [{}{}]\n" fl fr l r}; }};
@@ -1110,7 +1110,7 @@ closure_footer:
   $dig = {deref_byte l};
   $res = {is_alpha_ret dig};
   ${if {eq res 1} (break_o ->
-    $bool = {search_tree_ret comb_args l r};
+    $bool = {search_tree comb_args l r};
     ${if bool (break ->
       ${printf "push [{}{}]\n" fname_l fname_r l r};
       return ret 0
@@ -1130,20 +1130,28 @@ closure_footer:
   return ret l r (cont -> cont assign cexp)
 )
 
+(merge_context: ret old_context ids) {
+  $context = map_tree(old_context, (!l r) {
+    ${if {search_tree ids l r} (break) { ! {make_nil} }};
+    ! {make_leaf l r}
+  });
+  return ret {make_internal context ids}
+}
+
 (print_cexp: ret fl fr context is_returning cexp) {
   $assign cexp = {decomp cexp};
   $[print_assignment fl fr context is_returning assign];
-  ${if {eq cexp 0} (break -> return ret 0)};
-  $assign_vars = [get_assignment_vars assign];
-  $[print_cexp fl fr {make_internal context assign_vars} is_returning cexp];
+  ${if {eq cexp 0} (break) { return ret 0 }};
+  $assign_vars = get_assignment_vars(assign);
+  $[print_cexp fl fr {merge_context context assign_vars} is_returning cexp];
   return ret 0
 }
 
 (get_cexp_vars: ret cexp) {
   $assign cexp = {decomp cexp};
-  $ids = [get_assignment_vars assign];
-  ${if {eq cexp 0} (break -> return ret ids)};
-  $ids2 = [get_cexp_vars cexp];
+  $ids = get_assignment_vars(assign);
+  ${if {eq cexp 0} (break) { return ret ids }};
+  $ids2 = get_cexp_vars(cexp);
   return ret {make_internal ids ids2}
 }
 
@@ -1164,9 +1172,9 @@ closure_footer:
     return ret l r (a b c) { c(call_exps) }
   }};
   ${if {not {matches "$" tl}} (break) {
-    $l r cexp = [read_function_application orig_l r];
+    $l r cexp = read_function_application(orig_l, r);
     ${if {eq cexp 0} (break) { return ret l r 0 }};
-    return ret l r, (a b c) { a cexp }
+    return ret l r, (a b c) { a(cexp) }
   }};
   $l r ids = {read_id_list l r};
   $is_empty_ids = {eq {tree_size ids} 0};
@@ -1284,14 +1292,14 @@ closure_footer:
   }
   (texp, op_list) {
     $context = {map_tree old_context (!l r) {
-      ${if {search_tree_ret ids l r} (break) { ! {make_nil} }};
+      ${if {search_tree ids l r} (break) { ! {make_nil} }};
       ! {make_leaf l r}
     }};
-    ${map_tree context (!l r) { ${printf "push [{}{}]\n" fl fr l r}; }};
+    ${map_tree context (!l r) { ! printf("push [{}{}]\n", fl, fr, l, r) }};
     
     $al ar = {aexp_to_range {get_aexp_from_texp texp}};
-    $[map_tree {reverse_tree op_list} (!call_exp r) { !print_call_expression(fl, fr, old_context, {make_nil}, call_exp) }];
-    ${if_else {or {eq al ar} {search_tree_ret old_context al ar}} (break) {
+    $[map_tree {reverse_tree op_list} (!call_exp r) { ! print_call_expression(fl, fr, old_context, {make_nil}, call_exp) }];
+    ${if_else {or {eq al ar} {search_tree old_context al ar}} (break) {
       $[print_texp fl fr old_context {make_nil} texp];
       ${printf "call runtime_call_ret\n"};
       break
@@ -1301,10 +1309,10 @@ closure_footer:
       break
     }};
 
-    $rev_context = [reverse_tree context];
+    $rev_context = reverse_tree(context);
     $[printf "push rax\n"];
-    ${map_tree ids (!l r) { ${printf "pop [{}{}]\n" fl fr l r}; }};
-    ${map_tree rev_context (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
+    ${map_tree ids (!l r) { ! printf("pop [{}{}]\n", fl, fr, l, r) }};
+    ${map_tree rev_context (!l r) { ! printf("pop [{}{}]\n", fl, fr, l, r) }};
     return ret 0
   }
 }
@@ -1337,7 +1345,7 @@ closure_footer:
   $op_list texp = {decomp appl};
   $al ar = {aexp_to_range {get_aexp_from_texp texp}};
   $[map_tree {reverse_tree op_list} (!texp r) { ${print_texp fl fr context {make_nil} texp}; }];
-  ${if_else {or {eq al ar} {search_tree_ret context al ar}} (break) {
+  ${if_else {or {eq al ar} {search_tree context al ar}} (break) {
     $[print_texp fl fr context {make_nil} texp];
     ${if_else_ret is_returning
       (!) { ${printf "call runtime_call_ret\n"}; }
