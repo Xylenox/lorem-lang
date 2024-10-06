@@ -551,10 +551,10 @@ is_alpha_func:
   push rcx
   jmp runtime_call
 
-(!is_alpha_ret: c ->
-  $res = [callcc (ret -> is_alpha_func c ret)];
-  ! res  
-)
+(!is_alpha_ret: c) {
+  $res = [callcc (ret) { is_alpha_func c ret }];
+  ! res
+}
 
 is_digit:           ; is alpha
   cmp r7, "0"
@@ -584,15 +584,14 @@ read_whitespace_imp:
   pop [flen]
   ret
 
-(!read_whitespace: l r ->
+(read_whitespace: ret l r) {
   $lb = {deref_byte l};
-  ${if {eq l r} (break -> ! l r)};
-  ${if {or {eq lb 10} {eq lb 32}} (break -> 
-    $l r = [read_whitespace {add_func l 1} r];
-    ! l r
-  )};
-  ! l r
-)
+  ${if {eq l r} (break) { return ret l r }};
+  ${if {or {eq lb 10} {eq lb 32}} (break) {
+    read_whitespace ret {add_func l 1} r
+  }};
+  return ret l r
+}
 
 read_identifier: ; read identifier and return start and end pointers
   ; call read_whitespace_imp
@@ -1047,10 +1046,10 @@ closure_footer:
   (rec_block) {
     $cexp = {decomp rec_block};
     $context = {map_tree old_context (!l r) {
-      ${if {search_tree_ret ids l r} (break -> ! {make_nil})};
+      ${if {search_tree_ret ids l r} (break) { ! {make_nil} }};
       ! {make_leaf l r}
     }};
-    ${map_tree context (!l r -> ${printf "push [{}{}]\n" fl fr l r};)};
+    ${map_tree context (!l r) { ${printf "push [{}{}]\n" fl fr l r}; }};
     $[print_cexp fl fr old_context (a b) { a } cexp];
     $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
@@ -1178,18 +1177,18 @@ closure_footer:
   (!) { ! ids }};
   $l r = {read_eq_if {not is_empty_ids} l r};
   ${if {eq 0 l}, (break) { return ret orig_l r 0 }};
-  $l r texp = [read_texp l r];
+  $l r call_exp = [read_call_expression l r];
   $l r t tl tr = {read_token l r};
   ${if {not {matches ";" tl}}, (break) { return ret orig_l r 0 }};
-  return ret l r, (a b c) { b ids texp }
+  return ret l r, (a b c) { b ids call_exp }
 }
 (print_assignment: ret fl fr context is_returning assign) {
   assign, (appl) {
     $[print_function_application fl fr context is_returning appl];
     return ret 0
   },
-  (ids texp) {
-    $[print_texp fl fr context ids texp];
+  (ids call_exp) {
+    $[print_call_expression fl fr context ids call_exp];
     return ret 0
   },
   (texps) {
@@ -1204,7 +1203,7 @@ closure_footer:
 
 (get_assignment_vars: ret assign) {
   assign, (appl) { return ret {make_nil} },
-  (ids texp) { return ret ids },
+  (ids call_exp) { return ret ids },
   (texps) { return ret {make_nil} }
 }
 
@@ -1237,15 +1236,50 @@ closure_footer:
   return(ret, l, r, 0)
 }
 
-(read_call_expression: ret l r) {
+(read_call_expression: ret orig_l r) {
   $l = orig_l;
-  $l r texp = [read_texp l r];
+  $l r texp = read_texp(l, r);
   ${if {eq texp 0} (break) {
     return ret orig_l r 0
   }};
   $l r op_list = [read_call_expression_args l r];
-  ${if {eq op_list 0} (break) { return(ret, l, r, (t1 t2) { t1(texp) }) }};
-  return ret l r (t1 t2) { t2(texp, op_list) }
+  ${if {eq op_list 0} (break) { return(ret, l, r, (t1, t2) { t1(texp) }) }};
+  return ret l r (t1, t2) { t2(texp, op_list) }
+}
+
+(print_call_expression: ret fl fr old_context ids call_exp) {
+  ${if {eq call_exp 0} (break -> return ret 0)};
+  call_exp
+  (texp) {
+    $[print_texp fl fr old_context ids texp];
+    return ret 0
+  }
+  (texp, op_list) {
+    $context = {map_tree old_context (!l r) {
+      ${if {search_tree_ret ids l r} (break) { ! {make_nil} }};
+      ! {make_leaf l r}
+    }};
+    ${map_tree context (!l r) { ${printf "push [{}{}]\n" fl fr l r}; }};
+    
+    $al ar = {aexp_to_range {get_aexp_from_texp texp}};
+    $[map_tree {reverse_tree op_list} (!texp r) { ${print_texp fl fr old_context {make_nil} texp}; }];
+    ${if_else {or {eq al ar} {search_tree_ret old_context al ar}} (break) {
+      $[print_texp fl fr old_context {make_nil} texp];
+      ${printf "call runtime_call_ret\n"};
+      break
+    }
+    (break) {
+      ${printf "call {}\n" al ar};
+      break
+    }};
+
+
+    $rev_context = [reverse_tree context];
+    $[printf "push rax\n"];
+    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
+    ${map_tree rev_context (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
+    return ret 0
+  }
 }
 
 (read_func_appl_args: ret l r) {
@@ -1266,32 +1300,31 @@ closure_footer:
 (read_function_application: ret orig_l r) {
   $l = orig_l;
   $l r texp = [read_texp l r];
-  ${if {eq texp 0} (break ->
+  ${if {eq texp 0} (break) {
     return ret orig_l r 0
-  )};
+  }};
   $l r op_list = [read_func_appl_args l r];
   return ret l r (cont) { cont(op_list, texp) }
 }
 (print_function_application: ret fl fr context is_returning appl) {
   $op_list texp = {decomp appl};
   $al ar = {aexp_to_range {get_aexp_from_texp texp}};
-  $[map_tree {reverse_tree op_list} (!texp r -> ${print_texp fl fr context {make_nil} texp};)];
-  ${if {ne al ar} (break ->
-    ${if {search_tree_ret context al ar} (break2) { break }};
-    ${if_else_ret is_returning (!) {
-      ${printf "call {}\n" al ar};
-    }, (!) {
-      ${printf "jmp {}\n" al ar};
-    }};
-    return ret 0
-  )};
-  $[print_texp fl fr context {make_nil} texp];
-  ${if_else_ret is_returning (!->
-    ${printf "call runtime_call_ret\n"};
-  )
-  (!->
-    ${printf "jmp runtime_call\n"};
-  )};
+  $[map_tree {reverse_tree op_list} (!texp r) { ${print_texp fl fr context {make_nil} texp}; }];
+  ${if_else {or {eq al ar} {search_tree_ret context al ar}} (break) {
+    $[print_texp fl fr context {make_nil} texp];
+    ${if_else_ret is_returning
+      (!) { ${printf "call runtime_call_ret\n"}; }
+      (!) { ${printf "jmp runtime_call\n"}; }
+    };
+    break
+  }
+  (break) {
+    ${if_else_ret is_returning
+      (!) { ${printf "call {}\n" al ar}; }
+      (!) { ${printf "jmp {}\n" al ar}; }
+    };
+    break
+  }};
   return ret 0
 }
 
@@ -1323,15 +1356,15 @@ closure_footer:
   main_loop mid hi
 )
 
-(main_loop: lo hi ->
-  ${if {eq} lo hi (break -> exit)};
+(main_loop: lo hi) {
+  ${if {eq} lo hi (break) { exit() }};
   $c = {deref_byte lo};
-  ${if {eq c 40} (break -> parse_function_help lo hi)};
-  ${if {eq c 124} (break -> parse_closure_outer lo hi)};
-  ${if {eq c 59} (break -> parse_comment lo hi)};
-  ${if {eq c 92} (break -> parse_escape lo hi)};
-  otherwise lo hi
-)
+  ${if {eq c 40} (break) { parse_function_help(lo, hi) }};
+  ${if {eq c 124} (break) { parse_closure_outer(lo, hi) }};
+  ${if {eq c 59} (break) { parse_comment(lo, hi) }};
+  ${if {eq c 92} (break) { parse_escape(lo, hi) }};
+  otherwise(lo, hi)
+}
 
 start:
 ; open input
