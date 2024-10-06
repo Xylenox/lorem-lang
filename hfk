@@ -76,18 +76,6 @@ mod_func:
   mov rax, rdx
   jmp rcx
 
-decomp: ; takes (cont -> cont a b) and returns a and b
-  |decomp_cont [rsp]|
-  add rsp, 8
-  pop rcx ; f
-  push rax
-  push rcx
-  jmp runtime_call
-  decomp_cont:
-    pop rdi ; ret
-    pop rax
-    jmp rdi
-
 compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
   pop rax
   pop rcx
@@ -127,18 +115,15 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
   () { return ret {cont2} }
 }
 
-(!ne: a b) {
-  $res = [callcc, (ret) { compare a b, () { ret (x y) {y} }, () { ret (x y) {x} } }];
-  ! res
+(ne: ret a b) {
+  compare(a, b, () { return ret (x y) {y} }, () { return ret (x y) {x} })
 }
-(!not: x) {
-  $res = [callcc, (ret) { x, () { ret (a b) {b} }, () { ret (a b) {a} } }];
-  ! res
+(not: ret x) {
+  x(() { return ret (a b) {b} }, () { return ret (a b) {a} })
 }
 
-(!eq: a b) {
-  $res = [callcc, (ret) { compare a b, () { ret (x y) {x} }, () { ret (x y) {y} } }];
-  ! res
+(eq: ret a b) {
+  compare(a, b, () { return ret (x y) {x} }, () { return ret (x y) {y} })
 }
 
 outf: dq 0
@@ -196,20 +181,6 @@ runtime_call_ret:
   pop rax
   push rbp
   jmp rax
-  
-callcc: ; takes (cont -> ..) and returns the value that cont recieves
-  |callcc_cont [rsp]|
-  pop rcx
-  pop rbx ; f
-  push rax
-  push rbx
-  jmp runtime_call
-
-  callcc_cont:
-    pop rcx
-    pop rax
-    push rcx
-    ret
 
 page_pointer:
 dq 0
@@ -258,51 +229,12 @@ malloc:
   pop rcx
   ret
 
-malloc_func:
-  pop rcx
-  pop rdi
-  push rcx
-  jmp malloc
-
 (bool_true: cont_true cont_false) { cont_true }
 (bool_false: cont_true cont_false) { cont_false }
 
 (!make_nil:) { ! (cont_nil cont_leaf cont_internal) {cont_nil} }
 (!make_leaf: l r) { ! (cont_nil cont_leaf cont_internal) {cont_leaf l r} }
 (!make_internal: a b) { ! (cont_nil cont_leaf cont_internal) {cont_internal a b} }
-
-make_leaf_imperative:
-  push rsi
-  push rdi
-  call make_leaf
-  ret
-  
-make_internal_imperative:
-  push rsi
-  push rdi
-  call make_internal
-  ret
-
-prin:                   ; printst
-push rax
-push rcx
-push rdx
-push rsi
-push rdi
-push r11
-mov rdx, rdi
-mov rdi, [outf]
-mov rsi, r4
-add rsi, 56
-mov rax, 1
-syscall
-pop r11
-pop rdi
-pop rsi
-pop rdx
-pop rcx
-pop rax
-ret
 
 scmp:
   cmp rdi, rsi
@@ -342,7 +274,7 @@ scmp:
 
 cur_label:
   dq 1
-gen_label_ret:
+gen_label:
   mov rdi, 8
   call malloc
   mov rdx, rax
@@ -363,61 +295,41 @@ gen_label_ret:
   push rdx
   jmp rcx
 
-str_equal_func: ; (a b l r cont)
+
+str_cmp_func:
+  pop rax
   pop rdi
   pop rsi
   pop rdx
   pop rcx
+  push rax
   call scmp
-  cmp rax, 0
-  je str_equal_equal
-  
-  |bool_false|
-  pop rcx
-  push rax
-  push rcx
-  jmp runtime_call
-
-  str_equal_equal:
-  |bool_true|
-  pop rcx
-  push rax
-  push rcx
-  jmp runtime_call
-  
-print_range: ; FOLLOWS SYSTEM V ABI
-  ; prints [rdi, rsi) to outf
-  mov rdx, rsi        ; length of print
-  sub rdx, rdi
-  mov rsi, rdi ; rsi already stores buffer lcoation
-  mov rdi, [outf]
-  mov rax, 1
-  syscall
   ret
 
-print_char_help:
-  push rdi
-  mov rdx, 1
-  mov rsi, rsp
-  mov rdi, [outf]
-  mov rax, 1
-  syscall
-  pop rdi
-  ret
-
-print_range_ret:
+(str_equal_func: ret a b l r) {
+  $res = str_cmp_func(a, b, l, r);
+  return ret {eq 0 res}
+}
+  
+print_range:
   pop rax
-  pop rdi
   pop rsi
+  pop rdx
   push rax
-  call print_range
+  sub rdx, rsi
+  mov rdi, [outf]
+  mov rax, 1
+  syscall
   ret
 
 print_char:
+  mov rdx, 1
+  lea rsi, [rsp+8]
+  mov rdi, [outf]
+  mov rax, 1
+  syscall
   pop rax
-  pop rdi
-  push rax
-  call print_char_help
+  mov [rsp], rax
   ret
 
 (print_num_help: v cont) {
@@ -427,7 +339,7 @@ print_char:
     cont
   }
 }
-(print_num: ret v) { callcc ret, (ret) { print_num_help, v, () {ret 0} } }
+(print_num: ret v) { print_num_help(v, () { return ret 0 }) }
 
 (printf: ret l) {
   $lb = {deref_byte l};
@@ -435,7 +347,7 @@ print_char:
     return ret 0
   }};
   ${if {eq lb 123}, (break a b) {
-    ${print_range_ret a b};
+    ${print_range a b};
     printf ret {add_func l 2}
   }};
   ${print_char {deref_byte l}};
@@ -469,16 +381,24 @@ print_char:
 
 (map_tree_iota_help: ret n tree action) {
   tree,
-    () { return ret, (cont) { cont n {make_nil} } },
-    (l r) { return ret, (cont) { cont {add_func n 1} {action n l r} } },
+    () {
+      $nil = {make_nil};
+      return ret n nil
+    },
+    (l r) {
+      $res = action(n, l, r);
+      $n = add_func(n, 1);
+      return ret n res
+    },
     (a b) {
-      $na new_a = [ decomp { map_tree_iota_help n a action } ];
-      $nb new_b = [ decomp { map_tree_iota_help na b action } ];
-      return ret, (cont) { cont nb {make_internal na nb } }
+      $n new_a = map_tree_iota_help(n, a, action);
+      $n new_b = map_tree_iota_help(n, b, action);
+      $res = make_internal(new_a, new_b);
+      return ret n res
     }
 }
 (map_tree_iota: ret tree action) {
-  $n t = [ decomp { map_tree_iota_help 0 tree action } ];
+  $n t = map_tree_iota_help(0, tree, action);
   return ret t
 }
 
@@ -491,45 +411,20 @@ print_char:
   }
 }
 
-(search_tree_help: tree l r cont -> tree (-> cont (a b -> b)) (a b -> str_equal_func l r a b cont)
+(search_tree_help: tree l r cont -> tree (-> cont (a b -> b)) (a b) {
+  $res = str_equal_func(l, r, a, b);
+  cont(res)
+}
 (a b -> search_tree_help a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree_help b l r cont))))
 
-(!search_tree: tree l r ->
-  $res = [callcc (ret ->
-    search_tree_help tree l r (res -> res (-> ret (a b -> a)) (-> ret (a b -> b)))
-  )];
-  ! res
+(search_tree: ret tree l r ->
+  search_tree_help(tree, l, r, (res) {
+    res(
+      () { return ret (a b) { a } }, 
+      () { return ret (a b) { b } }
+    )
+  })
 )
-
-print_range_pair:
-  push rdi
-  |print_range_pair_lambda|
-  pop rdi
-  push rax
-  push rdi
-  jmp runtime_call
-  print_range_pair_lambda:
-    pop rdi
-    pop rsi
-    call print_range
-    ret
-
-print_range_line:
-  call print_range
-  call println
-  ret
-
-println:
-  push 10
-  mov rdi, 1
-  call prin
-  add rsp, 8
-  ret
-
-
-println_func:
-  call println
-  jmp runtime_call
 
 is_alpha:           ; is alpha
   cmp r7, "a"      ; a
@@ -543,18 +438,12 @@ is_alpha:           ; is alpha
   mov r0, 0
   ret
 
-is_alpha_func:
+is_alpha_ret:
+  pop rax
   pop rdi
-  call is_alpha
-  pop rcx
   push rax
-  push rcx
-  jmp runtime_call
-
-(!is_alpha_ret: c) {
-  $res = [callcc (ret) { is_alpha_func c ret }];
-  ! res
-}
+  call is_alpha
+  ret
 
 is_digit:           ; is alpha
   cmp r7, "0"
@@ -568,22 +457,6 @@ is_digit:           ; is alpha
   mov r0, 0
   ret
 
-peek_character:
-  sub rax, rax
-  cmp r8, [flen]
-  je peek_character_ret
-  movb rax, [r8]
-  peek_character_ret:
-  ret
-
-read_whitespace_imp:
-  push [flen]
-  push r8
-  call read_whitespace
-  mov r8, rax
-  pop [flen]
-  ret
-
 (read_whitespace: ret l r) {
   $lb = {deref_byte l};
   ${if {eq l r} (break) { return ret l r }};
@@ -593,23 +466,16 @@ read_whitespace_imp:
   return ret l r
 }
 
-read_identifier: ; read identifier and return start and end pointers
-  ; call read_whitespace_imp
-  push [flen]
-  push r8
-  call read_identifier_ret
-  mov r8, rax
-  pop [flen]
-  pop rax
-  pop rdx
-  ret
-
-read_identifier_ret:
+read_identifier:
   pop rcx
   pop r8
   pop [flen]
   push rcx
-  call read_whitespace_imp
+  push [flen]
+  push r8
+  call read_whitespace
+  mov r8, rax
+  pop [flen]
   push r8
   irloo:
   sub rcx, rcx
@@ -664,191 +530,6 @@ read_identifier_ret:
   format_string_helper tree l new_mid r cont
 )
 
-read_operand_list:
-  pop r8
-  pop [flen]
-  call make_nil
-  push rax
-
-  op_list_loop:
-  call read_whitespace_imp
-  call read_operand
-  cmp rax, rdx
-  je op_list_done
-
-  mov rdi, rax
-  mov rsi, rdx
-  call make_leaf_imperative
-  
-  pop rdi
-  mov rsi, rax
-  call make_internal_imperative
-  push rax
-
-  jmp op_list_loop
-
-  op_list_done:
-  pop rax
-  pop rdi
-  push [flen]
-  push r8
-  push rax
-  push rdi
-  jmp runtime_call
-
-read_operand:
-  cmpb [r8], "\["
-  jne read_identifier
-  push r8
-  memory_operand_loop:
-  sub rcx, rcx
-  movb cl, [r8]
-  mov rdi, rcx
-  cmp rcx, "\]"
-  je memory_operand_loop_done
-  add r8, 1
-  jmp memory_operand_loop
-  memory_operand_loop_done:
-  add r8, 1
-  pop rax
-  mov rdx, r8
-  ret
-
-read_id_or_closure:
-  cmpb [r8], "\|"
-  jne read_operand
-  push r8
-  add r8, 1
-  id_or_closure_loop:
-  sub rcx, rcx
-  movb cl, [r8]
-  mov rdi, rcx
-  cmp rcx, "\|"
-  je id_or_closure_loop_done
-  add r8, 1
-  jmp id_or_closure_loop
-  id_or_closure_loop_done:
-  add r8, 1
-  pop rax
-  mov rdx, r8
-  ret
-
-read_id_or_closure_or_function:
-  cmpb [r8], "\("
-  jne read_id_or_closure
-  push r8
-  mov rax, 0
-  id_or_closure_or_func_loop:
-  sub rcx, rcx
-  movb cl, [r8]
-  mov rdi, rcx
-  
-  cmp rcx, "\("
-  jne not_idocf_open
-  add rax, 1
-  not_idocf_open:
-  cmp rcx, "\)"
-  jne not_idocf_close
-  sub rax, 1
-  not_idocf_close:
-  cmp rax, 0
-  je id_or_closure_or_func_loop_done
-  add r8, 1
-  jmp id_or_closure_or_func_loop
-  id_or_closure_or_func_loop_done:
-  add r8, 1
-  pop rax
-  mov rdx, r8
-  ret
-
-read_id_or_closure_or_function_func: ; (l r -> a b l r)
-  pop r8
-  pop [flen]
-
-  call read_whitespace_imp
-
-  call read_id_or_closure_or_function
-  pop rcx
-  push [flen]
-  push r8
-  push rdx
-  push rax
-  push rcx
-  jmp runtime_call
-
-closure_map_arg:
-  jmp suff_strings_end
-  mov_string:
-  db "mov rcx, "
-  mov_string_end:
-  suff_strings:
-  db "mov [rdx], rcx\\nadd rdx, 8\\n"
-  suff_strings_end:
-  lea rdi, [mov_string]
-  lea rsi, [mov_string+9]
-  call print_range
-  pop rax
-  pop rdi
-  pop rsi
-  push rax
-  call print_range_line
-  lea rdi, [suff_strings]
-  lea rsi, [suff_strings+26]
-  call print_range
-
-  ret
-
-closure_header:
-  dq "mov rdi,"
-  dq " 800"
-  
-  dq "call mal"
-  dq "loc"
-  
-  dq "lea rdx,"
-  dq " [rax+8]"
-
-print_closure_help:
-  pop rax
-  pop rdi
-  push rax
-  jmp print_closure
-print_closure:
-  push rdi
-  lea rdi, [closure_header]
-  lea rsi, [closure_header+12]
-  call print_range_line
-  lea rdi, [closure_header+16]
-  lea rsi, [closure_header+27]
-  call print_range_line
-  lea rdi, [closure_header+32]
-  lea rsi, [closure_header+48]
-  call print_range_line
-
-  |closure_map_arg|
-  pop rdi
-  push rax
-  push rdi
-  call map_tree
-
-  
-  lea rdi, [closure_footer]
-  lea rsi, [closure_footer+12]
-  call print_range_line
-  
-  lea rdi, [closure_footer+16]
-  lea rsi, [closure_footer+26]
-  call print_range_line
-  
-  lea rdi, [closure_footer+32]
-  lea rsi, [closure_footer+42]
-  call print_range_line
-  
-  lea rdi, [closure_footer+48]
-  lea rsi, [closure_footer+62]
-  call print_range_line
-  ret
-
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
   ! (!n l r -> 
     ${if_else_ret {eq l fname_l} (!) {
@@ -862,27 +543,6 @@ print_closure:
     }};
   )
 )
-
-closure_footer:
-  dq "sub rdx,"
-  dq " rax"
-  dq "shr rdx,"
-  dq " 3"
-  dq "sub rdx,"
-  dq " 1"
-  dq "mov [rax"
-  dq "], rdx"
-
-(parse_closure: lo hi cont ->
-  $lo = {add_func lo 1};
-  read_operand_list lo hi (op_list lo hi -> 
-    $lo = {add_func lo 1};
-    $a = {print_closure_help op_list};
-    cont lo hi
-  )
-)
-
-
 
 (matches: ret a b -> 
   ${if {eq {deref_byte a} 0} (break -> return ret (a b -> a))};
@@ -907,7 +567,7 @@ closure_footer:
   ${if {matches ":" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "," l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   ${if {matches "->" l} (break -> return ret {add_func l 2} r 0 l {add_func l 2})};
-  $l r il ir = {read_identifier_ret l r};
+  $l r il ir = {read_identifier l r};
   ${if {ne il ir} (break -> return ret l r 1 il ir)};
   error l
 )
@@ -922,14 +582,14 @@ closure_footer:
 (read_label: ret pl pr ->
   $l r t fl fr = {read_token pl pr};
   ${if {ne t 1} (break -> 
-    $fl fr = {gen_label_ret};
+    $fl fr = {gen_label};
     return ret pl pr fl fr
   )};
   $l r t tl tr = {read_token l r};
   ${if {matches ":" tl} (break ->
     return ret l r fl fr
   )};
-  $fl fr = {gen_label_ret};
+  $fl fr = {gen_label};
   return ret pl pr fl fr
 )
 (read_id_list: ret l r) {
@@ -941,7 +601,7 @@ closure_footer:
   ${if {matches "," tl} (break) {
     read_id_list_help ret nl nr tree
   }};
-  $l r il ir = [read_identifier_ret l r];
+  $l r il ir = [read_identifier l r];
   ${if {eq il ir} (break) { return ret l r tree }};
   $leaf = {make_leaf il ir};
   $tree = {make_internal tree leaf};
@@ -959,19 +619,19 @@ closure_footer:
   ${if {matches ")" tl} (break) {
     $l r t tl tr = {read_token l r};
     ${if {not {matches "{" tl}} (break) { return ret orig_l r 0 }};
-    $l r cexp = [read_cexp l r];
-    $l r t tl tr = {read_token l r};
+    $l r cexp = read_cexp(l, r);
+    $l r t tl tr = read_token(l, r);
     ${if {not {matches "}" tl}} (break) { return ret orig_l r 0 }};
-    return ret l r (cont) { cont fname_l fname_r new_args is_returning cexp }
+    return ret l r (!) { ! fname_l fname_r new_args is_returning cexp }
   }};
   ${if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
-  $l r cexp = [read_cexp l r];
-  $l r t tl tr = {read_token l r};
+  $l r cexp = read_cexp(l, r);
+  $l r t tl tr = read_token(l, r);
   ${if {not {matches ")" tl}} (break) { return ret orig_l r 0 }};
-  return ret l r (cont -> cont fname_l fname_r new_args is_returning cexp)
+  return ret l r (!) { ! fname_l fname_r new_args is_returning cexp }
 }
 (print_function: ret old_context func) {
-  $fname_l fname_r func_args is_returning cexp = {decomp func};
+  $fname_l fname_r func_args is_returning cexp = {func};
   $new_context = {make_internal old_context func_args};
   $cids = [get_cexp_vars cexp];
   ${printf "jmp {}_end\n" fname_l fname_r};
@@ -1007,26 +667,26 @@ closure_footer:
     $l r cexp = [read_cexp l r];
     $l r t tl tr = {read_token l r};
     ${if {not {matches "]" tl}} (break) { return ret orig_l r 0 }};
-    return_rec_block l r (cont) { cont cexp }
+    return_rec_block l r (!) { ! cexp }
   }};
   ${if {eq lb 123} (break) {
-    $l = [add_func l 1];
-    $l r = [read_whitespace l r];
-    $l r cexp = [read_cexp l r];
+    $l = add_func(l, 1);
+    $l r = read_whitespace(l, r);
+    $l r cexp = read_cexp(l, r);
     $l r = {read_whitespace l r};
     $l = [add_func l 1];
-    return_block l r (cont) { cont cexp }
+    return_block l r (!) { ! cexp }
   }};
   $lo hi func = [read_function l r];
   ${if {ne func 0} (break) {
-    return_func lo hi (cont) { cont func }
+    return_func lo hi (!) { ! func }
   }};
   $lo hi string = [read_const_string l r];
   ${if {ne string 0} (break) {
     return_string lo hi string
   }};
-  read_id_or_closure_or_function_func l r
-  (a b l r) { compare a b (-> return ret l r 0) (-> return_aexp l r (cont -> cont a b)) }
+  $nl nr t tl tr = read_token(l, r);
+  compare t 1, () { return_aexp nl nr (!) { ! tl tr } }, () { return ret l r 0 }
 }
 
 (print_texp: ret fl fr old_context ids texp) {
@@ -1038,13 +698,13 @@ closure_footer:
     return ret 0
   }
   (aexp) {
-    $a b = {decomp aexp};
+    $a b = {aexp};
     $[print_aexp old_context fl fr a b];
     ${map_tree ids (!l r) { ${printf "pop [{}{}]\n" fl fr l r}; }};
     return ret 0
   }
   (rec_block) {
-    $cexp = {decomp rec_block};
+    $cexp = {rec_block};
     $context = {map_tree old_context (!l r) {
       ${if {search_tree ids l r} (break) { ! {make_nil} }};
       ! {make_leaf l r}
@@ -1058,15 +718,15 @@ closure_footer:
     return ret 0
   }
   (block) {
-    $cexp = {decomp block};
+    $cexp = {block};
     $[print_cexp fl fr old_context (a b) { a } cexp];
     $[printf "push rax\n"];
     ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
     return ret 0
   }
-  (func) {
-    $func = {decomp func}; 
-    $fname_l fname_r func_args is_returning cexp = {decomp func};
+  (f) {
+    $func = {f}; 
+    $fname_l fname_r func_args is_returning cexp = {func};
     $[print_function old_context func];
     $context = {make_internal {make_leaf fname_l fname_r} old_context};
     ${printf "mov rdi, "};
@@ -1097,11 +757,11 @@ closure_footer:
   $l = {add_func l_start 1};
   $l r = {read_until 34 l r};
   $l_end = {add_func l 1};
-  return ret l_end r (cont) { cont l_start l_end }
+  return ret l_end r (!) { ! l_start l_end }
 }
 (print_const_string: ret str) {
-  $l_start l_end = {decomp str};
-  $il ir = {gen_label_ret};
+  $l_start l_end = {str};
+  $il ir = {gen_label};
   ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
   return ret 0
 }
@@ -1127,7 +787,7 @@ closure_footer:
   $l r assign = [read_assignment orig_l r];
   ${if {eq assign 0} (break -> return ret l r 0)};
   $l r cexp = [read_cexp l r];
-  return ret l r (cont -> cont assign cexp)
+  return ret l r (!) { ! assign cexp }
 )
 
 (merge_context: ret old_context ids) {
@@ -1139,7 +799,7 @@ closure_footer:
 }
 
 (print_cexp: ret fl fr context is_returning cexp) {
-  $assign cexp = {decomp cexp};
+  $assign cexp = {cexp};
   $[print_assignment fl fr context is_returning assign];
   ${if {eq cexp 0} (break) { return ret 0 }};
   $assign_vars = get_assignment_vars(assign);
@@ -1148,7 +808,7 @@ closure_footer:
 }
 
 (get_cexp_vars: ret cexp) {
-  $assign cexp = {decomp cexp};
+  $assign cexp = {cexp};
   $ids = get_assignment_vars(assign);
   ${if {eq cexp 0} (break) { return ret ids }};
   $ids2 = get_cexp_vars(cexp);
@@ -1179,7 +839,7 @@ closure_footer:
   $l r ids = {read_id_list l r};
   $is_empty_ids = {eq {tree_size ids} 0};
   $ids = {if_else_ret is_empty_ids, (!) {
-    $il ir = {gen_label_ret};
+    $il ir = {gen_label};
     ! {make_leaf il ir}
   },
   (!) { ! ids }};
@@ -1328,7 +988,7 @@ closure_footer:
   ${if {eq aexp 0} (break) {
     return ret 0 0
   }};
-  $l r = {decomp aexp};
+  $l r = {aexp};
   return ret l r
 }
 
@@ -1339,10 +999,10 @@ closure_footer:
     return ret orig_l r 0
   }};
   $l r op_list = [read_func_appl_args l r];
-  return ret l r (cont) { cont(op_list, texp) }
+  return ret l r (!) { ! op_list, texp }
 }
 (print_function_application: ret fl fr context is_returning appl) {
-  $op_list texp = {decomp appl};
+  $op_list texp = {appl};
   $al ar = {aexp_to_range {get_aexp_from_texp texp}};
   $[map_tree {reverse_tree op_list} (!texp r) { ${print_texp fl fr context {make_nil} texp}; }];
   ${if_else {or {eq al ar} {search_tree context al ar}} (break) {
@@ -1355,7 +1015,7 @@ closure_footer:
   }
   (break) {
     ${if_else_ret is_returning
-      (!) { ${printf "call {}\n" al ar}; }
+      (!) { ! printf("call {}\n", al, ar) }
       (!) { ${printf "jmp {}\n" al ar}; }
     };
     break
@@ -1363,14 +1023,12 @@ closure_footer:
   return ret 0
 }
 
-(parse_function_help: lo hi ->
+(parse_function_help: lo hi) {
   $nil = {make_nil};
   $l r func = {read_function lo hi};
   ${print_function nil func};
   main_loop l r
-)
-
-(parse_closure_outer: lo hi -> parse_closure lo hi (l r -> main_loop l r)) ; takes (lo hi)
+}
 
 (parse_comment: lo hi -> 
   ${if {eq lo hi} (break -> main_loop lo hi)};
@@ -1381,13 +1039,13 @@ closure_footer:
 (parse_escape: l r ->
   $a = {add_func l 1};
   $b = {add_func l 2};
-  ${print_range_ret a b};
+  ${print_range a b};
   main_loop b r
 )
 
 (otherwise: lo hi ->
   $mid = {add_func lo 1};
-  ${print_range_ret lo mid};
+  ${print_range lo mid};
   main_loop mid hi
 )
 
@@ -1395,7 +1053,6 @@ closure_footer:
   ${if {eq} lo hi (break) { exit() }};
   $c = {deref_byte lo};
   ${if {eq c 40} (break) { parse_function_help(lo, hi) }};
-  ${if {eq c 124} (break) { parse_closure_outer(lo, hi) }};
   ${if {eq c 59} (break) { parse_comment(lo, hi) }};
   ${if {eq c 92} (break) { parse_escape(lo, hi) }};
   otherwise(lo, hi)
