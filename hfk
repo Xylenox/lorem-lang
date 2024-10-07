@@ -485,6 +485,13 @@ is_digit:           ; is alpha
   mov rax, 0
   ret
 
+is_digit_ret:
+  pop rax
+  pop rdi
+  push rax
+  call is_digit
+  ret
+
 (read_whitespace: ret l r) {
   $lb = {deref_byte l};
   ${if {eq l r} (break) { return ret l r }};
@@ -798,7 +805,11 @@ read_identifier:
     }};
     break_o
   }};
-  ${printf "push {}\n" l r};
+  ${if {eq {is_digit_ret dig} 1} (break) {
+    ${printf "push {}\n" l r};
+    return ret 0
+  }};
+  ${printf "push qword [{}]\n" l r};
   return ret 0
 }
 
@@ -1074,17 +1085,12 @@ read_identifier:
   return ret 0
 }
 
-(parse_comment: lo hi) {
-  ${if {eq lo hi} (break -> main_loop lo hi)};
-  ${if {eq {deref_byte lo} 10} (break -> main_loop lo hi)};
-  parse_comment {add_func lo 1} hi
-}
-
 $main_start = (lo hi) {
   ${printf "section .rwx progbits alloc exec write align=16\nglobal _start\n_start:\n"};
   main_loop(lo, hi)
 };
-(main_loop: l r) {
+
+$main_loop = (l r) {
   ${if {eq} l r (break) { exit() }};
   $c = {deref_byte l};
   ${if {eq c 40} (break) { 
@@ -1115,11 +1121,14 @@ $main_start = (lo hi) {
     }};
     main_loop(l, r)
   }};
-  ${if {eq c 59} (break) { parse_comment(l, r) }};
+  ${if {eq c 59} (break) {
+    $l, r = read_until({deref_byte "\n"}, l, r);
+    main_loop(l, r)
+  }};
   $mid = add_func(l, 1);
   ${print_range l mid};
   main_loop(mid, r)
-}
+};
 
 start:
 ; open input
