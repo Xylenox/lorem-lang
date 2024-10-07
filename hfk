@@ -1102,6 +1102,8 @@ $main_loop = (l r) {
     $l, r, assign = read_assignment(l, r);
     $id_func = assign_to_function(assign);
     ${if {eq id_func 0} (break) {
+      $ids = get_assignment_vars(assign);
+      ${map_tree ids (!l r) { ! printf("{}: dq 0\n", l, r )}};
       ${print_assignment(0, 0, {make_nil}, (a, b) { a }, assign)};
       break
     }};
@@ -1110,7 +1112,7 @@ $main_loop = (l r) {
       $fname = {first_leaf ids};
       $fname_l fname_r func_args is_returning cexp = {func};
       fname(
-        () { ${printf "HI!\n"}; break },
+        () { break },
         (l, r) {
           $func = (!) { ! l, r, func_args, is_returning, cexp };
           ${print_function {make_nil} func};
