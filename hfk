@@ -130,6 +130,7 @@ outf: dq 0
 flen: dq 0
 
 exit:
+  call flush_buffer
   mov r0, 60
   mov r7, 0
   syscall
@@ -311,25 +312,36 @@ str_cmp_func:
   return ret {eq 0 res}
 }
   
-print_range:
-  pop rax
-  pop rsi
-  pop rdx
-  push rax
-  sub rdx, rsi
-  mov rdi, [outf]
-  mov rax, 1
-  syscall
-  ret
+(print_range: ret a b) {
+  ${if {eq a b} (break) { return ret 0 }};
+  ${print_char {deref_byte a}};
+  print_range ret {add_func a 1} b
+}
 
+
+buffer: dq 0
+buff_curr: dq 0
 print_char:
-  mov rdx, 1
-  lea rsi, [rsp+8]
-  mov rdi, [outf]
-  mov rax, 1
-  syscall
+  mov rax, [buffer]
+  mov rdx, [buff_curr]
+  mov rcx, [rsp+8]
+  mov [rax+rdx], rcx
+  add rdx, 1
+  mov [buff_curr], rdx
+  cmp rdx, 4096
+  jne print_char_done
+  call flush_buffer
+  print_char_done:
   pop rax
   mov [rsp], rax
+  ret
+flush_buffer:
+  mov rdx, [buff_curr]
+  mov rsi, [buffer]
+  mov rdi, [outf]
+  mov rax, 1
+  syscall
+  mov [buff_curr], 0
   ret
 
 (print_num_help: v cont) {
@@ -503,35 +515,8 @@ read_identifier:
   mov rax, r8
   jmp rcx
 
-(format_string: l r cont -> format_string_helper {make_nil} l l r cont)
-(format_substring: base l r cont ->
-  $l = {add_func base l};
-  $r = {add_func base r};
-  format_string l r cont
-)
-(format_help: fmt a b -> 
-  compare a 1
-  (-> b fmt)
-  (-> fmt a b (fmt -> format_help fmt))
-)
-(format_string_helper: tree l mid r cont ->
-  ${if {eq mid r} (break ->
-    cont {make_internal tree {make_leaf l mid}}
-  )};
-  ${if {eq {deref_byte mid} 123} (break ->
-    $new_mid = {add_func mid 2};
-    $tree = {make_internal tree {make_leaf l mid}};
-    cont (lb rb cont ->
-      $tree = {make_internal tree {make_leaf lb rb}};
-      format_string_helper tree new_mid new_mid r cont
-    )
-  )};
-  $new_mid = {add_func mid 1};
-  format_string_helper tree l new_mid r cont
-)
-
-(!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r ->
-  ! (!n l r -> 
+(!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r) {
+  ! (!n l r) {
     ${if_else_ret {eq l fname_l} (!) {
       ${printf "mov [rax+"};
       ${print_num {mul_func 8 {add_func 1 n}}};
@@ -541,8 +526,8 @@ read_identifier:
       ${print_num {mul_func 8 {add_func 1 n}}};
       ${printf "], rcx\n"};
     }};
-  )
-)
+  }
+}
 
 (matches: ret a b -> 
   ${if {eq {deref_byte a} 0} (break -> return ret (a b -> a))};
@@ -579,7 +564,7 @@ read_identifier:
   }};
   return ret l r (a b -> b)
 }
-(read_label: ret pl pr ->
+(read_label: ret pl pr) {
   $l r t fl fr = {read_token pl pr};
   ${if {ne t 1} (break -> 
     $fl fr = {gen_label};
@@ -591,7 +576,7 @@ read_identifier:
   )};
   $fl fr = {gen_label};
   return ret pl pr fl fr
-)
+}
 (read_id_list: ret l r) {
   $l r tree = [read_id_list_help l r {make_nil}];
   return ret l r tree
@@ -744,16 +729,16 @@ read_identifier:
   }
 }
 
-(read_until: ret c l r ->
+(read_until: ret c l r) {
   $lb = {deref_byte l};
-  compare lb c (-> return ret l r) (->
+  ${if {eq lb c} (break) { return ret l r }};
   read_until ret c {add_func l 1} r
-))
+}
 
 (read_const_string: ret l r) {
   $l_start r = {read_whitespace l r};
   $lb = {deref_byte l_start};
-  ${if {ne lb 34} (break -> return ret l r 0)};
+  ${if {ne lb 34} (break) { return ret l r 0 }};
   $l = {add_func l_start 1};
   $l r = {read_until 34 l r};
   $l_end = {add_func l 1};
@@ -766,29 +751,29 @@ read_identifier:
   return ret 0
 }
 
-(print_aexp: ret comb_args fname_l fname_r l r ->
+(print_aexp: ret comb_args fname_l fname_r l r) {
   $dig = {deref_byte l};
   $res = {is_alpha_ret dig};
-  ${if {eq res 1} (break_o ->
+  ${if {eq res 1} (break_o) {
     $bool = {search_tree comb_args l r};
-    ${if bool (break ->
+    ${if bool (break) {
       ${printf "push [{}{}]\n" fname_l fname_r l r};
       return ret 0
-    )};
+    }};
     break_o
-  )};
+  }};
   ${printf "push {}\n" l r};
   return ret 0
-)
+}
 
 ; returns l r cexp
-(read_cexp: ret orig_l r ->
+(read_cexp: ret orig_l r) {
   $l = orig_l;
   $l r assign = [read_assignment orig_l r];
   ${if {eq assign 0} (break -> return ret l r 0)};
   $l r cexp = [read_cexp l r];
   return ret l r (!) { ! assign cexp }
-)
+}
 
 (merge_context: ret old_context ids) {
   $context = map_tree(old_context, (!l r) {
@@ -815,14 +800,14 @@ read_identifier:
   return ret {make_internal ids ids2}
 }
 
-(read_eq_if: ret need l r ->
+(read_eq_if: ret need l r) {
   ${if need (break ->
     $l r t tl tr = {read_token l r};
     ${if {not {matches "=" tl}} (break) { return 0 0 }};
     return ret l r
   )};
   return ret l r
-)
+}
 
 (read_assignment: ret orig_l r) {
   $l = orig_l;
@@ -1114,6 +1099,10 @@ push r14
 push r8
 
 add [flen], r8
+
+mov rdi, 4096
+call malloc
+mov [buffer], rax
 
 push [flen]
 push r8

@@ -116,20 +116,6 @@ return:
   push rcx
   ret
 
-callcc: ; takes (cont -> ..) and returns the value that cont recieves
-  |callcc_cont [rsp]|
-  pop rcx
-  pop rbx ; f
-  push rax
-  push rbx
-  jmp runtime_call
-
-  callcc_cont:
-    pop rcx
-    pop rax
-    push rcx
-    ret
-
 deref_byte: ; takes (ptr) and returns *ptr
   pop rdx
   pop rax
@@ -196,13 +182,13 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
   $break = (-> return ret 0);
   v (-> cont break) break
 )
-(!ne: a b -> 
-  callcc (ret -> compare a b (-> ret (x y -> y)) (-> ret (x y -> x)))
-)
+(ne: ret a b) {
+  compare a b () { return ret (x y -> y) } () { return ret (x y -> x) }
+}
 
-(!compare_bool: a b ->
-  callcc (ret -> compare a b (-> ret (x y -> x)) (-> ret (x y -> y)))
-)
+(compare_bool: ret a b) {
+  compare a b () { return ret (x y -> x) } () { return ret (x y -> y) }
+}
 
 inpf: dq 0
 outf: dq 0
@@ -310,7 +296,7 @@ print_string_func:
   ${print_char {deref_byte l}};
   printf_help cont {add_func l 1}
 )
-(printf: ret l -> callcc ret (ret -> printf_help (-> ret 0) l))
+(printf: ret l) { printf_help () { return ret 0 } l }
 
 (print_num_help: v cont ->
   ${if {compare_bool v 0} (break -> cont)};
@@ -319,7 +305,7 @@ print_string_func:
     cont
   )
 )
-(print_num: ret v -> callcc ret (ret -> print_num_help v (-> ret 0)))
+(print_num: ret v) { print_num_help v () { return ret 0 } }
 
 is_alpha:           ; is alpha
 cmp r7, "a"      ; a
