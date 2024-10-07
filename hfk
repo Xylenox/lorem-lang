@@ -318,7 +318,6 @@ str_cmp_func:
   print_range ret {add_func a 1} b
 }
 
-
 buffer: dq 0
 buff_curr: dq 0
 print_char:
@@ -423,20 +422,21 @@ flush_buffer:
   }
 }
 
-(search_tree_help: tree l r cont -> tree (-> cont (a b -> b)) (a b) {
-  $res = str_equal_func(l, r, a, b);
-  cont(res)
+(search_tree: ret tree l r) {
+  tree(
+    () { return ret (a, b) { b } },
+    (a, b) {
+      $res = str_equal_func(l, r, a, b);
+      return ret res
+    },
+    (a, b) {
+      $search_a = search_tree(a, l, r);
+      ${if search_a (break) { return ret search_a }};
+      $search_b = search_tree(b, l, r);
+      return ret search_b
+    }
+  )
 }
-(a b -> search_tree_help a l r (res -> res (-> cont (a b -> bool_true a b)) (-> search_tree_help b l r cont))))
-
-(search_tree: ret tree l r ->
-  search_tree_help(tree, l, r, (res) {
-    res(
-      () { return ret (a b) { a } }, 
-      () { return ret (a b) { b } }
-    )
-  })
-)
 
 is_alpha:           ; is alpha
   cmp rdi, "a"      ; a
@@ -1028,27 +1028,27 @@ read_identifier:
   main_loop l r
 }
 
-(parse_comment: lo hi -> 
+(parse_comment: lo hi) {
   ${if {eq lo hi} (break -> main_loop lo hi)};
   ${if {eq {deref_byte lo} 10} (break -> main_loop lo hi)};
   parse_comment {add_func lo 1} hi
-)
+}
 
-(parse_escape: l r ->
+(parse_escape: l r) {
   $a = {add_func l 1};
   $b = {add_func l 2};
   ${print_range a b};
   main_loop b r
-)
+}
 
-(otherwise: lo hi ->
+(otherwise: lo hi) {
   $mid = {add_func lo 1};
   ${print_range lo mid};
   main_loop mid hi
-)
+}
 
 (main_start: lo hi) {
-  ${printf "section .mycoolsection progbits alloc exec write align=16\nglobal _start\n_start:\n"};
+  ${printf "section .rwx progbits alloc exec write align=16\nglobal _start\n_start:\n"};
   main_loop(lo, hi)
 }
 (main_loop: lo hi) {

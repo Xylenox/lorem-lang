@@ -1,1 +1,0 @@
-jne 2           mov r2, r6      jmp 3           jl -2           add r0, 0x1234  je 0          
