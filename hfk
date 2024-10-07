@@ -390,6 +390,22 @@ flush_buffer:
   }
 }
 
+(first_leaf: ret tree) {
+  tree(
+    () { return ret {make_nil} },
+    (l, r) { return ret {make_leaf l r} },
+    (a, b) {
+      $a_leaf = [first_leaf a];
+      $b_leaf = [first_leaf b];
+      a_leaf(
+        () { return ret b_leaf },
+        (l, r) { return ret a_leaf },
+        (a, b) { return ret b_leaf }
+      )
+    }
+  )
+}
+
 (map_tree_iota_help: ret n tree action) {
   tree,
     () {
@@ -732,6 +748,19 @@ read_identifier:
   }
 }
 
+(texp_to_function: ret texp) {
+  texp(
+    (string) { return ret 0 },
+    (aexp) { return ret 0 },
+    (rec_block) { return ret 0 },
+    (block) { return ret 0 },
+    (f) {
+      $func = {f};
+      return ret func
+    }
+  )
+}
+
 (read_until: ret c l r) {
   $lb = {deref_byte l};
   ${if {eq lb c} (break) { return ret l r }};
@@ -867,6 +896,18 @@ read_identifier:
   }
 }
 
+(assign_to_function: ret assign) {
+  assign(
+    (appl) { return ret 0 },
+    (ids, call_exp) {
+      $func = call_expression_to_function(call_exp);
+      ${if {eq func 0} (break) { return ret 0 }};
+      return ret (!) { ! ids, func }
+    },
+    (call_exps) { return ret 0 }
+  )
+}
+
 (get_assignment_vars: ret assign) {
   assign, (appl) { return ret {make_nil} },
   (ids call_exp) { return ret ids },
@@ -975,6 +1016,18 @@ read_identifier:
   }
 }
 
+(call_expression_to_function: ret call_exp) {
+  call_exp(
+    (texp) {
+      $res = texp_to_function(texp);
+      return ret res
+    },
+    (texp, op_list) {
+      return ret 0
+    }
+  )
+}
+
 (read_func_appl_args: ret l r) {
   $nl nr op_list = read_call_expression_args(l, r);
   ${if {ne op_list 0} (break) { return(ret, nl, nr, op_list) }};
@@ -1021,43 +1074,51 @@ read_identifier:
   return ret 0
 }
 
-(parse_function_help: lo hi) {
-  $nil = {make_nil};
-  $l r func = {read_function lo hi};
-  ${print_function nil func};
-  main_loop l r
-}
-
 (parse_comment: lo hi) {
   ${if {eq lo hi} (break -> main_loop lo hi)};
   ${if {eq {deref_byte lo} 10} (break -> main_loop lo hi)};
   parse_comment {add_func lo 1} hi
 }
 
-(parse_escape: l r) {
-  $a = {add_func l 1};
-  $b = {add_func l 2};
-  ${print_range a b};
-  main_loop b r
-}
-
-(otherwise: lo hi) {
-  $mid = {add_func lo 1};
-  ${print_range lo mid};
-  main_loop mid hi
-}
-
-(main_start: lo hi) {
+$main_start = (lo hi) {
   ${printf "section .rwx progbits alloc exec write align=16\nglobal _start\n_start:\n"};
   main_loop(lo, hi)
-}
-(main_loop: lo hi) {
-  ${if {eq} lo hi (break) { exit() }};
-  $c = {deref_byte lo};
-  ${if {eq c 40} (break) { parse_function_help(lo, hi) }};
-  ${if {eq c 59} (break) { parse_comment(lo, hi) }};
-  ${if {eq c 92} (break) { parse_escape(lo, hi) }};
-  otherwise(lo, hi)
+};
+(main_loop: l r) {
+  ${if {eq} l r (break) { exit() }};
+  $c = {deref_byte l};
+  ${if {eq c 40} (break) { 
+    $l r func = read_function(l, r);
+    ${print_function {make_nil} func};
+    main_loop(l, r)
+  }};
+  ${if {eq c {deref_byte "$"}} (break) {
+    $l, r, assign = read_assignment(l, r);
+    $id_func = assign_to_function(assign);
+    ${if {eq id_func 0} (break) {
+      ${print_assignment(0, 0, {make_nil}, (a, b) { a }, assign)};
+      break
+    }};
+    ${if {ne id_func 0} (break) {
+      $ids func = {id_func};
+      $fname = {first_leaf ids};
+      $fname_l fname_r func_args is_returning cexp = {func};
+      fname(
+        () { ${printf "HI!\n"}; break },
+        (l, r) {
+          $func = (!) { ! l, r, func_args, is_returning, cexp };
+          ${print_function {make_nil} func};
+          break
+        },
+        (a, b) { break }
+      )
+    }};
+    main_loop(l, r)
+  }};
+  ${if {eq c 59} (break) { parse_comment(l, r) }};
+  $mid = add_func(l, 1);
+  ${print_range l mid};
+  main_loop(mid, r)
 }
 
 start:
