@@ -15,6 +15,13 @@ sysc:
     syscall
     ret
 
+deref: ; takes (ptr) and returns *ptr
+  pop rdx
+  pop rax
+  push rdx
+  mov rax, [rax]
+  ret
+
 deref_byte: ; takes (ptr) and returns *ptr
   pop rdx
   pop rax
@@ -126,9 +133,6 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
   compare(a, b, () { return ret (x y) {x} }, () { return ret (x y) {y} })
 }
 
-outf: dq 0
-flen: dq 0
-
 exit:
   call flush_buffer
   mov rax, 60
@@ -229,6 +233,11 @@ malloc:
   pop rdx
   pop rcx
   ret
+malloc_func:
+  pop rax
+  pop rdi
+  push rax
+  jmp malloc
 
 (bool_true: cont_true cont_false) { cont_true }
 (bool_false: cont_true cont_false) { cont_false }
@@ -318,7 +327,6 @@ str_cmp_func:
   print_range ret {add_func a 1} b
 }
 
-buffer: dq 0
 buff_curr: dq 0
 print_char:
   mov rax, [buffer]
@@ -1103,7 +1111,7 @@ $main_loop = (l r) {
     $id_func = assign_to_function(assign);
     ${if {eq id_func 0} (break) {
       $ids = get_assignment_vars(assign);
-      ${map_tree ids (!l r) { ! printf("{}: dq 0\n", l, r )}};
+      ${map_tree ids (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)}};
       ${print_assignment(0, 0, {make_nil}, (a, b) { a }, assign)};
       break
     }};
@@ -1134,65 +1142,23 @@ $main_loop = (l r) {
 
 start:
 ; open input
-mov rsi, 0x0             ; READ_ONLY
-mov rdx, 0xFFFF          ; all perms
-mov rdi, [rsp+16]            ; argv[1]
-mov rax, 2
-syscall
-mov r8, rax              ; save input file descriptor
-; open output
-mov rax, 2               ; fopen
-mov rsi, 0x242           ; truncate/create/READ_WRITE
-mov rdx, 0xFFFF          ; all perms
-mov rdi, [rsp+24]            ; argv[2]
-syscall
-mov [outf], rax
+$inpf_name, outf_name = {(!argc, argv1, inpf, outf) { ! inpf, outf }};
+$inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
+$outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
 ; get input size
-sub rsp, 0xC0            ; fstat size
-mov rdi, r8              ; input file descriptor
-mov rsi, rsp              ; fstat buffer
-mov rax, 5               ; fstat
-syscall
-mov r10, [rsp+48]            ; file size
-mov [flen], r10
-
+$flen = {(!) {
+  $buff = malloc_func(192);
+  ${sysc 5, inpf, buff, 0, 0, 0, 0};
+  ! {deref {add_func(buff, 48)}}
+}};
 ; mmap input
-mov rax, 9               ; mmap
-mov rdi, 0               ; address
-mov rsi, [flen]              ; length
-mov rdx, 3               ; PROT_READ | PROT_WRITE
-mov r10, 2              ; MAP_PRIVATE
-mov r9, 0               ; offset
-syscall
+$input = sysc(9, 0, flen, 3, 2, inpf, 0);
 
-mov r8, rax              ; save mmap address
-
-; make heap
-mov rdi, 0               ; adress
-mov rsi, [flen]             ; length
-shl rsi, 8               ; 64 * file size, should be good
-
-mov rdx, 3               ; PROT_READ | PROT_WRITE
-mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
-push r8                 ; save r8
-mov r8, -1              ; file descriptor empty, anonymous
-mov r9, 0               ; offset
-mov rax, 9               ; mmap
-syscall
-pop r8                  ; restore r8
-mov r14, rax             ; save instruction location array end
-mov r15, [flen]            ; store max length of instruction location array
-shl r15, 4              ; 16 * file size
-
-push r14
-push r8
-
+mov r8, [input]
 add [flen], r8
 
-mov rdi, 4096
-call malloc
-mov [buffer], rax
+$buffer = malloc_func(4096);
 
 push qword [flen]
-push r8
+push qword [input]
 jmp main_start
