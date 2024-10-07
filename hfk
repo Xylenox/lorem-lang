@@ -19,7 +19,7 @@ deref_byte: ; takes (ptr) and returns *ptr
   pop rdx
   pop rax
   push rdx
-  movb rax, [rax]
+  mov al, [rax]
   and rax, 0xFF
   ret
 
@@ -135,7 +135,7 @@ exit:
   mov rdi, 0
   syscall
 error:
-  mov [outf], 2
+  mov qword [outf], 2
   jmp error_help
 (error_help: num) {
   ${printf "error {}\n" num {add_func num 10}};
@@ -213,7 +213,7 @@ malloc:
   syscall
   pop rdi
   mov [page_pointer], rax
-  mov [memory_left], 4096
+  mov qword [memory_left], 4096
 
   malloc_ret:
   mov rax, [page_pointer]
@@ -244,10 +244,10 @@ scmp:
   je end_of_string
 
   sub rax, rax
-  movb al, [rdi]
+  mov al, [rdi]
   push rbx
   sub rbx, rbx
-  movb bl, [rdx]
+  mov bl, [rdx]
   sub rax, rbx
   pop rbx
   add rdi, 1
@@ -280,14 +280,14 @@ gen_label:
   call malloc
   mov rdx, rax
   mov rcx, [cur_label]
-  add [cur_label], 1
-  mov [rdx], "f"
+  add qword [cur_label], 1
+  mov qword [rdx], "f"
   add rdx, 1
   gen_label_loop:
   mov rbx, rcx
   and rbx, 7
   add rbx, "0"
-  movb [rdx], rbx
+  mov [rdx], bl
   add rdx, 1
   shr rcx, 3
   cmp rcx, 0
@@ -341,7 +341,7 @@ flush_buffer:
   mov rdi, [outf]
   mov rax, 1
   syscall
-  mov [buff_curr], 0
+  mov qword [buff_curr], 0
   ret
 
 (print_num_help: v cont) {
@@ -481,17 +481,17 @@ is_digit:           ; is alpha
 read_identifier:
   pop rcx
   pop r8
-  pop [flen]
+  pop qword [flen]
   push rcx
-  push [flen]
+  push qword [flen]
   push r8
   call read_whitespace
   mov r8, rax
-  pop [flen]
+  pop qword [flen]
   push r8
   irloo:
   sub rcx, rcx
-  movb cl, [r8]
+  mov cl, [r8]
   mov rdi, rcx
   call is_alpha
   cmp rax, 1
@@ -511,18 +511,18 @@ read_identifier:
   pop rcx
   push rdx
   push rax
-  push [flen]
+  push qword [flen]
   mov rax, r8
   jmp rcx
 
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r) {
   ! (!n l r) {
     ${if_else_ret {eq l fname_l} (!) {
-      ${printf "mov [rax+"};
+      ${printf "mov qword [rax+"};
       ${print_num {mul_func 8 {add_func 1 n}}};
       ${printf "], {}\n" l r};
      }, (!) {
-      ${printf "mov rcx, [{}{}]\nmov [rax+" pfname_l pfname_r l r};
+      ${printf "mov rcx, [{}{}]\nmov qword [rax+" pfname_l pfname_r l r};
       ${print_num {mul_func 8 {add_func 1 n}}};
       ${printf "], rcx\n"};
     }};
@@ -624,7 +624,7 @@ read_identifier:
   ${map_tree {make_internal new_context cids} (!l r) { ${printf "{}{}: dq 0\n" fname_l fname_r l r}; }};
   ${printf "{}:\n" fname_l fname_r};
   ${if_ret is_returning (!) { ${printf "pop rax\n"}; }};
-  ${map_tree new_context (!l r) { ${printf "pop [{}{}]\n" fname_l fname_r l r}; }};
+  ${map_tree new_context (!l r) { ${printf "pop qword [{}{}]\n" fname_l fname_r l r}; }};
   ${if_ret is_returning (!) { ${printf "push rax\n"}; }};
   $[print_cexp fname_l fname_r new_context is_returning cexp];
   ${if_ret is_returning (!) { ${printf "ret\n"}; }};
@@ -639,7 +639,8 @@ read_identifier:
 }
 
 ; returns l r texp
-(read_texp: ret l r) {
+(read_texp: ret orig_l r) {
+  $l = orig_l;
   $return_string =     (l r t) { return ret l r (x aexp rec_block block func) { x t } };
   $return_rec_block = (l r rb) { return ret l r (x aexp rec_block block func) { rec_block rb } };
   $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
@@ -680,13 +681,13 @@ read_identifier:
   texp
   (string) {
     ${print_const_string string};
-    ${map_tree ids (!l r) { ${printf "pop [{}{}]\n" fname_l fname_r l r}; }};
+    ${map_tree ids (!l r) { ${printf "pop qword [{}{}]\n" fl fr l r}; }};
     return ret 0
   }
   (aexp) {
     $a b = {aexp};
     $[print_aexp old_context fl fr a b];
-    ${map_tree ids (!l r) { ${printf "pop [{}{}]\n" fl fr l r}; }};
+    ${map_tree ids (!l r) { ${printf "pop qword [{}{}]\n" fl fr l r}; }};
     return ret 0
   }
   (rec_block) {
@@ -695,19 +696,19 @@ read_identifier:
       ${if {search_tree ids l r} (break) { ! {make_nil} }};
       ! {make_leaf l r}
     }};
-    ${map_tree context (!l r) { ${printf "push [{}{}]\n" fl fr l r}; }};
+    ${map_tree context (!l r) { ${printf "push qword [{}{}]\n" fl fr l r}; }};
     $[print_cexp fl fr old_context (a b) { a } cexp];
     $rev_context = [reverse_tree context];
     $[printf "push rax\n"];
-    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
-    ${map_tree rev_context (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
+    ${map_tree ids (!l r -> ${printf "pop qword [{}{}]\n" fl fr l r};)};
+    ${map_tree rev_context (!l r -> ${printf "pop qword [{}{}]\n" fl fr l r};)};
     return ret 0
   }
   (block) {
     $cexp = {block};
     $[print_cexp fl fr old_context (a b) { a } cexp];
     $[printf "push rax\n"];
-    ${map_tree ids (!l r -> ${printf "pop [{}{}]\n" fl fr l r};)};
+    ${map_tree ids (!l r -> ${printf "pop qword [{}{}]\n" fl fr l r};)};
     return ret 0
   }
   (f) {
@@ -722,11 +723,11 @@ read_identifier:
     ${printf "\ncall malloc\n"};
     $map_arg = {eof_closure_map_arg fname_l fname_r fl fr};
     ${map_tree_iota context map_arg};
-    ${printf "mov [rax], "};
+    ${printf "mov qword [rax], "};
     ${print_num size};
     ${printf "\n"};
     ${printf "push rax\n"};
-    ${map_tree ids (!l r) { ${printf "pop [{}{}]\n" fl fr l r}; }};
+    ${map_tree ids (!l r) { ${printf "pop qword [{}{}]\n" fl fr l r}; }};
     return ret 0
   }
 }
@@ -738,18 +739,22 @@ read_identifier:
 }
 
 (read_const_string: ret l r) {
-  $l_start r = {read_whitespace l r};
-  $lb = {deref_byte l_start};
+  $l r = {read_whitespace l r};
+  $lb = {deref_byte l};
   ${if {ne lb 34} (break) { return ret l r 0 }};
-  $l = {add_func l_start 1};
-  $l r = {read_until 34 l r};
-  $l_end = {add_func l 1};
-  return ret l_end r (!) { ! l_start l_end }
+  $l_start = {add_func l 1};
+  $l_end r = {read_until 34 l_start r};
+  $l = {add_func l_end 1};
+  return ret l r (!) { ! l_start l_end }
 }
 (print_const_string: ret str) {
   $l_start l_end = {str};
   $il ir = {gen_label};
-  ${printf "jmp {}_end\n{}: db {}\ndb 0\n{}_end: push {}\n" il ir il ir l_start l_end il ir il ir};
+  ${printf "jmp {}_end\n{}: db " il ir il ir};
+  ${print_char 96};
+  ${printf "{}" l_start l_end};
+  ${print_char 96};
+  ${printf "\ndb 0\n{}_end: push {}\n" il ir il ir};
   return ret 0
 }
 
@@ -759,7 +764,7 @@ read_identifier:
   ${if {eq res 1} (break_o) {
     $bool = {search_tree comb_args l r};
     ${if bool (break) {
-      ${printf "push [{}{}]\n" fname_l fname_r l r};
+      ${printf "push qword [{}{}]\n" fname_l fname_r l r};
       return ret 0
     }};
     break_o
@@ -948,7 +953,7 @@ read_identifier:
       ${if {search_tree ids l r} (break) { ! {make_nil} }};
       ! {make_leaf l r}
     }};
-    ${map_tree context (!l r) { ! printf("push [{}{}]\n", fl, fr, l, r) }};
+    ${map_tree context (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) }};
     
     $al ar = {aexp_to_range {get_aexp_from_texp texp}};
     $[map_tree {reverse_tree op_list} (!call_exp r) { ! print_call_expression(fl, fr, old_context, {make_nil}, call_exp) }];
@@ -964,8 +969,8 @@ read_identifier:
 
     $rev_context = reverse_tree(context);
     $[printf "push rax\n"];
-    ${map_tree ids (!l r) { ! printf("pop [{}{}]\n", fl, fr, l, r) }};
-    ${map_tree rev_context (!l r) { ! printf("pop [{}{}]\n", fl, fr, l, r) }};
+    ${map_tree ids (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) }};
+    ${map_tree rev_context (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) }};
     return ret 0
   }
 }
@@ -1042,6 +1047,10 @@ read_identifier:
   main_loop mid hi
 )
 
+(main_start: lo hi) {
+  ${printf "section .mycoolsection progbits alloc exec write align=16\nglobal _start\n_start:\n"};
+  main_loop(lo, hi)
+}
 (main_loop: lo hi) {
   ${if {eq} lo hi (break) { exit() }};
   $c = {deref_byte lo};
@@ -1112,6 +1121,6 @@ mov rdi, 4096
 call malloc
 mov [buffer], rax
 
-push [flen]
+push qword [flen]
 push r8
-jmp main_loop
+jmp main_start
