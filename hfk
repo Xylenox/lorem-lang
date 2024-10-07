@@ -131,8 +131,8 @@ flen: dq 0
 
 exit:
   call flush_buffer
-  mov r0, 60
-  mov r7, 0
+  mov rax, 60
+  mov rdi, 0
   syscall
 error:
   mov [outf], 2
@@ -439,15 +439,15 @@ flush_buffer:
 )
 
 is_alpha:           ; is alpha
-  cmp r7, "a"      ; a
+  cmp rdi, "a"      ; a
   jl nalp
-  cmp r7, "z"     ; z
+  cmp rdi, "z"     ; z
   jg nalp
   yalp:
-  mov r0, 1
+  mov rax, 1
   ret
   nalp:
-  mov r0, 0
+  mov rax, 0
   ret
 
 is_alpha_ret:
@@ -458,15 +458,15 @@ is_alpha_ret:
   ret
 
 is_digit:           ; is alpha
-  cmp r7, "0"
+  cmp rdi, "0"
   jl not_digit
-  cmp r7, "9"
+  cmp rdi, "9"
   jg not_digit
   yes_digit:
-  mov r0, 1
+  mov rax, 1
   ret
   not_digit:
-  mov r0, 0
+  mov rax, 0
   ret
 
 (read_whitespace: ret l r) {
@@ -617,8 +617,9 @@ read_identifier:
 }
 (print_function: ret old_context func) {
   $fname_l fname_r func_args is_returning cexp = {func};
-  $new_context = {make_internal old_context func_args};
-  $cids = [get_cexp_vars cexp];
+  $new_context = merge_context(old_context, func_args);
+  $cids = get_cexp_vars(cexp);
+  $cids = filter_context(cids, new_context);
   ${printf "jmp {}_end\n" fname_l fname_r};
   ${map_tree {make_internal new_context cids} (!l r) { ${printf "{}{}: dq 0\n" fname_l fname_r l r}; }};
   ${printf "{}:\n" fname_l fname_r};
@@ -712,6 +713,7 @@ read_identifier:
   (f) {
     $func = {f}; 
     $fname_l fname_r func_args is_returning cexp = {func};
+    $old_context = filter_context(old_context, func_args);
     $[print_function old_context func];
     $context = {make_internal {make_leaf fname_l fname_r} old_context};
     ${printf "mov rdi, "};
@@ -775,11 +777,16 @@ read_identifier:
   return ret l r (!) { ! assign cexp }
 }
 
-(merge_context: ret old_context ids) {
+(filter_context: ret old_context ids) {
   $context = map_tree(old_context, (!l r) {
     ${if {search_tree ids l r} (break) { ! {make_nil} }};
     ! {make_leaf l r}
   });
+  return ret context
+}
+
+(merge_context: ret old_context ids) {
+  $context = filter_context(old_context, ids);
   return ret {make_internal context ids}
 }
 
@@ -797,6 +804,7 @@ read_identifier:
   $ids = get_assignment_vars(assign);
   ${if {eq cexp 0} (break) { return ret ids }};
   $ids2 = get_cexp_vars(cexp);
+  $ids2 = filter_context(ids2, ids);
   return ret {make_internal ids ids2}
 }
 
@@ -1045,53 +1053,53 @@ read_identifier:
 
 start:
 ; open input
-mov r6, 0x0             ; READ_ONLY
-mov r2, 0xFFFF          ; all perms
-mov r7, [rsp+16]            ; argv[1]
-mov r0, 2
+mov rsi, 0x0             ; READ_ONLY
+mov rdx, 0xFFFF          ; all perms
+mov rdi, [rsp+16]            ; argv[1]
+mov rax, 2
 syscall
-mov r8, r0              ; save input file descriptor
+mov r8, rax              ; save input file descriptor
 ; open output
-mov r0, 2               ; fopen
-mov r6, 0x242           ; truncate/create/READ_WRITE
-mov r2, 0xFFFF          ; all perms
-mov r7, [rsp+24]            ; argv[2]
+mov rax, 2               ; fopen
+mov rsi, 0x242           ; truncate/create/READ_WRITE
+mov rdx, 0xFFFF          ; all perms
+mov rdi, [rsp+24]            ; argv[2]
 syscall
-mov [outf], r0
+mov [outf], rax
 ; get input size
 sub rsp, 0xC0            ; fstat size
-mov r7, r8              ; input file descriptor
-mov r6, rsp              ; fstat buffer
-mov r0, 5               ; fstat
+mov rdi, r8              ; input file descriptor
+mov rsi, rsp              ; fstat buffer
+mov rax, 5               ; fstat
 syscall
 mov r10, [rsp+48]            ; file size
 mov [flen], r10
 
 ; mmap input
-mov r0, 9               ; mmap
-mov r7, 0               ; address
-mov r6, [flen]              ; length
-mov r2, 3               ; PROT_READ | PROT_WRITE
+mov rax, 9               ; mmap
+mov rdi, 0               ; address
+mov rsi, [flen]              ; length
+mov rdx, 3               ; PROT_READ | PROT_WRITE
 mov r10, 2              ; MAP_PRIVATE
 mov r9, 0               ; offset
 syscall
 
-mov r8, r0              ; save mmap address
+mov r8, rax              ; save mmap address
 
 ; make heap
-mov r7, 0               ; adress
-mov r6, [flen]             ; length
-shl r6, 8               ; 64 * file size, should be good
+mov rdi, 0               ; adress
+mov rsi, [flen]             ; length
+shl rsi, 8               ; 64 * file size, should be good
 
-mov r2, 3               ; PROT_READ | PROT_WRITE
+mov rdx, 3               ; PROT_READ | PROT_WRITE
 mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
 push r8                 ; save r8
 mov r8, -1              ; file descriptor empty, anonymous
 mov r9, 0               ; offset
-mov r0, 9               ; mmap
+mov rax, 9               ; mmap
 syscall
 pop r8                  ; restore r8
-mov r14, r0             ; save instruction location array end
+mov r14, rax             ; save instruction location array end
 mov r15, [flen]            ; store max length of instruction location array
 shl r15, 4              ; 16 * file size
 
