@@ -36,21 +36,6 @@ return:
   push rcx
   ret
 
-load_func: ; (ptr) -> ret *ptr
-  pop rdx
-  pop rax
-  mov rax, [rax]
-  push rdx
-  ret
-
-store_func: ; (ptr x) -> *ptr = x; RET
-  pop rdi
-  pop rax
-  pop rdx
-  mov [rax], rdx
-  push rdi
-  ret
-
 add_func: ; takes (ret a b) and returns a+b
   pop rbx
   pop rax
@@ -560,11 +545,11 @@ read_identifier:
   }
 }
 
-(matches: ret a b -> 
+(matches: ret a b) {
   ${if {eq {deref_byte a} 0} (break -> return ret (a b -> a))};
   ${if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
   matches ret {add_func a 1} {add_func b 1}
-)
+}
 ; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r type il ir
 (read_token: ret l r ->
@@ -609,7 +594,7 @@ read_identifier:
   return ret pl pr fl fr
 }
 (read_id_list: ret l r) {
-  $l r tree = [read_id_list_help l r {make_nil}];
+  $l r tree = read_id_list_help(l, r, {make_nil});
   return ret l r tree
 }
 (read_id_list_help: ret l r tree) {
@@ -617,7 +602,7 @@ read_identifier:
   ${if {matches "," tl} (break) {
     read_id_list_help ret nl nr tree
   }};
-  $l r il ir = [read_identifier l r];
+  $l r il ir = read_identifier(l, r);
   ${if {eq il ir} (break) { return ret l r tree }};
   $leaf = {make_leaf il ir};
   $tree = {make_internal tree leaf};
@@ -906,10 +891,10 @@ read_identifier:
     return ret 0
   },
   (call_exps) {
-    ${map_tree, {reverse_tree call_exps}, (!call_exp r) {
+    $[map_tree, {reverse_tree call_exps}, (!call_exp r) {
       $[print_call_expression fl fr context {make_nil} call_exp];
       ${printf "pop rax\npop rcx\npush rax\npush rcx\n"};
-    }};
+    }];
     ${printf "pop rcx\npop rax\njmp rcx\n"};
     return ret 0
   }
@@ -1009,15 +994,17 @@ read_identifier:
     return ret 0
   }
   (texp, op_list) {
-    $context = {map_tree old_context (!l r) {
+    $context = [map_tree old_context (!l r) {
       ${if {search_tree ids l r} (break) { ! {make_nil} }};
       ! {make_leaf l r}
-    }};
-    ${map_tree context (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) }};
+    }];
+    $[map_tree context (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) }];
     
     $al ar = {aexp_to_range {get_aexp_from_texp texp}};
-    $[map_tree {reverse_tree op_list} (!call_exp r) { ! print_call_expression(fl, fr, old_context, {make_nil}, call_exp) }];
-    ${if_else {or {eq al ar} {search_tree old_context al ar}} (break) {
+    $[map_tree {reverse_tree op_list} (!call_exp r) {
+      ! print_call_expression(fl, fr, old_context, {make_nil}, call_exp)
+    }];
+    $[if_else {or {eq al ar} {search_tree old_context al ar}} (break) {
       $[print_texp fl fr old_context {make_nil} texp];
       ${printf "call runtime_call_ret\n"};
       break
@@ -1025,7 +1012,7 @@ read_identifier:
     (break) {
       ${printf "call {}\n" al ar};
       break
-    }};
+    }];
 
     $rev_context = reverse_tree(context);
     $[printf "push rax\n"];
@@ -1141,16 +1128,15 @@ $main_loop = (l r) {
 };
 
 start:
-; open input
-$inpf_name, outf_name = {(!argc, argv1, inpf, outf) { ! inpf, outf }};
+$inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
 $inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
 $outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
 ; get input size
-$flen = {(!) {
+$flen = (!) {
   $buff = malloc_func(192);
   ${sysc 5, inpf, buff, 0, 0, 0, 0};
   ! {deref {add_func(buff, 48)}}
-}};
+}();
 ; mmap input
 $input = sysc(9, 0, flen, 3, 2, inpf, 0);
 
