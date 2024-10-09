@@ -962,13 +962,23 @@ read_identifier:
   return(ret, l, r, 0)
 }
 
+$print_call_exp_args = (ret, fl, fr, old_context, op_list) {
+  $[map_tree {reverse_tree op_list} (!call_exp r) {
+    $il, ir = gen_label();
+    ${printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir)};
+    $[print_call_expression(fl, fr, old_context, {make_leaf il ir}, call_exp)];
+    ! printf("push qword [{}{}]\n", fl, fr, il, ir)
+  }];
+  return ret 0
+};
+
 (read_call_expression_args_with_cexp: ret l r) {
   $nl nr t tl tr = read_token(l, r);
   ${if {matches "(" tl} (break) {
     $l r op_list = read_call_exp_list(nl, nr);
     $l r t tl tr = read_token(l, r);
     ${if {not {matches ")" tl}} (break2) { break }};
-    $nl nr t tl tr = [read_token l r];
+    $nl nr t tl tr = read_token(l, r);
     ${if {matches "{" tl} (break2) { break }};
     return ret l r op_list
   }};
@@ -986,7 +996,7 @@ read_identifier:
   return ret l r (t1, t2) { t2(texp, op_list) }
 }
 
-(print_call_expression: ret fl fr old_context ids call_exp) {
+$print_call_expression = (ret fl fr old_context ids call_exp) {
   ${if {eq call_exp 0} (break) { return ret 0 }};
   call_exp
   (texp) {
@@ -1000,10 +1010,8 @@ read_identifier:
     }];
     $[map_tree context (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) }];
     
-    $al ar = {aexp_to_range {get_aexp_from_texp texp}};
-    $[map_tree {reverse_tree op_list} (!call_exp r) {
-      ! print_call_expression(fl, fr, old_context, {make_nil}, call_exp)
-    }];
+    $al ar = aexp_to_range({get_aexp_from_texp texp});
+    $[print_call_exp_args(fl, fr, old_context, op_list)];
     $[if_else {or {eq al ar} {search_tree old_context al ar}} (break) {
       $[print_texp fl fr old_context {make_nil} texp];
       ${printf "call runtime_call_ret\n"};
@@ -1020,7 +1028,7 @@ read_identifier:
     ${map_tree rev_context (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) }};
     return ret 0
   }
-}
+};
 
 (call_expression_to_function: ret call_exp) {
   call_exp(
@@ -1045,17 +1053,17 @@ read_identifier:
   ${if {eq aexp 0} (break) {
     return ret 0 0
   }};
-  $l r = {aexp};
+  $l r = aexp();
   return ret l r
 }
 
 (read_function_application: ret orig_l r) {
   $l = orig_l;
-  $l r texp = [read_texp l r];
+  $l r texp = read_texp(l, r);
   ${if {eq texp 0} (break) {
     return ret orig_l r 0
   }};
-  $l r op_list = [read_func_appl_args l r];
+  $l r op_list = read_func_appl_args(l, r);
   return ret l r (!) { ! op_list, texp }
 }
 (print_function_application: ret fl fr context is_returning appl) {
@@ -1080,7 +1088,7 @@ read_identifier:
   return ret 0
 }
 
-$main_start = (lo hi) {
+$main_start = (ret, lo, hi) {
   ${printf "section .rwx progbits alloc exec write align=16\nglobal _start\n_start:\n"};
   main_loop(lo, hi)
 };
@@ -1103,7 +1111,7 @@ $main_loop = (l r) {
       break
     }};
     ${if {ne id_func 0} (break) {
-      $ids func = {id_func};
+      $ids func = id_func();
       $fname = {first_leaf ids};
       $fname_l fname_r func_args is_returning cexp = {func};
       fname(
@@ -1139,12 +1147,8 @@ $flen = (!) {
 }();
 ; mmap input
 $input = sysc(9, 0, flen, 3, 2, inpf, 0);
-
 mov r8, [input]
 add [flen], r8
-
 $buffer = malloc_func(4096);
 
-push qword [flen]
-push qword [input]
-jmp main_start
+$res = main_start(input, flen);
