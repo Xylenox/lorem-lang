@@ -662,34 +662,29 @@ read_identifier:
   $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
   $return_func =       (l r f) { return ret l r (x aexp rec_block block func) { func f } };
   $return_aexp =       (l r a) { return ret l r (x aexp rec_block block func) { aexp a } };
-  $l r = {read_whitespace l r};
-  $lb = {deref_byte l};
-  ${if {eq lb 91} (break) {
-    $l r t tl tr = {read_token l r};
-    ${if {not {matches "[" tl}} (break) { return ret orig_l r 0 }};
-    $l r cexp = [read_cexp l r];
-    $l r t tl tr = {read_token l r};
-    ${if {not {matches "]" tl}} (break) { return ret orig_l r 0 }};
-    return_rec_block l r (!) { ! cexp }
+  $nl, nr, t, tl, tr = read_token(l, r);
+  ${if {eq t 1} (break) { return_aexp(nl, nr, (!) { ! tl tr }) }};
+  ${if {matches("[", tl)} (break) {
+    $l, r, cexp = read_cexp(nl, nr);
+    $l, r, t, tl, tr = {read_token l r};
+    ${if {not {matches "]" tl}} (break2) { break }};
+    return_rec_block(l, r, (!) { ! cexp })
   }};
-  ${if {eq lb 123} (break) {
-    $l = add_func(l, 1);
-    $l r = read_whitespace(l, r);
-    $l r cexp = read_cexp(l, r);
-    $l r = {read_whitespace l r};
-    $l = [add_func l 1];
-    return_block l r (!) { ! cexp }
+  ${if {matches("{", tl)} (break) {
+    $l, r, cexp = read_cexp(nl, nr);
+    $l, r, t, tl, tr = read_token(l, r);
+    ${if {not {matches "}" tl}} (break2) { break }};
+    return_block(l, r, (!) { ! cexp })
   }};
-  $lo hi func = [read_function l r];
+  $lo, hi, func = read_function(l, r);
   ${if {ne func 0} (break) {
-    return_func lo hi (!) { ! func }
+    return_func(lo, hi, (!) { ! func })
   }};
-  $lo hi string = [read_const_string l r];
+  $lo, hi, string = read_const_string(l, r);
   ${if {ne string 0} (break) {
-    return_string lo hi string
+    return_string(lo, hi, string)
   }};
-  $nl nr t tl tr = read_token(l, r);
-  compare t 1, () { return_aexp nl nr (!) { ! tl tr } }, () { return ret l r 0 }
+  return ret orig_l, r, 0
 }
 
 (print_texp: ret fl fr old_context ids texp) {
@@ -701,7 +696,7 @@ read_identifier:
     return ret 0
   }
   (aexp) {
-    $a b = {aexp};
+    $a, b = aexp();
     $[print_aexp old_context fl fr a b];
     ${map_tree ids (!l r) { ${printf "pop qword [{}{}]\n" fl fr l r}; }};
     return ret 0
@@ -929,12 +924,12 @@ read_identifier:
   }};
   $l r call_exp = read_call_expression(l, r);
   ${if {eq call_exp 0} (break) { return ret l r tree }};
-  $leaf = {make_leaf call_exp 0};
-  $tree = {make_internal tree leaf};
+  $leaf = make_leaf(call_exp, 0);
+  $tree = make_internal(tree, leaf);
   read_call_exp_list_help ret l r tree
 }
 (read_texp_list: ret l r) {
-  $l r tree = [read_texp_list_help l r {make_nil}];
+  $l r tree = read_texp_list_help(l, r, {make_nil});
   return ret l r tree
 }
 (read_texp_list_help: ret l r tree) {
