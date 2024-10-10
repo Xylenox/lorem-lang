@@ -657,11 +657,11 @@ read_identifier:
 ; returns l r texp
 (read_texp: ret orig_l r) {
   $l = orig_l;
-  $return_string =     (l r t) { return ret l r (x aexp rec_block block func) { x t } };
-  $return_rec_block = (l r rb) { return ret l r (x aexp rec_block block func) { rec_block rb } };
-  $return_block =      (l r b) { return ret l r (x aexp rec_block block func) { block b } };
-  $return_func =       (l r f) { return ret l r (x aexp rec_block block func) { func f } };
-  $return_aexp =       (l r a) { return ret l r (x aexp rec_block block func) { aexp a } };
+  $return_string =     (l r t) { return ret l, r, (x aexp rec_block block func) { x t } };
+  $return_rec_block = (l r rb) { return ret l, r, (x aexp rec_block block func) { rec_block rb } };
+  $return_block =      (l r b) { return ret l, r, (x aexp rec_block block func) { block b } };
+  $return_func =       (l r f) { return ret l, r, (x aexp rec_block block func) { func f } };
+  $return_aexp =       (l r a) { return ret l, r, (x aexp rec_block block func) { aexp a } };
   $nl, nr, t, tl, tr = read_token(l, r);
   ${if {eq t 1} (break) { return_aexp(nl, nr, (!) { ! tl tr }) }};
   ${if {matches("[", tl)} (break) {
@@ -762,10 +762,10 @@ read_identifier:
   read_until ret c {add_func l 1} r
 }
 
-(read_const_string: ret l r) {
-  $l r = {read_whitespace l r};
+(read_const_string: ret orig_l r) {
+  $l r = {read_whitespace orig_l r};
   $lb = {deref_byte l};
-  ${if {ne lb 34} (break) { return ret l r 0 }};
+  ${if {ne lb 34} (break) { return ret orig_l r 0 }};
   $l_start = {add_func l 1};
   $l_end r = {read_until 34 l_start r};
   $l = {add_func l_end 1};
@@ -889,7 +889,7 @@ read_identifier:
     $[map_tree({reverse_tree call_exps}, (!call_exp r) {
       $il, ir = gen_label();
       ${printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir)};
-      $[print_call_expression(fl, fr, context, {make_leaf il ir}, call_exp)];
+      $[print_call_expression(fl, fr, context, {make_leaf(il, ir)}, call_exp)];
       ${printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir)};
     })];
     ${printf("pop rcx\npop rax\njmp rcx\n")};
@@ -897,7 +897,7 @@ read_identifier:
   }
 }
 
-(assign_to_function: ret assign) {
+(assign_to_function: ret, assign) {
   assign(
     (appl) { return ret 0 },
     (ids, call_exp) {
@@ -920,7 +920,7 @@ read_identifier:
   return ret l r tree
 }
 (read_call_exp_list_help: ret l r tree) {
-  $nl nr t tl tr = [read_token l r];
+  $nl nr t tl tr = read_token(l, r);
   ${if {matches "," tl} (break) {
     read_call_exp_list_help ret nl nr tree
   }};
@@ -952,7 +952,7 @@ read_identifier:
     $l r op_list = read_texp_list(nl, nr);
     $l r t tl tr = read_token(l, r);
     ${if {not {matches ")" tl}} (break2) { break }};
-    $nl nr t tl tr = [read_token l r];
+    $nl nr t tl tr = read_token(l, r);
     ${if {matches "{" tl} (break2) { break }};
     return ret l r op_list
   }};
@@ -969,17 +969,16 @@ $print_call_exp_args = (ret, fl, fr, old_context, op_list) {
   return ret 0
 };
 
-(read_call_expression_args_with_cexp: ret l r) {
+(read_call_expression_args_with_cexp: ret orig_l r) {
+  $l = orig_l;
   $nl nr t tl tr = read_token(l, r);
-  ${if {matches "(" tl} (break) {
-    $l r op_list = read_call_exp_list(nl, nr);
-    $l r t tl tr = read_token(l, r);
-    ${if {not {matches ")" tl}} (break2) { break }};
-    $nl nr t tl tr = read_token(l, r);
-    ${if {matches "{" tl} (break2) { break }};
-    return ret l r op_list
-  }};
-  return(ret, l, r, 0)
+  ${if {not({matches "(" tl})} (break) { return(ret, orig_l, r, 0) }};
+  $l r op_list = read_call_exp_list(nl, nr);
+  $l r t tl tr = read_token(l, r);
+  ${if {not {matches ")" tl}} (break2) { return(ret, orig_l, r, 0)  }};
+  $nl nr t tl tr = read_token(l, r);
+  ${if {matches "{" tl} (break2) { return(ret, orig_l, r, 0)  }};
+  return ret l r op_list
 }
 
 (read_call_expression: ret orig_l r) {
@@ -1040,49 +1039,49 @@ $print_call_expression = (ret fl fr old_context ids call_exp) {
 }
 
 (read_func_appl_args: ret l r) {
-  $nl nr op_list = read_call_expression_args(l, r);
+  $nl nr op_list = read_call_expression_args_with_cexp(l, r);
   ${if {ne op_list 0} (break) { return(ret, nl, nr, op_list) }};
-  $l r op_list = read_texp_list(l, r);
+  $l r op_list = read_call_exp_list(l, r);
   return(ret, l, r, op_list)
 }
 
 (aexp_to_range: ret aexp) {
-  ${if {eq aexp 0} (break) {
-    return ret 0 0
-  }};
+  ${if({eq(aexp, 0)}, (break) {
+    return(ret, 0, 0)
+  })};
   $l r = aexp();
-  return ret l r
+  return(ret, l, r)
 }
 
 (read_function_application: ret orig_l r) {
   $l = orig_l;
   $l r texp = read_texp(l, r);
-  ${if {eq texp 0} (break) {
-    return ret orig_l r 0
-  }};
+  ${if({eq(texp, 0)}, (break) {
+    return(ret, orig_l, r, 0)
+  })};
   $l r op_list = read_func_appl_args(l, r);
-  return ret l r (!) { ! op_list, texp }
+  return(ret, l, r, (!) { ! op_list, texp })
 }
 (print_function_application: ret fl fr context is_returning appl) {
-  $op_list texp = {appl};
-  $al ar = {aexp_to_range {get_aexp_from_texp texp}};
-  $[map_tree {reverse_tree op_list} (!texp r) { ${print_texp fl fr context {make_nil} texp}; }];
-  ${if_else {or {eq al ar} {search_tree context al ar}} (break) {
-    $[print_texp fl fr context {make_nil} texp];
-    ${if_else_ret is_returning
-      (!) { ${printf "call runtime_call_ret\n"}; }
-      (!) { ${printf "jmp runtime_call\n"}; }
-    };
+  $op_list, texp = appl();
+  $al, ar = aexp_to_range(get_aexp_from_texp(texp));
+  $[print_call_exp_args(fl, fr, context, op_list)];
+  ${if_else {or {eq(al, ar)} {search_tree context al ar}} (break) {
+    $[print_texp(fl, fr, context, {make_nil()}, texp)];
+    ${if_else_ret(is_returning,
+      (!) { ! printf("call runtime_call_ret\n") },
+      (!) { ! printf("jmp runtime_call\n") },
+    )};
     break
   }
   (break) {
-    ${if_else_ret is_returning
-      (!) { ! printf("call {}\n", al, ar) }
-      (!) { ${printf "jmp {}\n" al ar}; }
-    };
+    ${if_else_ret(is_returning,
+      (!) { ! printf("call {}\n", al, ar) },
+      (!) { ! printf("jmp {}\n", al, ar) },
+    )};
     break
   }};
-  return ret 0
+  return(ret, 0)
 }
 
 $main_start = (ret, lo, hi) {
