@@ -354,42 +354,42 @@ flush_buffer:
     ${print_range a b};
     printf ret {add_func l 2}
   }};
-  ${print_char {deref_byte l}};
+  ${print_char deref_byte(l)};
   printf ret {add_func l 1}
 }
 
 (tree_size: ret tree) {
-  tree,
-  () { return ret 0 },
-  (l r) { return ret 1 }
-  (a b) {
-    $a = [tree_size a];
-    $b = [tree_size b];
-    return ret {add_func a b}
-  }
+  tree(
+    () { return ret 0 },
+    (l, r) { return ret 1 },
+    (a, b) {
+      $a = tree_size(a);
+      $b = tree_size(b);
+      return ret add_func(a, b)
+    }
+  )
 }
 
 (map_tree: ret tree action) {
   tree,
-  () { return ret {make_nil} },
-  (l r) {
-    $res = [action l r];
-    return ret res
+  () { return ret make_nil() },
+  (l, r) {
+    return ret action(l, r)
   },
-  (a b) {
-    $a = [map_tree a action];
-    $b = [map_tree b action];
-    return ret {make_internal a b}
+  (a, b) {
+    $a = map_tree(a, action);
+    $b = map_tree(b, action);
+    return ret make_internal(a, b)
   }
 }
 
 (first_leaf: ret tree) {
   tree(
-    () { return ret {make_nil} },
-    (l, r) { return ret {make_leaf l r} },
+    () { return ret make_nil() },
+    (l, r) { return ret make_leaf(l, r) },
     (a, b) {
-      $a_leaf = [first_leaf a];
-      $b_leaf = [first_leaf b];
+      $a_leaf = first_leaf(a);
+      $b_leaf = first_leaf(b);
       a_leaf(
         () { return ret b_leaf },
         (l, r) { return ret a_leaf },
@@ -401,34 +401,28 @@ flush_buffer:
 
 (map_tree_iota_help: ret n tree action) {
   tree,
-    () {
-      $nil = {make_nil};
-      return ret n nil
-    },
-    (l r) {
-      $res = action(n, l, r);
-      $n = add_func(n, 1);
-      return ret n res
-    },
-    (a b) {
-      $n new_a = map_tree_iota_help(n, a, action);
-      $n new_b = map_tree_iota_help(n, b, action);
+    () { return(ret, n, make_nil()) },
+    (l, r) { return(ret, add_func(n, 1), action(n, l, r)) },
+    (a, b) {
+      $n, new_a = map_tree_iota_help(n, a, action);
+      $n, new_b = map_tree_iota_help(n, b, action);
       $res = make_internal(new_a, new_b);
       return ret n res
     }
 }
 (map_tree_iota: ret tree action) {
-  $n t = map_tree_iota_help(0, tree, action);
+  $n, t = map_tree_iota_help(0, tree, action);
   return ret t
 }
 
 (reverse_tree: ret tree) {
-  tree, () { return ret {make_nil} } (l r -> return ret {make_leaf l r})
-  (a b) {
-    $a = [reverse_tree a];
-    $b = [reverse_tree b];
-    return ret {make_internal b a}
-  }
+  tree(
+    () { return ret make_nil() },
+    (l, r) { return ret make_leaf(l, r) },
+    (a, b) {
+      return ret make_internal(reverse_tree(b), reverse_tree(a))
+    }
+  )
 }
 
 (search_tree: ret tree l r) {
@@ -486,10 +480,10 @@ is_digit_ret:
   ret
 
 (read_whitespace: ret l r) {
-  $lb = {deref_byte l};
-  ${if {eq l r} (break) { return ret l r }};
-  ${if {or {eq lb 10} {eq lb 32}} (break) {
-    read_whitespace ret {add_func l 1} r
+  $lb = deref_byte(l);
+  ${if eq(l, r), (break) { return ret l r }};
+  ${if or(eq(lb, 10), eq(lb, 32)) (break) {
+    read_whitespace ret add_func(l, 1) r
   }};
   return ret l r
 }
@@ -594,7 +588,7 @@ read_identifier:
   return ret pl pr fl fr
 }
 (read_id_list: ret l r) {
-  $l r tree = read_id_list_help(l, r, {make_nil});
+  $l r tree = read_id_list_help(l, r, make_nil());
   return ret l r tree
 }
 (read_id_list_help: ret l r tree) {
@@ -704,7 +698,7 @@ read_identifier:
   (rec_block) {
     $cexp = {rec_block};
     $context = {map_tree old_context (!l r) {
-      ${if {search_tree ids l r} (break) { ! {make_nil} }};
+      ${if {search_tree ids l r} (break) { ! make_nil() }};
       ! {make_leaf l r}
     }};
     ${map_tree context (!l r) { ${printf "push qword [{}{}]\n" fl fr l r}; }};
@@ -812,7 +806,7 @@ read_identifier:
 
 (filter_context: ret old_context ids) {
   $context = map_tree(old_context, (!l r) {
-    ${if {search_tree ids l r} (break) { ! {make_nil} }};
+    ${if {search_tree ids l r} (break) { ! make_nil() }};
     ! {make_leaf l r}
   });
   return ret context
@@ -843,12 +837,23 @@ read_identifier:
 
 (read_eq_if: ret need l r) {
   ${if need (break ->
-    $l r t tl tr = {read_token l r};
+    $l, r, t, tl, tr = {read_token l r};
     ${if {not {matches "=" tl}} (break) { return 0 0 }};
     return ret l r
   )};
   return ret l r
 }
+
+$read_assign_left = (ret, orig_l, r) {
+  $l = orig_l;
+  $l, r, ids = read_id_list(l, r);
+  $nl, nr, t, tl, tr = read_token(l, r);
+  ${if not(matches("=", tl)) (break) {
+    $il ir = gen_label();
+    return ret orig_l, r, make_leaf(il, ir)
+  }};
+  return ret nl, nr, ids
+};
 
 (read_assignment: ret orig_l r) {
   $l = orig_l;
@@ -862,14 +867,7 @@ read_identifier:
     ${if {eq cexp 0} (break) { return ret l r 0 }};
     return ret l r, (a b c) { a(cexp) }
   }};
-  $l r ids = {read_id_list l r};
-  $is_empty_ids = {eq {tree_size ids} 0};
-  $ids = {if_else_ret is_empty_ids, (!) {
-    $il ir = gen_label();
-    ! make_leaf(il, ir)
-  },
-  (!) { ! ids }};
-  $l r = read_eq_if(not(is_empty_ids), l, r);
+  $l, r, ids = read_assign_left(l, r);
   ${if {eq 0 l}, (break) { return(ret, orig_l, r, 0) }};
   $l r call_exp = read_call_expression(l, r);
   $l r t tl tr = read_token(l, r);
@@ -878,20 +876,20 @@ read_identifier:
 }
 (print_assignment: ret fl fr context is_returning assign) {
   assign, (appl) {
-    $[print_function_application(fl, fr, context, is_returning, appl)];
+    $print_function_application(fl, fr, context, is_returning, appl);
     return(ret, 0)
   },
   (ids call_exp) {
-    $[print_call_expression(fl, fr, context, ids, call_exp)];
+    $print_call_expression(fl, fr, context, ids, call_exp);
     return(ret, 0)
   },
   (call_exps) {
-    $[map_tree({reverse_tree call_exps}, (!call_exp r) {
+    $map_tree({reverse_tree call_exps}, (!call_exp r) {
       $il, ir = gen_label();
       ${printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir)};
       $[print_call_expression(fl, fr, context, {make_leaf(il, ir)}, call_exp)];
       ${printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir)};
-    })];
+    });
     ${printf("pop rcx\npop rax\njmp rcx\n")};
     return(ret, 0)
   }
@@ -910,13 +908,13 @@ read_identifier:
 }
 
 (get_assignment_vars: ret assign) {
-  assign, (appl) { return ret {make_nil} },
+  assign, (appl) { return ret make_nil() },
   (ids call_exp) { return ret ids },
-  (call_exps) { return ret {make_nil} }
+  (call_exps) { return ret make_nil() }
 }
 
 (read_call_exp_list: ret l r) {
-  $l r tree = read_call_exp_list_help(l, r, {make_nil});
+  $l r tree = read_call_exp_list_help(l, r, make_nil());
   return ret l r tree
 }
 (read_call_exp_list_help: ret l r tree) {
@@ -931,7 +929,7 @@ read_identifier:
   read_call_exp_list_help ret l r tree
 }
 (read_texp_list: ret l r) {
-  $l r tree = read_texp_list_help(l, r, {make_nil});
+  $l r tree = read_texp_list_help(l, r, make_nil());
   return ret l r tree
 }
 (read_texp_list_help: ret l r tree) {
@@ -946,19 +944,6 @@ read_identifier:
   read_texp_list_help ret l r tree
 }
 
-(read_call_expression_args: ret l r) {
-  $nl nr t tl tr = read_token(l, r);
-  ${if {matches "(" tl} (break) {
-    $l r op_list = read_texp_list(nl, nr);
-    $l r t tl tr = read_token(l, r);
-    ${if {not {matches ")" tl}} (break2) { break }};
-    $nl nr t tl tr = read_token(l, r);
-    ${if {matches "{" tl} (break2) { break }};
-    return ret l r op_list
-  }};
-  return(ret, l, r, 0)
-}
-
 $print_call_exp_args = (ret, fl, fr, old_context, op_list) {
   $[map_tree {reverse_tree op_list} (!call_exp r) {
     $il, ir = gen_label();
@@ -969,7 +954,7 @@ $print_call_exp_args = (ret, fl, fr, old_context, op_list) {
   return ret 0
 };
 
-(read_call_expression_args_with_cexp: ret orig_l r) {
+(read_call_expression_args: ret orig_l r) {
   $l = orig_l;
   $nl nr t tl tr = read_token(l, r);
   ${if {not({matches "(" tl})} (break) { return(ret, orig_l, r, 0) }};
@@ -987,7 +972,7 @@ $print_call_exp_args = (ret, fl, fr, old_context, op_list) {
   ${if {eq texp 0} (break) {
     return ret orig_l r 0
   }};
-  $l r op_list = read_call_expression_args_with_cexp(l, r);
+  $l r op_list = read_call_expression_args(l, r);
   ${if {eq op_list 0} (break) { return(ret, l, r, (t1, t2) { t1(texp) }) }};
   return ret l r (t1, t2) { t2(texp, op_list) }
 }
@@ -1001,7 +986,7 @@ $print_call_expression = (ret fl fr old_context ids call_exp) {
   }
   (texp, op_list) {
     $context = [map_tree old_context (!l r) {
-      ${if {search_tree ids l r} (break) { ! {make_nil} }};
+      ${if {search_tree ids l r} (break) { ! make_nil() }};
       ! {make_leaf l r}
     }];
     $[map_tree context (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) }];
@@ -1009,7 +994,7 @@ $print_call_expression = (ret fl fr old_context ids call_exp) {
     $al ar = aexp_to_range({get_aexp_from_texp texp});
     $[print_call_exp_args(fl, fr, old_context, op_list)];
     $[if_else {or {eq al ar} {search_tree old_context al ar}} (break) {
-      $[print_texp fl fr old_context {make_nil} texp];
+      $[print_texp fl fr old_context make_nil() texp];
       ${printf "call runtime_call_ret\n"};
       break
     }
@@ -1039,7 +1024,7 @@ $print_call_expression = (ret fl fr old_context ids call_exp) {
 }
 
 (read_func_appl_args: ret l r) {
-  $nl nr op_list = read_call_expression_args_with_cexp(l, r);
+  $nl nr op_list = read_call_expression_args(l, r);
   ${if {ne op_list 0} (break) { return(ret, nl, nr, op_list) }};
   $l r op_list = read_call_exp_list(l, r);
   return(ret, l, r, op_list)
@@ -1091,10 +1076,10 @@ $main_start = (ret, lo, hi) {
 
 $main_loop = (l r) {
   ${if {eq} l r (break) { exit() }};
-  $c = {deref_byte l};
+  $c = deref_byte(l);
   ${if {eq c 40} (break) { 
     $l r func = read_function(l, r);
-    ${print_function {make_nil} func};
+    ${print_function, make_nil(), func};
     main_loop(l, r)
   }};
   ${if {eq c {deref_byte "$"}} (break) {
@@ -1103,27 +1088,27 @@ $main_loop = (l r) {
     ${if {eq id_func 0} (break) {
       $ids = get_assignment_vars(assign);
       ${map_tree ids (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)}};
-      ${print_assignment(0, 0, {make_nil}, (a, b) { a }, assign)};
+      ${print_assignment(0, 0, make_nil(), (a, b) { a }, assign)};
       break
     }};
     ${if {ne id_func 0} (break) {
       $ids func = id_func();
-      $fname = {first_leaf ids};
-      $fname_l fname_r func_args is_returning cexp = {func};
+      $fname = first_leaf(ids);
+      $fname_l fname_r func_args is_returning cexp = func();
       fname(
         () { break },
         (l, r) {
           $func = (!) { ! l, r, func_args, is_returning, cexp };
-          ${print_function {make_nil} func};
-          break
+          ${print_function, make_nil(), func};
+          break()
         },
-        (a, b) { break }
+        (a, b) { break() }
       )
     }};
     main_loop(l, r)
   }};
   ${if {eq c 59} (break) {
-    $l, r = read_until({deref_byte "\n"}, l, r);
+    $l, r = read_until(deref_byte("\n"), l, r);
     main_loop(l, r)
   }};
   $mid = add_func(l, 1);
@@ -1139,7 +1124,7 @@ $outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
 $flen = (!) {
   $buff = malloc_func(192);
   ${sysc 5, inpf, buff, 0, 0, 0, 0};
-  ! {deref {add_func(buff, 48)}}
+  ! deref(add_func(buff, 48))
 }();
 ; mmap input
 $input = sysc(9, 0, flen, 3, 2, inpf, 0);

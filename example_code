@@ -1,14 +1,14 @@
 foo = (a: int, b: int): int { a + b };
 foo = (a, b) { a + b };
-bar = <
+bar = {
     x: int,
     y: int,
->;
-zol = <a: <int, int> | b: <int, int>>;
+};
+zol = {a: {int, int} | b: {int, int}};
 main = () {
     a = 1;
     b = 2;
     {1 + 2} * 3;
     c = foo(a, b);
-    bar(2, 3)
+    bar{2, 3}
 };
