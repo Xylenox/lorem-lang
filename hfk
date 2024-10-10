@@ -592,7 +592,7 @@ read_identifier:
   return ret l r tree
 }
 (read_id_list_help: ret l r tree) {
-  $nl nr t tl tr = [read_token l r];
+  $nl nr t tl tr = read_token(l, r);
   ${if {matches "," tl} (break) {
     read_id_list_help ret nl nr tree
   }};
@@ -636,7 +636,7 @@ read_identifier:
   ${if_ret is_returning (!) { ${printf "pop rax\n"}; }};
   ${map_tree new_context (!l r) { ${printf "pop qword [{}{}]\n" fname_l fname_r l r}; }};
   ${if_ret is_returning (!) { ${printf "push rax\n"}; }};
-  $[print_cexp fname_l fname_r new_context is_returning cexp];
+  $print_cexp(fname_l, fname_r, new_context, is_returning, cexp);
   ${if_ret is_returning (!) { ${printf "ret\n"}; }};
   ${printf "{}_end:\n" fname_l fname_r};
   return ret 0
@@ -645,25 +645,18 @@ read_identifier:
 (get_aexp_from_texp: ret texp) {
   $none = (a) { return ret 0 };
   ${if {eq texp 0} (break) { return ret 0}};
-  texp(none, (aexp) { return ret aexp }, none, none, none)
+  texp(none, (aexp) { return ret aexp }, none, none)
 }
 
 ; returns l r texp
 (read_texp: ret orig_l r) {
   $l = orig_l;
-  $return_string =     (l r t) { return ret l, r, (x aexp rec_block block func) { x t } };
-  $return_rec_block = (l r rb) { return ret l, r, (x aexp rec_block block func) { rec_block rb } };
-  $return_block =      (l r b) { return ret l, r, (x aexp rec_block block func) { block b } };
-  $return_func =       (l r f) { return ret l, r, (x aexp rec_block block func) { func f } };
-  $return_aexp =       (l r a) { return ret l, r, (x aexp rec_block block func) { aexp a } };
+  $return_string =     (l r t) { return ret l, r, (x aexp block func) { x t } };
+  $return_block =      (l r b) { return ret l, r, (x aexp block func) { block b } };
+  $return_func =       (l r f) { return ret l, r, (x aexp block func) { func f } };
+  $return_aexp =       (l r a) { return ret l, r, (x aexp block func) { aexp a } };
   $nl, nr, t, tl, tr = read_token(l, r);
   ${if {eq t 1} (break) { return_aexp(nl, nr, (!) { ! tl tr }) }};
-  ${if {matches("[", tl)} (break) {
-    $l, r, cexp = read_cexp(nl, nr);
-    $l, r, t, tl, tr = read_token(l, r);
-    ${if {not {matches "]" tl}} (break2) { break }};
-    return_rec_block(l, r, (!) { ! cexp })
-  }};
   ${if {matches("{", tl)} (break) {
     $l, r, cexp = read_cexp(nl, nr);
     $l, r, t, tl, tr = read_token(l, r);
@@ -691,28 +684,14 @@ read_identifier:
   }
   (aexp) {
     $a, b = aexp();
-    $[print_aexp old_context fl fr a b];
+    $print_aexp(old_context, fl, fr, a, b);
     ${map_tree ids (!l r) { ${printf "pop qword [{}{}]\n" fl fr l r}; }};
-    return ret 0
-  }
-  (rec_block) {
-    $cexp = {rec_block};
-    $context = {map_tree old_context (!l r) {
-      ${if {search_tree ids l r} (break) { ! make_nil() }};
-      ! {make_leaf l r}
-    }};
-    ${map_tree context (!l r) { ${printf "push qword [{}{}]\n" fl fr l r}; }};
-    $[print_cexp fl fr old_context (a b) { a } cexp];
-    $rev_context = [reverse_tree context];
-    $[printf "push rax\n"];
-    ${map_tree ids (!l r -> ${printf "pop qword [{}{}]\n" fl fr l r};)};
-    ${map_tree rev_context (!l r -> ${printf "pop qword [{}{}]\n" fl fr l r};)};
     return ret 0
   }
   (block) {
     $cexp = {block};
-    $[print_cexp fl fr old_context (a b) { a } cexp];
-    $[printf "push rax\n"];
+    $print_cexp(fl, fr, old_context, (a b) { a }, cexp);
+    $printf("push rax\n");
     ${map_tree ids (!l r -> ${printf "pop qword [{}{}]\n" fl fr l r};)};
     return ret 0
   }
@@ -720,7 +699,7 @@ read_identifier:
     $func = {f}; 
     $fname_l fname_r func_args is_returning cexp = {func};
     $old_context = filter_context(old_context, func_args);
-    $[print_function old_context func];
+    $print_function(old_context, func);
     $context = {make_internal {make_leaf fname_l fname_r} old_context};
     ${printf "mov rdi, "};
     $size = {tree_size context};
@@ -741,7 +720,6 @@ read_identifier:
   texp(
     (string) { return ret 0 },
     (aexp) { return ret 0 },
-    (rec_block) { return ret 0 },
     (block) { return ret 0 },
     (f) {
       $func = {f};
@@ -798,9 +776,9 @@ read_identifier:
 ; returns l r cexp
 (read_cexp: ret orig_l r) {
   $l = orig_l;
-  $l r assign = [read_assignment orig_l r];
+  $l r assign = read_assignment(orig_l, r);
   ${if {eq assign 0} (break -> return ret l r 0)};
-  $l r cexp = [read_cexp l r];
+  $l r cexp = read_cexp(l, r);
   return ret l r (!) { ! assign cexp }
 }
 
@@ -819,10 +797,10 @@ read_identifier:
 
 (print_cexp: ret fl fr context is_returning cexp) {
   $assign cexp = {cexp};
-  $[print_assignment fl fr context is_returning assign];
+  $print_assignment(fl, fr, context, is_returning, assign);
   ${if {eq cexp 0} (break) { return ret 0 }};
   $assign_vars = get_assignment_vars(assign);
-  $[print_cexp fl fr {merge_context context assign_vars} is_returning cexp];
+  $print_cexp(fl, fr, merge_context(context, assign_vars), is_returning, cexp);
   return ret 0
 }
 
@@ -884,11 +862,11 @@ $read_assign_left = (ret, orig_l, r) {
     return(ret, 0)
   },
   (call_exps) {
-    $map_tree({reverse_tree call_exps}, (!call_exp r) {
+    $map_tree(reverse_tree(call_exps), (!call_exp r) {
       $il, ir = gen_label();
-      ${printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir)};
-      $[print_call_expression(fl, fr, context, {make_leaf(il, ir)}, call_exp)];
-      ${printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir)};
+      $printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
+      $print_call_expression(fl, fr, context, {make_leaf(il, ir)}, call_exp);
+      $printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
     });
     ${printf("pop rcx\npop rax\njmp rcx\n")};
     return(ret, 0)
@@ -933,7 +911,7 @@ $read_assign_left = (ret, orig_l, r) {
   return ret l r tree
 }
 (read_texp_list_help: ret l r tree) {
-  $nl nr t tl tr = [read_token l r];
+  $nl nr t tl tr = read_token(l, r);
   ${if {matches "," tl} (break) {
     read_texp_list_help ret nl nr tree
   }};
@@ -945,12 +923,12 @@ $read_assign_left = (ret, orig_l, r) {
 }
 
 $print_call_exp_args = (ret, fl, fr, old_context, op_list) {
-  $[map_tree {reverse_tree op_list} (!call_exp r) {
+  $map_tree(reverse_tree(op_list), (!call_exp r) {
     $il, ir = gen_label();
-    ${printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir)};
-    $[print_call_expression(fl, fr, old_context, {make_leaf il ir}, call_exp)];
-    ! printf("push qword [{}{}]\n", fl, fr, il, ir)
-  }];
+    $printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
+    $print_call_expression(fl, fr, old_context, make_leaf(il, ir), call_exp);
+    $printf("push qword [{}{}]\n", fl, fr, il, ir);
+  });
   return ret 0
 };
 
@@ -981,32 +959,32 @@ $print_call_expression = (ret fl fr old_context ids call_exp) {
   ${if {eq call_exp 0} (break) { return ret 0 }};
   call_exp
   (texp) {
-    $[print_texp fl fr old_context ids texp];
+    $print_texp(fl, fr, old_context, ids, texp);
     return ret 0
   }
   (texp, op_list) {
-    $context = [map_tree old_context (!l r) {
-      ${if {search_tree ids l r} (break) { ! make_nil() }};
-      ! {make_leaf l r}
-    }];
-    $[map_tree context (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) }];
+    $context = map_tree(old_context, (!l r) {
+      ${if search_tree(ids, l, r) (break) { ! make_nil() }};
+      ! make_leaf(l, r)
+    });
+    $map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
     
     $al ar = aexp_to_range({get_aexp_from_texp texp});
-    $[print_call_exp_args(fl, fr, old_context, op_list)];
-    $[if_else {or {eq al ar} {search_tree old_context al ar}} (break) {
-      $[print_texp fl fr old_context make_nil() texp];
-      ${printf "call runtime_call_ret\n"};
+    $print_call_exp_args(fl, fr, old_context, op_list);
+    $if_else(or(eq(al, ar), search_tree(old_context, al, ar)), (break) {
+      $print_texp(fl, fr, old_context, make_nil(), texp);
+      $printf("call runtime_call_ret\n");
       break
     }
     (break) {
-      ${printf "call {}\n" al ar};
+      $printf("call {}\n", al, ar);
       break
-    }];
+    });
 
     $rev_context = reverse_tree(context);
-    $[printf "push rax\n"];
-    ${map_tree ids (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) }};
-    ${map_tree rev_context (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) }};
+    $printf("push rax\n");
+    $map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+    $map_tree(rev_context, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
     return ret 0
   }
 };
@@ -1050,22 +1028,22 @@ $print_call_expression = (ret fl fr old_context ids call_exp) {
 (print_function_application: ret fl fr context is_returning appl) {
   $op_list, texp = appl();
   $al, ar = aexp_to_range(get_aexp_from_texp(texp));
-  $[print_call_exp_args(fl, fr, context, op_list)];
-  ${if_else {or {eq(al, ar)} {search_tree context al ar}} (break) {
-    $[print_texp(fl, fr, context, {make_nil()}, texp)];
-    ${if_else_ret(is_returning,
+  $print_call_exp_args(fl, fr, context, op_list);
+  $if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
+    $print_texp(fl, fr, context, {make_nil()}, texp);
+    $if_else_ret(is_returning,
       (!) { ! printf("call runtime_call_ret\n") },
       (!) { ! printf("jmp runtime_call\n") },
-    )};
+    );
     break
   }
   (break) {
-    ${if_else_ret(is_returning,
+    $if_else_ret(is_returning,
       (!) { ! printf("call {}\n", al, ar) },
       (!) { ! printf("jmp {}\n", al, ar) },
-    )};
+    );
     break
-  }};
+  });
   return(ret, 0)
 }
 
