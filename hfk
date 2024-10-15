@@ -347,7 +347,7 @@ flush_buffer:
 (print_num: ret v) { print_num_help(v, () { return ret 0 }) }
 
 (printf: ret l) {
-  lb = {deref_byte l};
+  lb = deref_byte(l);
   {if {eq lb 0}, (break) {
     return ret 0
   }};
@@ -528,20 +528,6 @@ read_identifier:
 
 start:
 
-(!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r) {
-  ! (!n l r) {
-    {if_else_ret {eq l fname_l} (!) {
-      {printf "mov qword [rax+"};
-      {print_num {mul_func 8 {add_func 1 n}}};
-      {printf "], {}\n" l r};
-     }, (!) {
-      {printf "mov rcx, [{}{}]\nmov qword [rax+" pfname_l pfname_r l r};
-      {print_num {mul_func 8 {add_func 1 n}}};
-      {printf "], rcx\n"};
-    }};
-  }
-}
-
 (matches: ret a b) {
   {if {eq {deref_byte a} 0} (break -> return ret (a b -> a))};
   {if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
@@ -629,7 +615,7 @@ start:
   return ret l r (!) { ! fname_l fname_r new_args is_returning cexp }
 }
 (print_function: ret old_context, gl, gr, func) {
-  fname_l fname_r func_args is_returning cexp = {func};
+  fname_l fname_r func_args is_returning cexp = func();
   new_context = merge_context(old_context, func_args);
   cids = get_cexp_vars(cexp);
   cids = filter_context(cids, new_context);
@@ -659,10 +645,6 @@ start:
   printf("{}_end:\n", fname_l, fname_r);
   return ret 0
 }
-
-$function_used_vars = (!context, func) {
-  ! context
-};
 
 (get_aexp_from_texp: ret texp) {
   texp_type, texp = texp();
@@ -701,66 +683,80 @@ $texp_aexp = 3;
   return ret orig_l, r, 0
 }
 
-(print_texp: ret fl, fr, old_context, ids, gl, gr, texp) {
+(!print_texp: fl, fr, old_context, ids, gl, gr, texp) {
+  if(eq(texp, 0), (break) { ! 0 });
   texp_type, texp = texp();
-  if(eq(texp, 0), (break) { return ret 0 });
-  texp
-  (string) {
-    print_const_string(string);
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
-    return ret 0
-  }
-  (aexp) {
-    a, b = aexp();
-    print_aexp(old_context, fl, fr, a, b);
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
-    return ret 0
-  }
-  (block) {
-    cexp = block();
-    print_cexp(fl, fr, old_context, (a b) { a }, gl, gr, cexp);
-    printf("push rax\n");
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
-    return ret 0
-  }
-  (f) {
-    func = f(); 
-    fname_l fname_r func_args is_returning cexp = {func};
-    old_context = filter_context(old_context, func_args);
-    print_function(old_context, gl, gr, func);
-    context = {make_internal {make_leaf fname_l fname_r} old_context};
-    {printf "mov rdi, "};
-    size = {tree_size context};
-    {print_num {mul_func 8 {add_func 1 size}}};
-    {printf "\ncall malloc\n"};
-    map_arg = {eof_closure_map_arg fname_l fname_r fl fr};
-    {map_tree_iota context map_arg};
-    {printf "mov qword [rax], "};
-    print_num(size);
-    printf("\n");
-    {printf "push rax\n"};
-    {map_tree ids (!l r) { {printf "pop qword [{}{}]\n" fl fr l r}; }};
-    return ret 0
-  }
+  callcc((break) {
+    texp
+    (string) {
+      print_const_string(string);
+      map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+      ! 0
+    }
+    (aexp) {
+      a, b = aexp();
+      print_aexp(old_context, fl, fr, a, b);
+      map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+      ! 0
+    }
+    (block) {
+      cexp = block();
+      print_cexp(fl, fr, old_context, (a b) { a }, gl, gr, cexp);
+      printf("push rax\n");
+      map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+      ! 0
+    }
+    (f) {
+      func = f(); 
+      fname_l fname_r func_args is_returning cexp = {func};
+      old_context = filter_context(old_context, func_args);
+      print_function(old_context, gl, gr, func);
+      context = {make_internal {make_leaf fname_l fname_r} old_context};
+      printf("mov rdi, ");
+      size = tree_size(context);
+      print_num(mul_func(8, add_func(1, size)));
+      printf("\ncall malloc\n");
+
+      map_tree_iota(context, (!n l r) {
+        {if_else_ret {eq l fname_l} (!) {
+          {printf "mov qword [rax+"};
+          {print_num {mul_func 8 {add_func 1 n}}};
+          {printf "], {}\n" l r};
+        }, (!) {
+          {printf "mov rcx, [{}{}]\nmov qword [rax+" fl fr l r};
+          {print_num {mul_func 8 {add_func 1 n}}};
+          {printf "], rcx\n"};
+        }};
+      });
+      printf("mov qword [rax], ");
+      print_num(size);
+      printf("\npush rax\n");
+      map_tree(ids, (!l r) { printf("pop qword [{}{}]\n", fl, fr, l, r); });
+      ! 0
+    }
+  })
 }
 
-(texp_to_function: ret texp) {
+(!texp_to_function: texp) {
   texp_type, texp = texp();
-  texp(
-    (string) { return ret 0 },
-    (aexp) { return ret 0 },
-    (block) { return ret 0 },
-    (f) {
-      func = f();
-      return ret func
-    }
-  )
+  if(eq(texp_type, texp_func) (break) {
+    texp(
+      (string) { ! 0 },
+      (aexp) { ! 0 },
+      (block) { ! 0 },
+      (f) {
+        func = f();
+        ! func
+      }
+    )
+  });
+  ! 0
 }
 
 (read_until: ret c l r) {
   lb = deref_byte(l);
-  {if {eq lb c} (break) { return ret l r }};
-  read_until ret c {add_func l 1} r
+  {if eq(lb, c) (break) { return ret l r }};
+  read_until ret c add_func(l, 1) r
 }
 
 (read_const_string: ret orig_l r) {
@@ -773,13 +769,13 @@ $texp_aexp = 3;
   return ret l r (!) { ! l_start l_end }
 }
 (print_const_string: ret str) {
-  l_start l_end = {str};
-  il ir = {gen_label};
-  {printf "jmp {}_end\n{}: db " il ir il ir};
-  {print_char 96};
-  {printf "{}" l_start l_end};
-  {print_char 96};
-  {printf "\ndb 0\n{}_end: push {}\n" il ir il ir};
+  l_start l_end = str();
+  il ir = gen_label();
+  printf("jmp {}_end\n{}: db ", il, ir, il, ir);
+  print_char(96);
+  printf("{}", l_start, l_end);
+  print_char(96);
+  printf("\ndb 0\n{}_end: push {}\n", il, ir, il, ir);
   return ret 0
 }
 
