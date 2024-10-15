@@ -82,6 +82,10 @@ compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont
     push rsi
     jmp runtime_call
 
+$callcc = (ret, cont) {
+  cont((res) { return ret res })
+};
+
 (or: ret cont1 cont2) {
   cont1, () { return ret cont1 }, () { return ret cont2 }
 }
@@ -522,6 +526,8 @@ read_identifier:
   mov rax, r8
   jmp rcx
 
+start:
+
 (!eof_closure_map_arg: fname_l fname_r pfname_l pfname_r) {
   ! (!n l r) {
     {if_else_ret {eq l fname_l} (!) {
@@ -654,25 +660,34 @@ read_identifier:
   return ret 0
 }
 
+$function_used_vars = (!context, func) {
+  ! context
+};
+
 (get_aexp_from_texp: ret texp) {
+  texp_type, texp = texp();
   none = (a) { return ret 0 };
   {if {eq texp 0} (break) { return ret 0}};
   texp(none, (aexp) { return ret aexp }, none, none)
 }
 
+$texp_string = 0;
+$texp_block = 1;
+$texp_func = 2;
+$texp_aexp = 3;
 ; returns l r texp
 (read_texp: ret orig_l r) {
   l = orig_l;
-  return_string =     (l r t) { return ret l, r, (x aexp block func) { x t } };
-  return_block =      (l r b) { return ret l, r, (x aexp block func) { block b } };
-  return_func =       (l r f) { return ret l, r, (x aexp block func) { func f } };
-  return_aexp =       (l r a) { return ret l, r, (x aexp block func) { aexp a } };
+  return_string =     (l r t) { return ret l, r, (!) { ! texp_string, (x aexp block func) { x t } } };
+  return_block =      (l r b) { return ret l, r, (!) { ! texp_block, (x aexp block func) { block b } } };
+  return_func =       (l r f) { return ret l, r, (!) { ! texp_func, (x aexp block func) { func f } } };
+  return_aexp =       (l r a) { return ret l, r, (!) { ! texp_aexp, (x aexp block func) { aexp a } } };
   nl, nr, t, tl, tr = read_token(l, r);
   {if {eq t 1} (break) { return_aexp(nl, nr, (!) { ! tl tr }) }};
-  {if {matches("{", tl)} (break) {
+  {if matches("{", tl) (break) {
     l, r, cexp = read_cexp(nl, nr);
     l, r, t, tl, tr = read_token(l, r);
-    {if {not {matches "}" tl}} (break2) { break }};
+    {if not(matches("}", tl)) (break2) { break }};
     return_block(l, r, (!) { ! cexp })
   }};
   lo, hi, func = read_function(l, r);
@@ -687,6 +702,7 @@ read_identifier:
 }
 
 (print_texp: ret fl, fr, old_context, ids, gl, gr, texp) {
+  texp_type, texp = texp();
   if(eq(texp, 0), (break) { return ret 0 });
   texp
   (string) {
@@ -729,6 +745,7 @@ read_identifier:
 }
 
 (texp_to_function: ret texp) {
+  texp_type, texp = texp();
   texp(
     (string) { return ret 0 },
     (aexp) { return ret 0 },
@@ -750,9 +767,9 @@ read_identifier:
   l r = {read_whitespace orig_l r};
   lb = {deref_byte l};
   {if {ne lb 34} (break) { return ret orig_l r 0 }};
-  l_start = {add_func l 1};
-  l_end r = {read_until 34 l_start r};
-  l = {add_func l_end 1};
+  l_start = add_func(l, 1);
+  l_end r = read_until(34, l_start, r);
+  l = add_func(l_end, 1);
   return ret l r (!) { ! l_start l_end }
 }
 (print_const_string: ret str) {
@@ -767,8 +784,8 @@ read_identifier:
 }
 
 (print_aexp: ret comb_args fname_l fname_r l r) {
-  dig = {deref_byte l};
-  res = {is_alpha_ret dig};
+  dig = deref_byte(l);
+  res = is_alpha_ret(dig);
   {if {eq res 1} (break_o) {
     bool = {search_tree comb_args l r};
     {if bool (break) {
@@ -789,7 +806,7 @@ read_identifier:
 (read_cexp: ret orig_l r) {
   l = orig_l;
   l r assign = read_assignment(orig_l, r);
-  {if {eq assign 0} (break -> return ret l r 0)};
+  {if eq(assign, 0) (break) { return ret l r 0 }};
   l r cexp = read_cexp(l, r);
   return ret l r (!) { ! assign cexp }
 }
@@ -808,7 +825,7 @@ read_identifier:
 }
 
 (print_cexp: ret fl fr context is_returning, gl, gr, cexp) {
-  assign cexp = {cexp};
+  assign cexp = cexp();
   print_assignment(fl, fr, context, is_returning, gl, gr, assign);
   {if {eq cexp 0} (break) { return ret 0 }};
   assign_vars = get_assignment_vars(assign);
@@ -817,7 +834,7 @@ read_identifier:
 }
 
 (get_cexp_vars: ret cexp) {
-  assign cexp = {cexp};
+  assign cexp = cexp();
   ids = get_assignment_vars(assign);
   {if {eq cexp 0} (break) { return ret ids }};
   ids2 = get_cexp_vars(cexp);
@@ -845,46 +862,44 @@ $read_assign_left = (ret, orig_l, r) {
   return ret nl, nr, ids
 };
 
-$read_assign_val = (ret, orig_l, r) {
+$read_assign_val = (!orig_l, r) {
   l r t tl tr = read_token(orig_l, r);
   l, r = (!) {
     if(not(matches("$", tl)), (break) { ! orig_l, r });
     ! l, r
   }();
   l, r, ids = read_assign_left(l, r);
-  {if {eq 0 l}, (break) { return(ret, orig_l, r, 0) }};
+  {if {eq 0 l}, (break) { ! orig_l, r, 0 }};
   l r call_exp = read_call_expression(l, r);
   l r t tl tr = read_token(l, r);
-  {if {not {matches ";" tl}}, (break) { return(ret, orig_l, r, 0) }};
-  return(ret, l, r, (a b c) { b(ids, call_exp) })
+  {if {not {matches ";" tl}}, (break) { ! orig_l, r, 0 }};
+  ! l, r, (!) { ! ids, call_exp }
 };
 
-(read_assignment: ret orig_l r) {
+$assign_return = 1;
+$assign_application = 2;
+$assign_statement = 3;
+$read_assignment = (!orig_l r) {
   l = orig_l;
   nl nr t tl tr = read_token(l, r);
-  {if {matches "!" tl} (break) {
+  if(matches("!", tl), (break) {
     l r call_exps = read_call_exp_list(nl, nr);
-    return ret l r (a b c) { c(call_exps) }
-  }};
+    ! l r, (!) { ! assign_return, (!) { ! call_exps } }
+  });
   l, r, assign = read_assign_val(orig_l, r);
-  {if ne(assign, 0) (break) { return ret l, r, assign }};
-  {if {not {matches "$" tl}} (break) {
+  if(ne(assign, 0), (break) { ! l, r, (!) { ! assign_statement, assign } });
+  if(not(matches("$", tl)), (break) {
     l r cexp = read_function_application(orig_l, r);
-    {if {eq cexp 0} (break) { return ret l r 0 }};
-    return ret l r, (a b c) { a(cexp) }
-  }};
-  return ret l, r, 0
-}
-(print_assignment: ret fl, fr, context, is_returning, gl, gr, assign) {
-  assign, (appl) {
-    print_function_application(fl, fr, context, is_returning, gl, gr, appl);
-    return(ret, 0)
-  },
-  (ids call_exp) {
-    print_call_expression(fl, fr, context, ids, gl, gr, call_exp);
-    return(ret, 0)
-  },
-  (call_exps) {
+    {if {eq cexp 0} (break) { ! l r 0 }};
+    ! l r, (!) { ! assign_application, (!) { ! cexp } }
+  });
+  ! l, r, 0
+};
+
+$print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
+  assign_type, assign = orig_assign();
+  if(eq(assign_type, assign_return) (break) {
+    call_exps = assign();
     printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
     map_tree(reverse_tree(call_exps), (!call_exp r) {
       il, ir = gen_label();
@@ -893,26 +908,38 @@ $read_assign_val = (ret, orig_l, r) {
       printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
     });
     printf("pop rcx\npop rax\njmp rcx\n");
-    return(ret, 0)
-  }
+    ! orig_assign
+  });
+  if (eq(assign_type, assign_statement), (break) {
+    ids, call_exp = assign();
+    print_call_expression(fl, fr, context, ids, gl, gr, call_exp);
+    ! orig_assign
+  });
+  if (eq(assign_type, assign_application), (break) {
+    appl = assign();
+    print_function_application(fl, fr, context, is_returning, gl, gr, appl);
+    ! orig_assign
+  });
+};
+
+(!assign_to_function: assign) {
+  assign_type, assign = assign();
+  if (eq(assign_type, assign_statement), (break) {
+    ids, call_exp = assign();
+    func = call_expression_to_function(call_exp);
+    {if {eq func 0} (break) { ! 0 }};
+    ! (!) { ! ids, func }
+  });
+  ! 0
 }
 
-(assign_to_function: ret, assign) {
-  assign(
-    (appl) { return ret 0 },
-    (ids, call_exp) {
-      func = call_expression_to_function(call_exp);
-      {if {eq func 0} (break) { return ret 0 }};
-      return ret (!) { ! ids, func }
-    },
-    (call_exps) { return ret 0 }
-  )
-}
-
-(get_assignment_vars: ret assign) {
-  assign, (appl) { return ret make_nil() },
-  (ids call_exp) { return ret ids },
-  (call_exps) { return ret make_nil() }
+(!get_assignment_vars: assign) {
+  assign_type, assign = assign();
+  if (eq(assign_type, assign_statement), (break) {
+    ids, call_exp = assign();
+    ! ids
+  });
+  ! make_nil()
 }
 
 (read_call_exp_list: ret l r) {
@@ -941,8 +968,8 @@ $read_assign_val = (ret, orig_l, r) {
   }};
   l r texp = read_texp(l, r);
   {if {eq texp 0} (break) { return ret l r tree }};
-  leaf = {make_leaf texp 0};
-  tree = {make_internal tree leaf};
+  leaf = make_leaf(texp, 0);
+  tree = make_internal(tree, leaf);
   read_texp_list_help ret l r tree
 }
 
@@ -959,10 +986,10 @@ $print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
 (read_call_expression_args: ret orig_l r) {
   l = orig_l;
   nl nr t tl tr = read_token(l, r);
-  {if {not({matches "(" tl})} (break) { return(ret, orig_l, r, 0) }};
+  {if not(matches("(", tl)) (break) { return(ret, orig_l, r, 0) }};
   l r op_list = read_call_exp_list(nl, nr);
   l r t tl tr = read_token(l, r);
-  {if {not {matches ")" tl}} (break2) { return(ret, orig_l, r, 0)  }};
+  {if not(matches(")", tl)) (break2) { return(ret, orig_l, r, 0) }};
   nl nr t tl tr = read_token(l, r);
   {if {matches "{" tl} (break2) { return(ret, orig_l, r, 0)  }};
   return ret l r op_list
@@ -980,7 +1007,7 @@ $print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
 }
 
 $print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
-  {if {eq call_exp 0} (break) { return ret 0 }};
+  {if eq(call_exp, 0) (break) { return ret 0 }};
   call_exp
   (texp) {
     print_texp(fl, fr, old_context, ids, gl, gr, texp);
@@ -993,7 +1020,7 @@ $print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
     });
     map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
     
-    al ar = aexp_to_range({get_aexp_from_texp texp});
+    al ar = aexp_to_range(get_aexp_from_texp(texp));
     print_call_exp_args(fl, fr, old_context, gl, gr, op_list);
     if_else(or(eq(al, ar), search_tree(old_context, al, ar)), (break) {
       print_texp(fl, fr, old_context, make_nil(), gl, gr, texp);
@@ -1032,35 +1059,36 @@ $print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
   return(ret, l, r, op_list)
 }
 
-(aexp_to_range: ret aexp) {
-  {if({eq(aexp, 0)}, (break) {
-    return(ret, 0, 0)
-  })};
+$aexp_to_range = (!aexp) {
+  if(eq(aexp, 0), (break) {
+    ! 0, 0
+  });
   l r = aexp();
-  return(ret, l, r)
-}
+  ! l, r
+};
 
-(read_function_application: ret orig_l r) {
+$read_function_application = (!orig_l r) {
   l = orig_l;
   l r texp = read_texp(l, r);
-  {if({eq(texp, 0)}, (break) {
-    return(ret, orig_l, r, 0)
-  })};
+  if(eq(texp, 0), (break) {
+    ! orig_l, r, 0
+  });
   l r op_list = read_func_appl_args(l, r);
-  return(ret, l, r, (!) { ! op_list, texp })
-}
-(print_function_application: ret fl fr context is_returning, gl, gr, appl) {
+  ! l, r, (!) { ! op_list, texp }
+};
+
+$print_function_application = (!fl fr context is_returning, gl, gr, appl) {
   op_list, texp = appl();
   al, ar = aexp_to_range(get_aexp_from_texp(texp));
   print_call_exp_args(fl, fr, context, gl, gr, op_list);
   if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
-    print_texp(fl, fr, context, {make_nil()}, gl, gr, texp);
+    print_texp(fl, fr, context, make_nil(), gl, gr, texp);
     if_else_ret(is_returning,
       (!) { ! printf("call runtime_call_ret\n") },
       (!) { ! printf("jmp runtime_call\n") },
     );
     break
-  }
+  },
   (break) {
     if_else_ret(is_returning,
       (!) { ! printf("call {}\n", al, ar) },
@@ -1068,30 +1096,29 @@ $print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
     );
     break
   });
-  return(ret, 0)
-}
+};
 
 $main_start = (ret, lo, hi) {
   printf("section .rwx progbits alloc exec write align=16\nglobal _start\n_start:\n");
-  main_loop(lo, hi)
+  main_loop(make_nil(), lo, hi)
 };
 
-$main_loop = (l r) {
+$main_loop = (context, l, r) {
   {if {eq} l r (break) { exit() }};
   c = deref_byte(l);
   {if {eq c 40} (break) { 
     l r func = read_function(l, r);
     {print_function, make_nil(), 0, 0, func};
-    main_loop(l, r)
+    main_loop(context, l, r)
   }};
   {if {eq c {deref_byte "$"}} (break) {
     l, r, assign = read_assignment(l, r);
     id_func = assign_to_function(assign);
     {if {eq id_func 0} (break) {
-      ids = get_assignment_vars(assign);
-      {map_tree ids (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)}};
-      {print_assignment(0, 0, make_nil(), (a, b) { a }, 0, 0, assign)};
-      break
+      ids = filter_context(get_assignment_vars(assign), context);
+      map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
+      print_assignment(0, 0, make_nil(), (a, b) { a }, 0, 0, assign);
+      main_loop(make_internal(context, ids), l, r)
     }};
     {if {ne id_func 0} (break) {
       ids func = id_func();
@@ -1107,18 +1134,17 @@ $main_loop = (l r) {
         (a, b) { break() }
       )
     }};
-    main_loop(l, r)
+    main_loop(context, l, r)
   }};
   {if {eq c 59} (break) {
     l, r = read_until(deref_byte("\n"), l, r);
-    main_loop(l, r)
+    main_loop(context, l, r)
   }};
   mid = add_func(l, 1);
-  {print_range l mid};
-  main_loop(mid, r)
+  print_range(l, mid);
+  main_loop(context, mid, r)
 };
 
-start:
 $inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
 $inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
 $outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
@@ -1130,8 +1156,7 @@ $flen = (!) {
 }();
 ; mmap input
 $input = sysc(9, 0, flen, 3, 2, inpf, 0);
-mov r8, [input]
-add [flen], r8
+$flen = add_func(flen, input);
 $buffer = malloc_func(4096);
 
 $res = main_start(input, flen);
