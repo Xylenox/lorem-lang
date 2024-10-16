@@ -5,7 +5,7 @@ zol = < a: {int, int}, b: int >;
 
 generator = ..;
 main = () {
-    c = @generator;
+    c := generator;
     a = 1;
     b = 2;
     {1 + 2} * 3;
