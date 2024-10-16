@@ -531,8 +531,8 @@ read_identifier:
 start:
 
 $matches = (ret a b) {
-  {if {eq {deref_byte a} 0} (break -> return ret (a b -> a))};
-  {if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
+  {if {eq {deref_byte a} 0} (break) { return ret (a b) { a } }};
+  {if {ne {deref_byte a} {deref_byte b}} (break) { return ret (a b) { b } }};
   matches ret {add_func a 1} {add_func b 1}
 };
 
@@ -545,27 +545,27 @@ $token_matches = (!pattern, token) {
   t, l, r = token();
   ! matches_strict(pattern, l, r)
 };
+
 $token_id = 1;
 ; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r type il ir
 $read_token = (ret l r) {
   l r = {read_whitespace l r};
-  {if {eq 34 {deref_byte l}} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "$" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "!" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "[" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "]" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "(" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches ")" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "{" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "}" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "=" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches ";" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches ":" l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "," l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
-  {if {matches "->" l} (break -> return ret {add_func l 2} r 0 l {add_func l 2})};
+  {if {eq 34 {deref_byte l}} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "$" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "!" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "[" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "]" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "(" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches ")" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "{" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "}" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "=" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches ";" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches ":" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "," l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
   l r il ir = {read_identifier l r};
-  {if {ne il ir} (break -> return ret l r token_id il ir)};
+  {if {ne il ir} (break) { return ret l r token_id il ir }};
   error l
 };
 
@@ -621,30 +621,24 @@ $read_id_list_tokenizer = (!old_tokenizer) {
   ! make_nil(), old_tokenizer
 };
 
-$read_function = (ret orig_l r) {
+$read_function = (!orig_l r) {
   l = orig_l;
   tokenizer = make_tokenizer(l, r);
   token, tokenizer = tokenizer();
-  {if not(token_matches("(", token)), (break) { return ret orig_l r 0 }};
+  {if not(token_matches("(", token)), (break) { ! orig_l, r, 0 }};
   is_returning, tokenizer = read_is_returning(tokenizer);
   fname_l, fname_r = gen_label(); 
   new_args, tokenizer = read_id_list_tokenizer(tokenizer); 
   token, tokenizer = tokenizer();
-  t tl tr = token();
+  if (not(token_matches(")", token)), (break) { ! orig_l, r, 0 });
+  token, tokenizer = tokenizer();
+  t, tl, tr = token();
   l = tr;
-  {if token_matches(")", token) (break) {
-    l r t tl tr = {read_token l r};
-    {if {not {matches "{" tl}} (break) { return ret orig_l r 0 }};
-    l r cexp = read_cexp(l, r);
-    l r t tl tr = read_token(l, r);
-    {if {not {matches "}" tl}} (break) { return ret orig_l r 0 }};
-    return ret l r (!) { ! fname_l fname_r new_args is_returning cexp }
-  }};
-  {if {not {matches "->" tl}} (break -> return ret orig_l r 0)};
+  if (not(token_matches("{", token)), (break) { ! orig_l, r, 0 });
   l r cexp = read_cexp(l, r);
   l r t tl tr = read_token(l, r);
-  {if {not {matches ")" tl}} (break) { return ret orig_l r 0 }};
-  return ret l r (!) { ! fname_l fname_r new_args is_returning cexp }
+  {if {not {matches "}" tl}} (break) { ! orig_l r 0 }};
+  ! l r (!) { ! fname_l fname_r new_args is_returning cexp }
 };
 
 $print_function = (ret old_context, gl, gr, func) {
@@ -873,11 +867,11 @@ $get_cexp_vars = (ret cexp) {
 };
 
 $read_eq_if = (ret need l r) {
-  {if need (break ->
+  {if need (break) {
     l, r, t, tl, tr = {read_token l r};
     {if {not {matches "=" tl}} (break) { return 0 0 }};
     return ret l r
-  )};
+  }};
   return ret l r
 };
 
