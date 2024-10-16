@@ -533,6 +533,16 @@ start:
   {if {ne {deref_byte a} {deref_byte b}} (break -> return ret (a b -> b))};
   matches ret {add_func a 1} {add_func b 1}
 }
+$matches_strict = (!pattern, l, r) {
+  if (eq(deref_byte(pattern), 0) (break) { ! eq(l, r) });
+  if (ne(deref_byte(pattern), deref_byte(l)) (break) { ! (a, b) { b } });
+  ! matches_strict(add_func(pattern, 1), add_func(l, 1), r)
+};
+$token_matches = (!pattern, token) {
+  t, l, r = token();
+  ! matches_strict(pattern, l, r)
+};
+$token_id = 1;
 ; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r type il ir
 (read_token: ret l r ->
@@ -552,30 +562,45 @@ start:
   {if {matches "," l} (break -> return ret {add_func l 1} r 0 l {add_func l 1})};
   {if {matches "->" l} (break -> return ret {add_func l 2} r 0 l {add_func l 2})};
   l r il ir = {read_identifier l r};
-  {if {ne il ir} (break -> return ret l r 1 il ir)};
+  {if {ne il ir} (break -> return ret l r token_id il ir)};
   error l
 )
 
-(read_is_returning: ret l r) {
-  nl nr t tl tr = {read_token l r};
-  {if {matches "!" tl} (break) {
-    return ret nl nr (a b -> a)
-  }};
-  return ret l r (a b -> b)
-}
-(read_label: ret pl pr) {
-  l r t fl fr = {read_token pl pr};
-  {if {ne t 1} (break -> 
-    fl fr = {gen_label};
-    return ret pl pr fl fr
-  )};
-  l r t tl tr = {read_token l r};
-  {if {matches ":" tl} (break ->
-    return ret l r fl fr
-  )};
-  fl fr = {gen_label};
-  return ret pl pr fl fr
-}
+$make_tokenizer = (!l, r) {
+  ! (!) {
+    l, r, t, tl, tr = read_token(l, r);
+    ! (!) { ! t, tl, tr }, make_tokenizer(l, r)
+  }
+};
+
+$token_type = (!token) {
+  t, tl, tr = token();
+  ! t
+};
+
+$read_is_returning = (!orig_tokenizer) {
+  token, tokenizer = orig_tokenizer();
+  if(token_matches("!", token), (break) {
+    ! (a b) { a }, tokenizer
+  });
+  ! (a b) { b }, orig_tokenizer
+};
+
+$read_label = (!orig_tokenizer) {
+  token, tokenizer = orig_tokenizer();
+  t, fl, fr = token();
+  if (eq(t, token_id), (break) {
+    token, tokenizer = tokenizer();
+    t, tl, tr = token();
+    if (token_matches(":", token), (break) {
+      ! tr, fl, fr, tokenizer
+    });
+    break
+  });
+  nfl nfr = gen_label();
+  ! fl, nfl, nfr, orig_tokenizer
+};
+
 (read_id_list: ret l r) {
   l r tree = read_id_list_help(l, r, make_nil());
   return ret l r tree
@@ -594,11 +619,13 @@ start:
 
 (read_function: ret orig_l r) {
   l = orig_l;
-  l r t tl tr = read_token(l, r);
-  {if {not {matches "(" tl}} (break -> return ret orig_l r 0)};
-  l r is_returning = {read_is_returning l r};
-  l r fname_l fname_r = {read_label l r}; 
-  l r new_args = {read_id_list l r}; 
+  tokenizer = make_tokenizer(l, r);
+  token, tokenizer = tokenizer();
+  t, tl, tr = token();
+  {if not(matches("(", tl)), (break) { return ret orig_l r 0 }};
+  is_returning, tokenizer = read_is_returning(tokenizer);
+  l fname_l, fname_r, tokenizer = read_label(tokenizer); 
+  l r new_args = read_id_list(l, r); 
   l r t tl tr = {read_token l r};
   {if {matches ")" tl} (break) {
     l r t tl tr = {read_token l r};
