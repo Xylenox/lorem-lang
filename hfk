@@ -621,24 +621,23 @@ $read_id_list_tokenizer = (!old_tokenizer) {
   ! make_nil(), old_tokenizer
 };
 
-$read_function = (!orig_l r) {
-  l = orig_l;
-  tokenizer = make_tokenizer(l, r);
-  token, tokenizer = tokenizer();
-  {if not(token_matches("(", token)), (break) { ! orig_l, r, 0 }};
+$read_function = (!orig_tokenizer) {
+  token, tokenizer = orig_tokenizer();
+  if (not(token_matches("(", token)), (break) { ! 0, orig_tokenizer });
   is_returning, tokenizer = read_is_returning(tokenizer);
   fname_l, fname_r = gen_label(); 
   new_args, tokenizer = read_id_list_tokenizer(tokenizer); 
   token, tokenizer = tokenizer();
-  if (not(token_matches(")", token)), (break) { ! orig_l, r, 0 });
+  if (not(token_matches(")", token)), (break) { ! 0, orig_tokenizer });
   token, tokenizer = tokenizer();
+  if (not(token_matches("{", token)), (break) { ! 0, orig_tokenizer });
   t, tl, tr = token();
   l = tr;
-  if (not(token_matches("{", token)), (break) { ! orig_l, r, 0 });
+  r = add_func(l, 10000);
   l r cexp = read_cexp(l, r);
   l r t tl tr = read_token(l, r);
-  {if {not {matches "}" tl}} (break) { ! orig_l r 0 }};
-  ! l r (!) { ! fname_l fname_r new_args is_returning cexp }
+  {if {not {matches "}" tl}} (break) { ! 0, orig_tokenizer }};
+  ! (!) { ! fname_l fname_r new_args is_returning cexp }, make_tokenizer(l, r)
 };
 
 $print_function = (ret old_context, gl, gr, func) {
@@ -685,12 +684,12 @@ $texp_block = 1;
 $texp_func = 2;
 $texp_aexp = 3;
 ; returns l r texp
-$read_texp = (ret orig_l r) {
+$read_texp = (!orig_l r) {
   l = orig_l;
-  return_string =     (l r t) { return ret l, r, (!) { ! texp_string, (x aexp block func) { x t } } };
-  return_block =      (l r b) { return ret l, r, (!) { ! texp_block, (x aexp block func) { block b } } };
-  return_func =       (l r f) { return ret l, r, (!) { ! texp_func, (x aexp block func) { func f } } };
-  return_aexp =       (l r a) { return ret l, r, (!) { ! texp_aexp, (x aexp block func) { aexp a } } };
+  return_string =     (l r t) { ! l, r, (!) { ! texp_string, (x aexp block func) { x t } } };
+  return_block =      (l r b) { ! l, r, (!) { ! texp_block, (x aexp block func) { block b } } };
+  return_func =       (l r f) { ! l, r, (!) { ! texp_func, (x aexp block func) { func f } } };
+  return_aexp =       (l r a) { ! l, r, (!) { ! texp_aexp, (x aexp block func) { aexp a } } };
   nl, nr, t, tl, tr = read_token(l, r);
   {if {eq t 1} (break) { return_aexp(nl, nr, (!) { ! tl tr }) }};
   {if matches("{", tl) (break) {
@@ -699,15 +698,18 @@ $read_texp = (ret orig_l r) {
     {if not(matches("}", tl)) (break2) { break }};
     return_block(l, r, (!) { ! cexp })
   }};
-  lo, hi, func = read_function(l, r);
-  {if {ne func 0} (break) {
-    return_func(lo, hi, (!) { ! func })
-  }};
+  tokenizer = make_tokenizer(l, r);
+  func, tokenizer = read_function(tokenizer);
+  if(ne(func, 0), (break) {
+    token, tmp_tokenizer = tokenizer();
+    t, tl, tr = token();
+    return_func(tl, r, (!) { ! func })
+  });
   lo, hi, string = read_const_string(l, r);
   {if {ne string 0} (break) {
     return_string(lo, hi, string)
   }};
-  return ret orig_l, r, 0
+  ! orig_l, r, 0
 };
 
 $print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
@@ -1133,11 +1135,6 @@ $main_start = (ret, lo, hi) {
 $main_loop = (context, l, r) {
   {if {eq} l r (break) { exit() }};
   c = deref_byte(l);
-  {if {eq c 40} (break) { 
-    l r func = read_function(l, r);
-    {print_function, make_nil(), 0, 0, func};
-    main_loop(context, l, r)
-  }};
   {if {eq c {deref_byte "$"}} (break) {
     l, r, assign = read_assignment(l, r);
     id_func = assign_to_function(assign);
