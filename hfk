@@ -833,10 +833,9 @@ $print_aexp = (ret comb_args fname_l fname_r l r) {
 };
 
 $read_cexp = (!orig_tokenizer) {
-  orig_l, r = tokenizer_to_lr(orig_tokenizer);
-  l r, assign = read_assignment(orig_l, r);
+  assign, tokenizer = read_assignment(orig_tokenizer);
   {if eq(assign, 0) (break) { ! 0, orig_tokenizer }};
-  cexp, tokenizer = read_cexp(make_tokenizer(l, r));
+  cexp, tokenizer = read_cexp(tokenizer);
   ! (!) { ! assign, cexp }, tokenizer
 };
 
@@ -908,21 +907,22 @@ $read_assign_val = (!orig_l, r) {
 $assign_return = 1;
 $assign_application = 2;
 $assign_statement = 3;
-$read_assignment = (!orig_l r) {
-  l = orig_l;
-  nl nr t tl tr = read_token(l, r);
-  if(matches("!", tl), (break) {
+$read_assignment = (!orig_tokenizer) {
+  orig_l, r = tokenizer_to_lr(orig_tokenizer);
+  token, tokenizer = orig_tokenizer();
+  nl, nr = tokenizer_to_lr(tokenizer);
+  if(token_matches("!", token), (break) {
     l r call_exps = read_call_exp_list(nl, nr);
-    ! l r, (!) { ! assign_return, (!) { ! call_exps } }
+    ! (!) { ! assign_return, (!) { ! call_exps } }, make_tokenizer(l, r)
   });
   l, r, assign = read_assign_val(orig_l, r);
-  if(ne(assign, 0), (break) { ! l, r, (!) { ! assign_statement, assign } });
-  if(not(matches("$", tl)), (break) {
+  if(ne(assign, 0), (break) { ! (!) { ! assign_statement, assign }, make_tokenizer(l, r) });
+  if(not(token_matches("$", token)), (break) {
     l r cexp = read_function_application(orig_l, r);
-    {if {eq cexp 0} (break) { ! l r 0 }};
-    ! l r, (!) { ! assign_application, (!) { ! cexp } }
+    {if {eq cexp 0} (break) { ! 0, orig_tokenizer }};
+    ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer(l, r)
   });
-  ! l, r, 0
+  ! 0, orig_tokenizer
 };
 
 $print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
@@ -1139,7 +1139,8 @@ $main_loop = (context, l, r) {
   {if {eq} l r (break) { exit() }};
   c = deref_byte(l);
   {if {eq c {deref_byte "$"}} (break) {
-    l, r, assign = read_assignment(l, r);
+    assign, tokenizer = read_assignment(make_tokenizer(l, r));
+    l, rr = tokenizer_to_lr(tokenizer);
     id_func = assign_to_function(assign);
     {if {eq id_func 0} (break) {
       ids = filter_context(get_assignment_vars(assign), context);
@@ -1187,3 +1188,5 @@ $flen = add_func(flen, input);
 $buffer = malloc_func(4096);
 
 $res = main_start(input, flen);
+
+; eof
