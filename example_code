@@ -1,11 +1,12 @@
+biome io;
+
 foo = (a: int, b: int): int { a + b };
 foo = (a, b) { a + b };
 bar = { x: int, y: int };
 zol = < a: {int, int}, b: int >;
 
-generator = ..;
 main = () {
-    c := generator;
+    c = :cin(int);
     a = 1;
     b = 2;
     {1 + 2} * 3;

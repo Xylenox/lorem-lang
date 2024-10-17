@@ -546,16 +546,26 @@ $token_matches = (!pattern, token) {
   ! matches_strict(pattern, l, r)
 };
 
+$read_const_string = (ret orig_l r) {
+  l r = {read_whitespace orig_l r};
+  lb = {deref_byte l};
+  {if {ne lb 34} (break) { return ret orig_l r 0 }};
+  l_start = add_func(l, 1);
+  l_end r = read_until(34, l_start, r);
+  l = add_func(l_end, 1);
+  return ret l r (!) { ! l_start l_end }
+};
 $token_id = 1;
+$token_string = 3;
 ; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r type il ir
 $read_token = (ret l r) {
-  l r = {read_whitespace l r};
-  {if {eq 34 {deref_byte l}} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  l r = read_whitespace(l, r);
+  {if {eq 34 {deref_byte l}} (break) {
+    return ret {add_func l 1} r 0 l {add_func l 1}
+  }};
   {if {matches "$" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
   {if {matches "!" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "[" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "]" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
   {if {matches "(" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
   {if {matches ")" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
   {if {matches "{" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
@@ -574,6 +584,12 @@ $make_tokenizer = (!l, r) {
     l, r, t, tl, tr = read_token(l, r);
     ! (!) { ! t, tl, tr }, make_tokenizer(l, r)
   }
+};
+
+$tokenizer_to_lr = (!tokenizer) {
+  token, tokenizer = tokenizer();
+  t, l, r = token();
+  ! l, add_func(l, 100000)
 };
 
 $token_type = (!token) {
@@ -631,13 +647,10 @@ $read_function = (!orig_tokenizer) {
   if (not(token_matches(")", token)), (break) { ! 0, orig_tokenizer });
   token, tokenizer = tokenizer();
   if (not(token_matches("{", token)), (break) { ! 0, orig_tokenizer });
-  t, tl, tr = token();
-  l = tr;
-  r = add_func(l, 10000);
-  l r cexp = read_cexp(l, r);
-  l r t tl tr = read_token(l, r);
-  {if {not {matches "}" tl}} (break) { ! 0, orig_tokenizer }};
-  ! (!) { ! fname_l fname_r new_args is_returning cexp }, make_tokenizer(l, r)
+  cexp, tokenizer = read_cexp(tokenizer);
+  token, tokenizer = tokenizer();
+  {if {not token_matches("}", token)} (break) { ! 0, orig_tokenizer }};
+  ! (!) { ! fname_l fname_r new_args is_returning cexp }, tokenizer
 };
 
 $print_function = (ret old_context, gl, gr, func) {
@@ -693,7 +706,8 @@ $read_texp = (!orig_l r) {
   nl, nr, t, tl, tr = read_token(l, r);
   {if {eq t 1} (break) { return_aexp(nl, nr, (!) { ! tl tr }) }};
   {if matches("{", tl) (break) {
-    l, r, cexp = read_cexp(nl, nr);
+    cexp, tokenizer = read_cexp(make_tokenizer(nl, nr));
+    l, r = tokenizer_to_lr(tokenizer);
     l, r, t, tl, tr = read_token(l, r);
     {if not(matches("}", tl)) (break2) { break }};
     return_block(l, r, (!) { ! cexp })
@@ -788,16 +802,6 @@ $read_until = (ret c l r) {
   read_until ret c add_func(l, 1) r
 };
 
-$read_const_string = (ret orig_l r) {
-  l r = {read_whitespace orig_l r};
-  lb = {deref_byte l};
-  {if {ne lb 34} (break) { return ret orig_l r 0 }};
-  l_start = add_func(l, 1);
-  l_end r = read_until(34, l_start, r);
-  l = add_func(l_end, 1);
-  return ret l r (!) { ! l_start l_end }
-};
-
 $print_const_string = (ret str) {
   l_start l_end = str();
   il ir = gen_label();
@@ -828,13 +832,12 @@ $print_aexp = (ret comb_args fname_l fname_r l r) {
   return ret 0
 };
 
-; returns l r cexp
-$read_cexp = (ret orig_l r) {
-  l = orig_l;
-  l r assign = read_assignment(orig_l, r);
-  {if eq(assign, 0) (break) { return ret l r 0 }};
-  l r cexp = read_cexp(l, r);
-  return ret l r (!) { ! assign cexp }
+$read_cexp = (!orig_tokenizer) {
+  orig_l, r = tokenizer_to_lr(orig_tokenizer);
+  l r, assign = read_assignment(orig_l, r);
+  {if eq(assign, 0) (break) { ! 0, orig_tokenizer }};
+  cexp, tokenizer = read_cexp(make_tokenizer(l, r));
+  ! (!) { ! assign, cexp }, tokenizer
 };
 
 $filter_context = (ret old_context ids) {
