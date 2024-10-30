@@ -605,33 +605,15 @@ $read_is_returning = (!orig_tokenizer) {
   ! (a b) { b }, orig_tokenizer
 };
 
-$read_id_list = (ret l r) {
-  tokenizer = make_tokenizer(l, r);
-  l r tree = read_id_list_help(l, r, make_nil());
-  tree, tokenizer = read_id_list_tokenizer(tokenizer);
-  return ret l, r, tree
-};
-$read_id_list_help = (ret l r tree) {
-  nl nr t tl tr = read_token(l, r);
-  {if {matches "," tl} (break) {
-    read_id_list_help ret nl nr tree
-  }};
-  l r il ir = read_identifier(l, r);
-  {if {eq il ir} (break) { return ret l r tree }};
-  leaf = {make_leaf il ir};
-  tree = {make_internal tree leaf};
-  read_id_list_help ret l r tree
-};
-
-$read_id_list_tokenizer = (!old_tokenizer) {
+$read_id_list = (!old_tokenizer) {
   token, tokenizer = old_tokenizer();
   if (eq(token_type(token), 1) (break) {
     t, tl, tr = token();
-    tree, tokenizer = read_id_list_tokenizer(tokenizer);
+    tree, tokenizer = read_id_list(tokenizer);
     ! make_internal(make_leaf(tl, tr), tree), tokenizer
   });
   if (token_matches(",", token) (break) {
-    tree, tokenizer = read_id_list_tokenizer(tokenizer);
+    tree, tokenizer = read_id_list(tokenizer);
     ! tree, tokenizer
   });
   ! make_nil(), old_tokenizer
@@ -642,7 +624,7 @@ $read_function = (!orig_tokenizer) {
   if (not(token_matches("(", token)), (break) { ! 0, orig_tokenizer });
   is_returning, tokenizer = read_is_returning(tokenizer);
   fname_l, fname_r = gen_label(); 
-  new_args, tokenizer = read_id_list_tokenizer(tokenizer); 
+  new_args, tokenizer = read_id_list(tokenizer); 
   token, tokenizer = tokenizer();
   if (not(token_matches(")", token)), (break) { ! 0, orig_tokenizer });
   token, tokenizer = tokenizer();
@@ -879,29 +861,27 @@ $read_eq_if = (ret need l r) {
   return ret l r
 };
 
-$read_assign_left = (ret, orig_l, r) {
+$read_assign_left = (!orig_tokenizer) {
+  orig_l, r = tokenizer_to_lr(orig_tokenizer);
   l = orig_l;
-  l, r, ids = read_id_list(l, r);
+  ids, tokenizer = read_id_list(orig_tokenizer);
+  l, r = tokenizer_to_lr(tokenizer);
   nl, nr, t, tl, tr = read_token(l, r);
-  {if not(matches("=", tl)) (break) {
+  if(not(matches("=", tl)), (break) {
     il ir = gen_label();
-    return ret orig_l, r, make_leaf(il, ir)
-  }};
-  return ret nl, nr, ids
+    ! orig_l, r, make_leaf(il, ir)
+  });
+  ! nl, nr, ids
 };
 
-$read_assign_val = (!orig_l, r) {
-  l r t tl tr = read_token(orig_l, r);
-  l, r = (!) {
-    if(not(matches("$", tl)), (break) { ! orig_l, r });
-    ! l, r
-  }();
-  l, r, ids = read_assign_left(l, r);
-  {if {eq 0 l}, (break) { ! orig_l, r, 0 }};
+$read_assign_val = (!orig_tokenizer) {
+  orig_l, r = tokenizer_to_lr(orig_tokenizer);
+  l, r, ids = read_assign_left(orig_tokenizer);
+  {if eq(0, l), (break) { ! 0, orig_tokenizer }};
   l r call_exp = read_call_expression(l, r);
   l r t tl tr = read_token(l, r);
-  {if {not {matches ";" tl}}, (break) { ! orig_l, r, 0 }};
-  ! l, r, (!) { ! ids, call_exp }
+  {if {not {matches ";" tl}}, (break) { ! 0, orig_tokenizer }};
+  ! (!) { ! ids, call_exp }, make_tokenizer(l, r)
 };
 
 $assign_return = 1;
@@ -915,14 +895,11 @@ $read_assignment = (!orig_tokenizer) {
     l r call_exps = read_call_exp_list(nl, nr);
     ! (!) { ! assign_return, (!) { ! call_exps } }, make_tokenizer(l, r)
   });
-  l, r, assign = read_assign_val(orig_l, r);
-  if(ne(assign, 0), (break) { ! (!) { ! assign_statement, assign }, make_tokenizer(l, r) });
-  if(not(token_matches("$", token)), (break) {
-    l r cexp = read_function_application(orig_l, r);
-    {if {eq cexp 0} (break) { ! 0, orig_tokenizer }};
-    ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer(l, r)
-  });
-  ! 0, orig_tokenizer
+  assign, tokenizer = read_assign_val(orig_tokenizer);
+  if(ne(assign, 0), (break) { ! (!) { ! assign_statement, assign }, tokenizer });
+  l, r, cexp = read_function_application(orig_l, r);
+  {if {eq cexp 0} (break) { ! 0, orig_tokenizer }};
+  ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer(l, r)
 };
 
 $print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
@@ -1139,7 +1116,7 @@ $main_loop = (context, l, r) {
   {if {eq} l r (break) { exit() }};
   c = deref_byte(l);
   {if {eq c {deref_byte "$"}} (break) {
-    assign, tokenizer = read_assignment(make_tokenizer(l, r));
+    assign, tokenizer = read_assignment(make_tokenizer(add_func(l, 1), r));
     l, rr = tokenizer_to_lr(tokenizer);
     id_func = assign_to_function(assign);
     {if {eq id_func 0} (break) {
