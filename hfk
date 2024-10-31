@@ -36,14 +36,6 @@ return:
   push rcx
   ret
 
-add_func: ; takes (ret a b) and returns a+b
-  pop rbx
-  pop rax
-  pop rcx
-  push rbx
-  add rax, rcx
-  ret
-
 div_func:
   pop rcx
   pop rax
@@ -132,7 +124,7 @@ error:
   mov qword [outf], 2
   jmp error_help
 $error_help = (num) {
-  {printf "error {}\n" num {add_func num 10}};
+  {printf "error {}\n" num {add num 10}};
   {sysc 60 1 0 0 0 0 0};
   exit
 };
@@ -311,7 +303,7 @@ $str_equal_func = (ret a b l r) {
 $print_range = (ret a b) {
   {if {eq a b} (break) { return ret 0 }};
   {print_char {deref_byte a}};
-  print_range ret {add_func a 1} b
+  print_range ret {add a 1} b
 };
 
 buff_curr: dq 0
@@ -341,7 +333,7 @@ flush_buffer:
 $print_num_help = (v cont) {
   {if {eq v 0}, (break) { cont }};
   print_num_help {div_func v 10}, () {
-    {print_char {add_func {deref_byte "0"} {mod_func v 10}}};
+    {print_char {add {deref_byte "0"} {mod_func v 10}}};
     cont
   }
 };
@@ -354,10 +346,10 @@ $printf = (ret l) {
   }};
   {if {eq lb 123}, (break a b) {
     {print_range a b};
-    printf ret {add_func l 2}
+    printf ret {add l 2}
   }};
   {print_char deref_byte(l)};
-  printf ret {add_func l 1}
+  printf ret {add l 1}
 };
 
 $tree_size = (ret tree) {
@@ -367,7 +359,7 @@ $tree_size = (ret tree) {
     (a, b) {
       a = tree_size(a);
       b = tree_size(b);
-      return ret add_func(a, b)
+      return ret add(a, b)
     }
   )
 };
@@ -404,7 +396,7 @@ $first_leaf = (ret tree) {
 $map_tree_iota_help = (ret n tree action) {
   tree,
     () { return(ret, n, make_nil()) },
-    (l, r) { return(ret, add_func(n, 1), action(n, l, r)) },
+    (l, r) { return(ret, add(n, 1), action(n, l, r)) },
     (a, b) {
       n, new_a = map_tree_iota_help(n, a, action);
       n, new_b = map_tree_iota_help(n, b, action);
@@ -482,64 +474,49 @@ is_digit_ret:
   call is_digit
   ret
 
+$is_alpha_bool = (!dig) {
+  ! eq(is_alpha_ret(dig), 1)
+};
+
+$is_digit_bool = (!dig) {
+  ! eq(is_digit_ret(dig), 1)
+};
+
 $read_whitespace = (ret l r) {
   lb = deref_byte(l);
   {if eq(l, r), (break) { return ret l r }};
   {if or(eq(lb, 10), eq(lb, 32)) (break) {
-    read_whitespace ret add_func(l, 1) r
+    read_whitespace ret add(l, 1) r
   }};
   return ret l r
 };
 
-read_identifier:
-  pop rcx
-  pop r8
-  pop qword [flen]
-  push rcx
-  push qword [flen]
-  push r8
-  call read_whitespace
-  mov r8, rax
-  pop qword [flen]
-  push r8
-  irloo:
-  sub rcx, rcx
-  mov cl, [r8]
-  mov rdi, rcx
-  call is_alpha
-  cmp rax, 1
-  je identifier_ret_loop_continue
-  call is_digit
-  cmp rax, 1
-  je identifier_ret_loop_continue
-  cmp rcx, "_"
-  je identifier_ret_loop_continue
-  jmp irdon
-  identifier_ret_loop_continue:
-  add r8, 1
-  jmp irloo
-  irdon:
-  pop rax
-  mov rdx, r8
-  pop rcx
-  push rdx
-  push rax
-  push qword [flen]
-  mov rax, r8
-  jmp rcx
-
 start:
+
+$read_id_helper = (!l, r) {
+  if (eq(l, r), (break) { ! l });
+  lb = deref_byte(l);
+  if (or(eq(lb, deref_byte("_")), or(is_digit_bool(lb), is_alpha_bool(lb))), (break) {
+    ! read_id_helper(add(l, 1), r)
+  });
+  ! l
+};
+
+$read_identifier = (!l, r) {
+  mid = read_id_helper(l, r);
+  ! mid, r, l, mid
+};
 
 $matches = (ret a b) {
   {if {eq {deref_byte a} 0} (break) { return ret (a b) { a } }};
   {if {ne {deref_byte a} {deref_byte b}} (break) { return ret (a b) { b } }};
-  matches ret {add_func a 1} {add_func b 1}
+  matches ret {add a 1} {add b 1}
 };
 
 $matches_strict = (!pattern, l, r) {
   if (eq(deref_byte(pattern), 0) (break) { ! eq(l, r) });
   if (ne(deref_byte(pattern), deref_byte(l)) (break) { ! (a, b) { b } });
-  ! matches_strict(add_func(pattern, 1), add_func(l, 1), r)
+  ! matches_strict(add(pattern, 1), add(l, 1), r)
 };
 $token_matches = (!pattern, token) {
   t, l, r = token();
@@ -550,9 +527,9 @@ $read_const_string = (ret orig_l r) {
   l r = {read_whitespace orig_l r};
   lb = {deref_byte l};
   {if {ne lb 34} (break) { return ret orig_l r 0 }};
-  l_start = add_func(l, 1);
+  l_start = add(l, 1);
   l_end r = read_until(34, l_start, r);
-  l = add_func(l_end, 1);
+  l = add(l_end, 1);
   return ret l r (!) { ! l_start l_end }
 };
 $token_id = 1;
@@ -562,18 +539,18 @@ $token_string = 3;
 $read_token = (ret l r) {
   l r = read_whitespace(l, r);
   {if {eq 34 {deref_byte l}} (break) {
-    return ret {add_func l 1} r 0 l {add_func l 1}
+    return ret {add l 1} r 0 l {add l 1}
   }};
-  {if {matches "$" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "!" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "(" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches ")" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "{" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "}" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "=" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches ";" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches ":" l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
-  {if {matches "," l} (break) { return ret {add_func l 1} r 0 l {add_func l 1} }};
+  {if {matches "$" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches "!" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches "(" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches ")" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches "{" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches "}" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches "=" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches ";" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches ":" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches "," l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   l r il ir = {read_identifier l r};
   {if {ne il ir} (break) { return ret l r token_id il ir }};
   error l
@@ -589,7 +566,7 @@ $make_tokenizer = (!l, r) {
 $tokenizer_to_lr = (!tokenizer) {
   token, tokenizer = tokenizer();
   t, l, r = token();
-  ! l, add_func(l, 100000)
+  ! l, add(l, 100000)
 };
 
 $token_type = (!token) {
@@ -739,17 +716,17 @@ $print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
       context = {make_internal {make_leaf fname_l fname_r} old_context};
       printf("mov rdi, ");
       size = tree_size(context);
-      print_num(mul_func(8, add_func(1, size)));
+      print_num(mul_func(8, add(1, size)));
       printf("\ncall malloc\n");
 
       map_tree_iota(context, (!n l r) {
         {if_else_ret {eq l fname_l} (!) {
           {printf "mov qword [rax+"};
-          {print_num {mul_func 8 {add_func 1 n}}};
+          {print_num {mul_func 8 {add 1 n}}};
           {printf "], {}\n" l r};
         }, (!) {
           {printf "mov rcx, [{}{}]\nmov qword [rax+" fl fr l r};
-          {print_num {mul_func 8 {add_func 1 n}}};
+          {print_num {mul_func 8 {add 1 n}}};
           {printf "], rcx\n"};
         }};
       });
@@ -781,7 +758,7 @@ $texp_to_function = (!texp) {
 $read_until = (ret c l r) {
   lb = deref_byte(l);
   {if eq(lb, c) (break) { return ret l r }};
-  read_until ret c add_func(l, 1) r
+  read_until ret c add(l, 1) r
 };
 
 $print_const_string = (ret str) {
@@ -1116,7 +1093,7 @@ $main_loop = (context, l, r) {
   {if {eq} l r (break) { exit() }};
   c = deref_byte(l);
   {if {eq c {deref_byte "$"}} (break) {
-    assign, tokenizer = read_assignment(make_tokenizer(add_func(l, 1), r));
+    assign, tokenizer = read_assignment(make_tokenizer(add(l, 1), r));
     l, rr = tokenizer_to_lr(tokenizer);
     id_func = assign_to_function(assign);
     {if {eq id_func 0} (break) {
@@ -1145,7 +1122,7 @@ $main_loop = (context, l, r) {
     l, r = read_until(deref_byte("\n"), l, r);
     main_loop(context, l, r)
   }};
-  mid = add_func(l, 1);
+  mid = add(l, 1);
   print_range(l, mid);
   main_loop(context, mid, r)
 };
@@ -1157,12 +1134,14 @@ $outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
 $flen = (!) {
   buff = malloc_func(192);
   {sysc 5, inpf, buff, 0, 0, 0, 0};
-  ! deref(add_func(buff, 48))
+  ! deref(add(buff, 48))
 }();
 ; mmap input
 $input = sysc(9, 0, flen, 3, 2, inpf, 0);
-$flen = add_func(flen, input);
+$flen = add(flen, input);
 $buffer = malloc_func(4096);
+
+$printf("add:\npop rbx\npop rax\npop rcx\npush rbx\nadd rax, rcx\nret\n");
 
 $res = main_start(input, flen);
 
