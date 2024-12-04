@@ -1,65 +1,5 @@
 jmp start
 
-sysc:
-    pop rcx
-
-    pop rax
-    pop rdi
-    pop rsi
-    pop rdx
-    pop r10
-    pop r8
-    pop r9
-
-    push rcx
-    syscall
-    ret
-
-deref: ; takes (ptr) and returns *ptr
-  pop rdx
-  pop rax
-  push rdx
-  mov rax, [rax]
-  ret
-
-deref_byte: ; takes (ptr) and returns *ptr
-  pop rdx
-  pop rax
-  push rdx
-  mov al, [rax]
-  and rax, 0xFF
-  ret
-
-return:
-  pop rcx
-  pop rax
-  push rcx
-  ret
-
-div_func:
-  pop rcx
-  pop rax
-  mov rdx, 0
-  pop rdi
-  idiv rdi
-  jmp rcx
-
-mul_func: ; UNSIGNED
-  pop rcx
-  pop rax
-  pop rdx
-  mul rdx
-  jmp rcx
-
-mod_func:
-  pop rcx
-  pop rax
-  mov rdx, 0
-  pop rdi
-  idiv rdi
-  mov rax, rdx
-  jmp rcx
-
 compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
   pop rax
   pop rcx
@@ -332,8 +272,8 @@ flush_buffer:
 
 $print_num_help = (v cont) {
   {if {eq v 0}, (break) { cont }};
-  print_num_help {div_func v 10}, () {
-    {print_char {add {deref_byte "0"} {mod_func v 10}}};
+  print_num_help {div v 10}, () {
+    {print_char {add {deref_byte "0"} {mod v 10}}};
     cont
   }
 };
@@ -474,6 +414,8 @@ is_digit_ret:
   call is_digit
   ret
 
+start:  
+
 $is_alpha_bool = (!dig) {
   ! eq(is_alpha_ret(dig), 1)
 };
@@ -490,8 +432,6 @@ $read_whitespace = (ret l r) {
   }};
   return ret l r
 };
-
-start:
 
 $read_id_helper = (!l, r) {
   if (eq(l, r), (break) { ! l });
@@ -716,17 +656,17 @@ $print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
       context = {make_internal {make_leaf fname_l fname_r} old_context};
       printf("mov rdi, ");
       size = tree_size(context);
-      print_num(mul_func(8, add(1, size)));
+      print_num(mul(8, add(1, size)));
       printf("\ncall malloc\n");
 
       map_tree_iota(context, (!n l r) {
         {if_else_ret {eq l fname_l} (!) {
           {printf "mov qword [rax+"};
-          {print_num {mul_func 8 {add 1 n}}};
+          {print_num {mul 8 {add 1 n}}};
           {printf "], {}\n" l r};
         }, (!) {
           {printf "mov rcx, [{}{}]\nmov qword [rax+" fl fr l r};
-          {print_num {mul_func 8 {add 1 n}}};
+          {print_num {mul 8 {add 1 n}}};
           {printf "], rcx\n"};
         }};
       });
@@ -1142,6 +1082,13 @@ $flen = add(flen, input);
 $buffer = malloc_func(4096);
 
 $printf("add:\npop rbx\npop rax\npop rcx\npush rbx\nadd rax, rcx\nret\n");
+$printf("sysc:\npop rcx\npop rax\npop rdi\npop rsi\npop rdx\npop r10\npop r8\npop r9\npush rcx\nsyscall\nret\n");
+$printf("deref:\npop rdx\npop rax\npush rdx\nmov rax, [rax]\nret\n");
+$printf("deref_byte:\npop rdx\npop rax\npush rdx\nmov al, [rax]\nand rax, 0xFF\nret\n");
+$printf("return:\npop rcx\npop rax\npush rcx\nret\n");
+$printf("mul:\npop rcx\npop rax\npop rdx\nmul rdx\njmp rcx\n");
+$printf("div:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\njmp rcx\n");
+$printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njmp rcx\n");
 
 $res = main_start(input, flen);
 
