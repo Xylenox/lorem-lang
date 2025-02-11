@@ -1,4 +1,4 @@
-start:
+; start:
 
 $callcc = (ret, cont) {
   cont((res) { return ret res })
@@ -781,42 +781,54 @@ $main_start = (ret, lo, hi) {
   main_loop(make_nil(), lo, hi)
 };
 
-$main_loop = (context, l, r) {
+main_loop = (context, l, r) {
   if(eq(l, r) (break) { exit() });
   c = deref_byte(l);
-  {if {eq c {deref_byte "$"}} (break) {
-    assign, tokenizer = read_assignment(make_tokenizer(add(l, 1), r));
-    l, rr = tokenizer_to_lr(tokenizer);
-    id_func = assign_to_function(assign);
-    {if {eq id_func 0} (break) {
-      ids = filter_context(get_assignment_vars(assign), context);
-      map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
-      print_assignment(0, 0, make_nil(), (a, b) { a }, 0, 0, assign);
-      main_loop(make_internal(context, ids), l, r)
-    }};
-    {if {ne id_func 0} (break) {
-      ids func = id_func();
-      fname = first_leaf(ids);
-      fname_l fname_r func_args is_returning cexp = func();
-      fname(
-        () { break },
-        (l, r) {
-          func = (!) { ! l, r, func_args, is_returning, cexp };
-          {print_function, make_nil(), 0, 0, func};
-          break()
-        },
-        (a, b) { break() }
-      )
-    }};
-    main_loop(context, l, r)
-  }};
+
+  if(eq(c,10) (break) {
+    mid = add(l, 1);
+    print_range(l, mid);
+    main_loop(context, mid, r)
+  });
+  if(eq(c,32) (break) {
+    mid = add(l, 1);
+    print_range(l, mid);
+    main_loop(context, mid, r)
+  });
+
   if(eq(c,59) (break) {
     l, r = read_until(deref_byte("\n"), l, r);
     main_loop(context, l, r)
   });
-  mid = add(l, 1);
-  print_range(l, mid);
-  main_loop(context, mid, r)
+
+  {if {eq c {deref_byte "$"}} (break) {
+    main_loop(context, add(l, 1), r)
+  }};
+  
+  assign, tokenizer = read_assignment(make_tokenizer(l, r));
+  l, rr = tokenizer_to_lr(tokenizer);
+  id_func = assign_to_function(assign);
+  {if {eq id_func 0} (break) {
+    ids = filter_context(get_assignment_vars(assign), context);
+    map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
+    print_assignment(0, 0, make_nil(), (a, b) { a }, 0, 0, assign);
+    main_loop(make_internal(context, ids), l, r)
+  }};
+  {if {ne id_func 0} (break) {
+    ids func = id_func();
+    fname = first_leaf(ids);
+    fname_l fname_r func_args is_returning cexp = func();
+    fname(
+      () { break },
+      (l, r) {
+        func = (!) { ! l, r, func_args, is_returning, cexp };
+        {print_function, make_nil(), 0, 0, func};
+        break()
+      },
+      (a, b) { break() }
+    )
+  }};
+  main_loop(context, l, r)
 };
 
 $inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
