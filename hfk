@@ -270,6 +270,8 @@ flush_buffer:
   mov qword [buff_curr], 0
   ret
 
+start:
+
 $print_num_help = (v cont) {
   {if {eq v 0}, (break) { cont }};
   print_num_help {div v 10}, () {
@@ -375,23 +377,6 @@ $search_tree = (ret tree l r) {
     }
   )
 };
-
-is_alpha:           ; is alpha
-  pop rax
-  pop rdi
-  push rax
-  cmp rdi, "a"      ; a
-  jl nalp
-  cmp rdi, "z"     ; z
-  jg nalp
-  yalp:
-  mov rax, 1
-  ret
-  nalp:
-  mov rax, 0
-  ret
-
-start:  
 
 $is_alpha_bool = (!dig) {
   ! eq(is_alpha(dig), 1)
@@ -1067,6 +1052,7 @@ $printf("mul:\npop rcx\npop rax\npop rdx\nmul rdx\njmp rcx\n");
 $printf("div:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\njmp rcx\n");
 $printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njmp rcx\n");
 $printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rdi, 57\njg not_digit\nyes_digit:\nmov rax, 1\nret\nnot_digit:\nmov rax, 0\nret\n");
+$printf("is_alpha:\npop rax\npop rdi\npush rax\ncmp rdi, 97      ; a\njl nalp\ncmp rdi, 122     ; z\njg nalp\nyalp:\nmov rax, 1\nret\nnalp:\nmov rax, 0\nret\n");
 
 $res = main_start(input, flen);
 
