@@ -1,22 +1,22 @@
 ; start:
 
-$callcc = (ret, cont) {
+callcc = (ret, cont) {
   cont((res) { return ret res })
 };
 
-$or = (ret cont1 cont2) {
+or = (ret cont1 cont2) {
   cont1, () { return ret cont1 }, () { return ret cont2 }
 };
 
-$if = (ret v cont) {
+if = (ret v cont) {
   break = () { return ret 0 };
   v, () { cont break }, break
 };
-$if_else = (ret v cont1 cont2) {
+if_else = (ret v cont1 cont2) {
   break = () { return ret 0 };
   v, () { cont1 break }, () { cont2 break }
 };
-$if_ret = (ret v cont) {
+if_ret = (ret v cont) {
   break = () { return ret 0 };
   v, () {
     cont();
@@ -25,53 +25,53 @@ $if_ret = (ret v cont) {
   break
 };
 
-$if_else_ret = (ret v cont1 cont2) {
+if_else_ret = (ret v cont1 cont2) {
   v, () { return ret {cont1} },
   () { return ret {cont2} }
 };
 
-$ne = (ret a b) {
+ne = (ret a b) {
   compare(a, b, () { return ret (x y) {y} }, () { return ret (x y) {x} })
 };
-$not = (ret x) {
+not = (ret x) {
   x(() { return ret (a b) {b} }, () { return ret (a b) {a} })
 };
 
-$eq = (ret a b) {
+eq = (ret a b) {
   compare(a, b, () { return ret (x y) {x} }, () { return ret (x y) {y} })
 };
 
-$error_help = (num) {
+error_help = (num) {
   {printf "error {}\n" num {add num 10}};
   {sysc 60 1 0 0 0 0 0};
   exit
 };
 
-$make_nil = (!) { ! (cont_nil cont_leaf cont_internal) {cont_nil} };
-$make_leaf = (!l r) { ! (cont_nil cont_leaf cont_internal) {cont_leaf l r} };
-$make_internal = (!a b) { ! (cont_nil cont_leaf cont_internal) {cont_internal a b} };
+make_nil = (!) { ! (cont_nil cont_leaf cont_internal) {cont_nil} };
+make_leaf = (!l r) { ! (cont_nil cont_leaf cont_internal) {cont_leaf l r} };
+make_internal = (!a b) { ! (cont_nil cont_leaf cont_internal) {cont_internal a b} };
 
-$str_equal_func = (ret a b l r) {
+str_equal_func = (ret a b l r) {
   res = str_cmp_func(a, b, l, r);
   return ret {eq 0 res}
 };
   
-$print_range = (ret a b) {
+print_range = (ret a b) {
   {if {eq a b} (break) { return ret 0 }};
   {print_char {deref_byte a}};
   print_range ret {add a 1} b
 };
 
-$print_num_help = (v cont) {
+print_num_help = (v cont) {
   {if {eq v 0}, (break) { cont }};
   print_num_help {div v 10}, () {
     {print_char {add {deref_byte "0"} {mod v 10}}};
     cont
   }
 };
-$print_num = (ret v) { print_num_help(v, () { return ret 0 }) };
+print_num = (ret v) { print_num_help(v, () { return ret 0 }) };
 
-$printf = (ret l) {
+printf = (ret l) {
   lb = deref_byte(l);
   {if {eq lb 0}, (break) {
     return ret 0
@@ -84,7 +84,7 @@ $printf = (ret l) {
   printf ret {add l 1}
 };
 
-$tree_size = (ret tree) {
+tree_size = (ret tree) {
   tree(
     () { return ret 0 },
     (l, r) { return ret 1 },
@@ -96,7 +96,7 @@ $tree_size = (ret tree) {
   )
 };
 
-$map_tree = (ret tree action) {
+map_tree = (ret tree action) {
   tree,
   () { return ret make_nil() },
   (l, r) {
@@ -109,7 +109,7 @@ $map_tree = (ret tree action) {
   }
 };
 
-$first_leaf = (ret tree) {
+first_leaf = (ret tree) {
   tree(
     () { return ret make_nil() },
     (l, r) { return ret make_leaf(l, r) },
@@ -125,7 +125,7 @@ $first_leaf = (ret tree) {
   )
 };
 
-$map_tree_iota_help = (ret n tree action) {
+map_tree_iota_help = (ret n tree action) {
   tree,
     () { return(ret, n, make_nil()) },
     (l, r) { return(ret, add(n, 1), action(n, l, r)) },
@@ -137,12 +137,12 @@ $map_tree_iota_help = (ret n tree action) {
     }
 };
 
-$map_tree_iota = (ret tree action) {
+map_tree_iota = (ret tree action) {
   n, t = map_tree_iota_help(0, tree, action);
   return ret t
 };
 
-$reverse_tree = (ret tree) {
+reverse_tree = (ret tree) {
   tree(
     () { return ret make_nil() },
     (l, r) { return ret make_leaf(l, r) },
@@ -152,7 +152,7 @@ $reverse_tree = (ret tree) {
   )
 };
 
-$search_tree = (ret tree l r) {
+search_tree = (ret tree l r) {
   tree(
     () { return ret (a, b) { b } },
     (a, b) {
@@ -168,15 +168,15 @@ $search_tree = (ret tree l r) {
   )
 };
 
-$is_alpha_bool = (!dig) {
+is_alpha_bool = (!dig) {
   ! eq(is_alpha(dig), 1)
 };
 
-$is_digit_bool = (!dig) {
+is_digit_bool = (!dig) {
   ! eq(is_digit(dig), 1)
 };
 
-$read_whitespace = (ret l r) {
+read_whitespace = (ret l r) {
   lb = deref_byte(l);
   {if eq(l, r), (break) { return ret l r }};
   {if or(eq(lb, 10), eq(lb, 32)) (break) {
@@ -185,7 +185,7 @@ $read_whitespace = (ret l r) {
   return ret l r
 };
 
-$read_id_helper = (!l, r) {
+read_id_helper = (!l, r) {
   if (eq(l, r), (break) { ! l });
   lb = deref_byte(l);
   if (or(eq(lb, deref_byte("_")), or(is_digit_bool(lb), is_alpha_bool(lb))), (break) {
@@ -194,28 +194,28 @@ $read_id_helper = (!l, r) {
   ! l
 };
 
-$read_identifier = (!l, r) {
+read_identifier = (!l, r) {
   mid = read_id_helper(l, r);
   ! mid, r, l, mid
 };
 
-$matches = (ret a b) {
+matches = (ret a b) {
   {if {eq {deref_byte a} 0} (break) { return ret (a b) { a } }};
   {if {ne {deref_byte a} {deref_byte b}} (break) { return ret (a b) { b } }};
   matches ret {add a 1} {add b 1}
 };
 
-$matches_strict = (!pattern, l, r) {
+matches_strict = (!pattern, l, r) {
   if (eq(deref_byte(pattern), 0) (break) { ! eq(l, r) });
   if (ne(deref_byte(pattern), deref_byte(l)) (break) { ! (a, b) { b } });
   ! matches_strict(add(pattern, 1), add(l, 1), r)
 };
-$token_matches = (!pattern, token) {
+token_matches = (!pattern, token) {
   t, l, r = token();
   ! matches_strict(pattern, l, r)
 };
 
-$read_const_string = (ret orig_l r) {
+read_const_string = (ret orig_l r) {
   l r = {read_whitespace orig_l r};
   lb = {deref_byte l};
   {if {ne lb 34} (break) { return ret orig_l r 0 }};
@@ -224,16 +224,15 @@ $read_const_string = (ret orig_l r) {
   l = add(l_end, 1);
   return ret l r (!) { ! l_start l_end }
 };
-$token_id = 1;
-$token_string = 3;
+token_id = 1;
+token_string = 3;
 ; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 ; returns l r type il ir
-$read_token = (ret l r) {
+read_token = (ret l r) {
   l r = read_whitespace(l, r);
   {if {eq 34 {deref_byte l}} (break) {
     return ret {add l 1} r 0 l {add l 1}
   }};
-  {if {matches "$" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   {if {matches "!" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   {if {matches "(" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   {if {matches ")" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
@@ -248,25 +247,25 @@ $read_token = (ret l r) {
   error l
 };
 
-$make_tokenizer = (!l, r) {
+make_tokenizer = (!l, r) {
   ! (!) {
     l, r, t, tl, tr = read_token(l, r);
     ! (!) { ! t, tl, tr }, make_tokenizer(l, r)
   }
 };
 
-$tokenizer_to_lr = (!tokenizer) {
+tokenizer_to_lr = (!tokenizer) {
   token, tokenizer = tokenizer();
   t, l, r = token();
   ! l, add(l, 100000)
 };
 
-$token_type = (!token) {
+token_type = (!token) {
   t, tl, tr = token();
   ! t
 };
 
-$read_is_returning = (!orig_tokenizer) {
+read_is_returning = (!orig_tokenizer) {
   token, tokenizer = orig_tokenizer();
   if(token_matches("!", token), (break) {
     ! (a b) { a }, tokenizer
@@ -274,7 +273,7 @@ $read_is_returning = (!orig_tokenizer) {
   ! (a b) { b }, orig_tokenizer
 };
 
-$read_id_list = (!old_tokenizer) {
+read_id_list = (!old_tokenizer) {
   token, tokenizer = old_tokenizer();
   if (eq(token_type(token), 1) (break) {
     t, tl, tr = token();
@@ -288,7 +287,7 @@ $read_id_list = (!old_tokenizer) {
   ! make_nil(), old_tokenizer
 };
 
-$read_function = (!orig_tokenizer) {
+read_function = (!orig_tokenizer) {
   token, tokenizer = orig_tokenizer();
   if (not(token_matches("(", token)), (break) { ! 0, orig_tokenizer });
   is_returning, tokenizer = read_is_returning(tokenizer);
@@ -304,7 +303,7 @@ $read_function = (!orig_tokenizer) {
   ! (!) { ! fname_l fname_r new_args is_returning cexp }, tokenizer
 };
 
-$print_function = (ret old_context, gl, gr, func) {
+print_function = (ret old_context, gl, gr, func) {
   fname_l fname_r func_args is_returning cexp = func();
   new_context = merge_context(old_context, func_args);
   cids = get_cexp_vars(cexp);
@@ -336,19 +335,19 @@ $print_function = (ret old_context, gl, gr, func) {
   return ret 0
 };
 
-$get_aexp_from_texp = (ret texp) {
+get_aexp_from_texp = (ret texp) {
   texp_type, texp = texp();
   none = (a) { return ret 0 };
   {if {eq texp 0} (break) { return ret 0}};
   texp(none, (aexp) { return ret aexp }, none, none)
 };
 
-$texp_string = 0;
-$texp_block = 1;
-$texp_func = 2;
-$texp_aexp = 3;
+texp_string = 0;
+texp_block = 1;
+texp_func = 2;
+texp_aexp = 3;
 ; returns l r texp
-$read_texp = (!orig_l r) {
+read_texp = (!orig_l r) {
   l = orig_l;
   return_string =     (l r t) { ! l, r, (!) { ! texp_string, (x aexp block func) { x t } } };
   return_block =      (l r b) { ! l, r, (!) { ! texp_block, (x aexp block func) { block b } } };
@@ -377,7 +376,7 @@ $read_texp = (!orig_l r) {
   ! orig_l, r, 0
 };
 
-$print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
+print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   if(eq(texp, 0), (break) { ! 0 });
   texp_type, texp = texp();
   callcc((break) {
@@ -431,7 +430,7 @@ $print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   })
 };
 
-$texp_to_function = (!texp) {
+texp_to_function = (!texp) {
   texp_type, texp = texp();
   if(eq(texp_type, texp_func) (break) {
     texp(
@@ -447,13 +446,13 @@ $texp_to_function = (!texp) {
   ! 0
 };
 
-$read_until = (ret c l r) {
+read_until = (ret c l r) {
   lb = deref_byte(l);
   {if eq(lb, c) (break) { return ret l r }};
   read_until ret c add(l, 1) r
 };
 
-$print_const_string = (ret str) {
+print_const_string = (ret str) {
   l_start l_end = str();
   il ir = gen_label();
   printf("jmp {}_end\n{}: db ", il, ir, il, ir);
@@ -464,7 +463,7 @@ $print_const_string = (ret str) {
   return ret 0
 };
 
-$print_aexp = (ret comb_args fname_l fname_r l r) {
+print_aexp = (ret comb_args fname_l fname_r l r) {
   dig = deref_byte(l);
   res = is_alpha(dig);
   {if {eq res 1} (break_o) {
@@ -483,14 +482,14 @@ $print_aexp = (ret comb_args fname_l fname_r l r) {
   return ret 0
 };
 
-$read_cexp = (!orig_tokenizer) {
+read_cexp = (!orig_tokenizer) {
   assign, tokenizer = read_assignment(orig_tokenizer);
   {if eq(assign, 0) (break) { ! 0, orig_tokenizer }};
   cexp, tokenizer = read_cexp(tokenizer);
   ! (!) { ! assign, cexp }, tokenizer
 };
 
-$filter_context = (ret old_context ids) {
+filter_context = (ret old_context ids) {
   context = map_tree(old_context, (!l r) {
     {if {search_tree ids l r} (break) { ! make_nil() }};
     ! {make_leaf l r}
@@ -498,12 +497,12 @@ $filter_context = (ret old_context ids) {
   return ret context
 };
 
-$merge_context = (ret old_context ids) {
+merge_context = (ret old_context ids) {
   context = filter_context(old_context, ids);
   return ret {make_internal context ids}
 };
 
-$print_cexp = (ret fl fr context is_returning, gl, gr, cexp) {
+print_cexp = (ret fl fr context is_returning, gl, gr, cexp) {
   assign cexp = cexp();
   print_assignment(fl, fr, context, is_returning, gl, gr, assign);
   {if {eq cexp 0} (break) { return ret 0 }};
@@ -512,7 +511,7 @@ $print_cexp = (ret fl fr context is_returning, gl, gr, cexp) {
   return ret 0
 };
 
-$get_cexp_vars = (ret cexp) {
+get_cexp_vars = (ret cexp) {
   assign cexp = cexp();
   ids = get_assignment_vars(assign);
   {if {eq cexp 0} (break) { return ret ids }};
@@ -521,7 +520,7 @@ $get_cexp_vars = (ret cexp) {
   return ret {make_internal ids ids2}
 };
 
-$read_eq_if = (ret need l r) {
+read_eq_if = (ret need l r) {
   {if need (break) {
     l, r, t, tl, tr = {read_token l r};
     {if {not {matches "=" tl}} (break) { return 0 0 }};
@@ -530,7 +529,7 @@ $read_eq_if = (ret need l r) {
   return ret l r
 };
 
-$read_assign_left = (!orig_tokenizer) {
+read_assign_left = (!orig_tokenizer) {
   orig_l, r = tokenizer_to_lr(orig_tokenizer);
   l = orig_l;
   ids, tokenizer = read_id_list(orig_tokenizer);
@@ -543,7 +542,7 @@ $read_assign_left = (!orig_tokenizer) {
   ! nl, nr, ids
 };
 
-$read_assign_val = (!orig_tokenizer) {
+read_assign_val = (!orig_tokenizer) {
   orig_l, r = tokenizer_to_lr(orig_tokenizer);
   l, r, ids = read_assign_left(orig_tokenizer);
   {if eq(0, l), (break) { ! 0, orig_tokenizer }};
@@ -553,10 +552,10 @@ $read_assign_val = (!orig_tokenizer) {
   ! (!) { ! ids, call_exp }, make_tokenizer(l, r)
 };
 
-$assign_return = 1;
-$assign_application = 2;
-$assign_statement = 3;
-$read_assignment = (!orig_tokenizer) {
+assign_return = 1;
+assign_application = 2;
+assign_statement = 3;
+read_assignment = (!orig_tokenizer) {
   orig_l, r = tokenizer_to_lr(orig_tokenizer);
   token, tokenizer = orig_tokenizer();
   nl, nr = tokenizer_to_lr(tokenizer);
@@ -571,7 +570,7 @@ $read_assignment = (!orig_tokenizer) {
   ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer(l, r)
 };
 
-$print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
+print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
   assign_type, assign = orig_assign();
   if(eq(assign_type, assign_return) (break) {
     call_exps = assign();
@@ -597,7 +596,7 @@ $print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
   });
 };
 
-$assign_to_function = (!assign) {
+assign_to_function = (!assign) {
   assign_type, assign = assign();
   if (eq(assign_type, assign_statement), (break) {
     ids, call_exp = assign();
@@ -608,7 +607,7 @@ $assign_to_function = (!assign) {
   ! 0
 };
 
-$get_assignment_vars = (!assign) {
+get_assignment_vars = (!assign) {
   assign_type, assign = assign();
   if (eq(assign_type, assign_statement), (break) {
     ids, call_exp = assign();
@@ -617,12 +616,12 @@ $get_assignment_vars = (!assign) {
   ! make_nil()
 };
 
-$read_call_exp_list = (ret l r) {
+read_call_exp_list = (ret l r) {
   l r tree = read_call_exp_list_help(l, r, make_nil());
   return ret l r tree
 };
 
-$read_call_exp_list_help = (ret l r tree) {
+read_call_exp_list_help = (ret l r tree) {
   nl nr t tl tr = read_token(l, r);
   {if {matches "," tl} (break) {
     read_call_exp_list_help ret nl nr tree
@@ -634,12 +633,12 @@ $read_call_exp_list_help = (ret l r tree) {
   read_call_exp_list_help ret l r tree
 };
 
-$read_texp_list = (ret l r) {
+read_texp_list = (ret l r) {
   l r tree = read_texp_list_help(l, r, make_nil());
   return ret l r tree
 };
 
-$read_texp_list_help = (ret l r tree) {
+read_texp_list_help = (ret l r tree) {
   nl nr t tl tr = read_token(l, r);
   {if {matches "," tl} (break) {
     read_texp_list_help ret nl nr tree
@@ -651,7 +650,7 @@ $read_texp_list_help = (ret l r tree) {
   read_texp_list_help ret l r tree
 };
 
-$print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
+print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
   map_tree(reverse_tree(op_list), (!call_exp r) {
     il, ir = gen_label();
     printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
@@ -661,7 +660,7 @@ $print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
   return ret 0
 };
 
-$read_call_expression_args = (ret orig_l r) {
+read_call_expression_args = (ret orig_l r) {
   l = orig_l;
   nl nr t tl tr = read_token(l, r);
   {if not(matches("(", tl)) (break) { return(ret, orig_l, r, 0) }};
@@ -673,7 +672,7 @@ $read_call_expression_args = (ret orig_l r) {
   return ret l r op_list
 };
 
-$read_call_expression = (ret orig_l r) {
+read_call_expression = (ret orig_l r) {
   l = orig_l;
   l r texp = read_texp(l, r);
   {if {eq texp 0} (break) {
@@ -684,7 +683,7 @@ $read_call_expression = (ret orig_l r) {
   return ret l r (t1, t2) { t2(texp, op_list) }
 };
 
-$print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
+print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
   {if eq(call_exp, 0) (break) { return ret 0 }};
   call_exp
   (texp) {
@@ -718,7 +717,7 @@ $print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
   }
 };
 
-$call_expression_to_function = (ret call_exp) {
+call_expression_to_function = (ret call_exp) {
   call_exp(
     (texp) {
       res = texp_to_function(texp);
@@ -730,14 +729,14 @@ $call_expression_to_function = (ret call_exp) {
   )
 };
 
-$read_func_appl_args = (ret l r) {
+read_func_appl_args = (ret l r) {
   nl nr op_list = read_call_expression_args(l, r);
   {if {ne op_list 0} (break) { return(ret, nl, nr, op_list) }};
   l r op_list = read_call_exp_list(l, r);
   return(ret, l, r, op_list)
 };
 
-$aexp_to_range = (!aexp) {
+aexp_to_range = (!aexp) {
   if(eq(aexp, 0), (break) {
     ! 0, 0
   });
@@ -745,7 +744,7 @@ $aexp_to_range = (!aexp) {
   ! l, r
 };
 
-$read_function_application = (!orig_l r) {
+read_function_application = (!orig_l r) {
   l = orig_l;
   l r texp = read_texp(l, r);
   if(eq(texp, 0), (break) {
@@ -755,7 +754,7 @@ $read_function_application = (!orig_l r) {
   ! l, r, (!) { ! op_list, texp }
 };
 
-$print_function_application = (!fl fr context is_returning, gl, gr, appl) {
+print_function_application = (!fl fr context is_returning, gl, gr, appl) {
   op_list, texp = appl();
   al, ar = aexp_to_range(get_aexp_from_texp(texp));
   print_call_exp_args(fl, fr, context, gl, gr, op_list);
@@ -776,7 +775,7 @@ $print_function_application = (!fl fr context is_returning, gl, gr, appl) {
   });
 };
 
-$main_start = (ret, lo, hi) {
+main_start = (ret, lo, hi) {
   printf("_start:\n");
   main_loop(make_nil(), lo, hi)
 };
@@ -800,10 +799,6 @@ main_loop = (context, l, r) {
     l, r = read_until(deref_byte("\n"), l, r);
     main_loop(context, l, r)
   });
-
-  {if {eq c {deref_byte "$"}} (break) {
-    main_loop(context, add(l, 1), r)
-  }};
   
   assign, tokenizer = read_assignment(make_tokenizer(l, r));
   l, rr = tokenizer_to_lr(tokenizer);
@@ -831,34 +826,34 @@ main_loop = (context, l, r) {
   main_loop(context, l, r)
 };
 
-$inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
-$inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
-$outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
+inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
+inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
+outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
 ; get input size
-$flen = (!) {
+flen = (!) {
   buff = malloc_func(192);
   {sysc 5, inpf, buff, 0, 0, 0, 0};
   ! deref(add(buff, 48))
 }();
 ; mmap input
-$input = sysc(9, 0, flen, 3, 2, inpf, 0);
-$flen = add(flen, input);
-$buffer = malloc_func(4096);
+input = sysc(9, 0, flen, 3, 2, inpf, 0);
+flen = add(flen, input);
+buffer = malloc_func(4096);
 
-$printf("section .rwx progbits alloc exec write align=16\nglobal _start\n");
-$printf("add:\npop rbx\npop rax\npop rcx\npush rbx\nadd rax, rcx\nret\n");
-$printf("sysc:\npop rcx\npop rax\npop rdi\npop rsi\npop rdx\npop r10\npop r8\npop r9\npush rcx\nsyscall\nret\n");
-$printf("deref:\npop rdx\npop rax\npush rdx\nmov rax, [rax]\nret\n");
-$printf("deref_byte:\npop rdx\npop rax\npush rdx\nmov al, [rax]\nand rax, 0xFF\nret\n");
-$printf("return:\npop rcx\npop rax\npush rcx\nret\n");
-$printf("mul:\npop rcx\npop rax\npop rdx\nmul rdx\njmp rcx\n");
-$printf("div:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\njmp rcx\n");
-$printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njmp rcx\n");
-$printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rdi, 57\njg not_digit\nyes_digit:\nmov rax, 1\nret\nnot_digit:\nmov rax, 0\nret\n");
-$printf("is_alpha:\npop rax\npop rdi\npush rax\ncmp rdi, 97      ; a\njl nalp\ncmp rdi, 122     ; z\njg nalp\nyalp:\nmov rax, 1\nret\nnalp:\nmov rax, 0\nret\n");
-$printf("buff_curr: dq 0\nprint_char:\nmov rax, [buffer]\nmov rdx, [buff_curr]\nmov rcx, [rsp+8]\nmov [rax+rdx], rcx\nadd rdx, 1\nmov [buff_curr], rdx\ncmp rdx, 4096\njne print_char_done\ncall flush_buffer\nprint_char_done:\npop rax\nmov [rsp], rax\nret\nflush_buffer:\nmov rdx, [buff_curr]\nmov rsi, [buffer]\nmov rdi, [outf]\nmov rax, 1\nsyscall\nmov qword [buff_curr], 0\nret\n");
-$printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b\n  pop rax\n  pop rcx\n  pop rdi\n  pop rsi\n  cmp rax, rcx\n  jne compare_fail\n  push rdi\n  jmp runtime_call\n  compare_fail:\n    push rsi\n    jmp runtime_call\nexit:\n  call flush_buffer\n  mov rax, 60\n  mov rdi, 0\n  syscall\nerror:\n  mov qword [outf], 2\n  jmp error_help\nruntime_call:\n  ; first input is closure containing | number of operands including function, function, environment |\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_loop\n  \n  pop rax\n  jmp rax\nruntime_call_ret:\n  ; first input is closure containing | number of operands including function, function, environment |\n  pop rbp\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_ret_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_ret_loop\n  \n  pop rax\n  push rbp\n  jmp rax\npage_pointer:\ndq 0\nmemory_left:\ndq 0\nmalloc:\n  push rcx\n  push rdx\n  push rsi\n  push rdi\n  push r8\n  push r9\n  push r10\n  push r11\n  cmp [memory_left], rdi\n  jl new_page\n  jmp malloc_ret\n  \n  new_page:\n  push rdi\n  mov rsi, 4096\n  mov rdi, 0               ; adress\n  mov rdx, 3               ; PROT_READ | PROT_WRITE\n  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS\n  mov r8, -1              ; file descriptor empty, anonymous\n  mov r9, 0               ; offset\n  mov rax, 9               ; mmap\n  syscall\n  pop rdi\n  mov [page_pointer], rax\n  mov qword [memory_left], 4096\n  malloc_ret:\n  mov rax, [page_pointer]\n  add [page_pointer], rdi\n  sub [memory_left], rdi\n  pop r11\n  pop r10\n  pop r9\n  pop r8\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  ret\nmalloc_func:\n  pop rax\n  pop rdi\n  push rax\n  jmp malloc\nscmp:\n  cmp rdi, rsi\n  je end_of_string\n  cmp rdx, rcx\n  je end_of_string\n  sub rax, rax\n  mov al, [rdi]\n  push rbx\n  sub rbx, rbx\n  mov bl, [rdx]\n  sub rax, rbx\n  pop rbx\n  add rdi, 1\n  add rdx, 1\n  cmp rax, 0\n  je scmp\n  jl less\n  mov rax, 1\n  ret\n  less:\n  mov rax, -1\n  ret\n  end_of_string:\n  mov rax, 0\n  cmp rdi, rsi\n  jne not_first_shorter\n  add rax, -1\n  not_first_shorter:\n  cmp rdx, rcx\n  jne not_second_shorter\n  add rax, 1\n  not_second_shorter:\n  ret\ncur_label:\n  dq 1\ngen_label:\n  mov rdi, 8\n  call malloc\n  mov rdx, rax\n  mov rcx, [cur_label]\n  add qword [cur_label], 1\n  mov qword [rdx], 102\n  add rdx, 1\n  gen_label_loop:\n  mov rbx, rcx\n  and rbx, 7\n  add rbx, 48\n  mov [rdx], bl\n  add rdx, 1\n  shr rcx, 3\n  cmp rcx, 0\n  jne gen_label_loop\n  pop rcx\n  push rdx\n  jmp rcx\nstr_cmp_func:\n  pop rax\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  push rax\n  call scmp\n  ret\n");
+printf("section .rwx progbits alloc exec write align=16\nglobal _start\n");
+printf("add:\npop rbx\npop rax\npop rcx\npush rbx\nadd rax, rcx\nret\n");
+printf("sysc:\npop rcx\npop rax\npop rdi\npop rsi\npop rdx\npop r10\npop r8\npop r9\npush rcx\nsyscall\nret\n");
+printf("deref:\npop rdx\npop rax\npush rdx\nmov rax, [rax]\nret\n");
+printf("deref_byte:\npop rdx\npop rax\npush rdx\nmov al, [rax]\nand rax, 0xFF\nret\n");
+printf("return:\npop rcx\npop rax\npush rcx\nret\n");
+printf("mul:\npop rcx\npop rax\npop rdx\nmul rdx\njmp rcx\n");
+printf("div:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\njmp rcx\n");
+printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njmp rcx\n");
+printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rdi, 57\njg not_digit\nyes_digit:\nmov rax, 1\nret\nnot_digit:\nmov rax, 0\nret\n");
+printf("is_alpha:\npop rax\npop rdi\npush rax\ncmp rdi, 97      ; a\njl nalp\ncmp rdi, 122     ; z\njg nalp\nyalp:\nmov rax, 1\nret\nnalp:\nmov rax, 0\nret\n");
+printf("buff_curr: dq 0\nprint_char:\nmov rax, [buffer]\nmov rdx, [buff_curr]\nmov rcx, [rsp+8]\nmov [rax+rdx], rcx\nadd rdx, 1\nmov [buff_curr], rdx\ncmp rdx, 4096\njne print_char_done\ncall flush_buffer\nprint_char_done:\npop rax\nmov [rsp], rax\nret\nflush_buffer:\nmov rdx, [buff_curr]\nmov rsi, [buffer]\nmov rdi, [outf]\nmov rax, 1\nsyscall\nmov qword [buff_curr], 0\nret\n");
+printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b\n  pop rax\n  pop rcx\n  pop rdi\n  pop rsi\n  cmp rax, rcx\n  jne compare_fail\n  push rdi\n  jmp runtime_call\n  compare_fail:\n    push rsi\n    jmp runtime_call\nexit:\n  call flush_buffer\n  mov rax, 60\n  mov rdi, 0\n  syscall\nerror:\n  mov qword [outf], 2\n  jmp error_help\nruntime_call:\n  ; first input is closure containing | number of operands including function, function, environment |\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_loop\n  \n  pop rax\n  jmp rax\nruntime_call_ret:\n  ; first input is closure containing | number of operands including function, function, environment |\n  pop rbp\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_ret_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_ret_loop\n  \n  pop rax\n  push rbp\n  jmp rax\npage_pointer:\ndq 0\nmemory_left:\ndq 0\nmalloc:\n  push rcx\n  push rdx\n  push rsi\n  push rdi\n  push r8\n  push r9\n  push r10\n  push r11\n  cmp [memory_left], rdi\n  jl new_page\n  jmp malloc_ret\n  \n  new_page:\n  push rdi\n  mov rsi, 4096\n  mov rdi, 0               ; adress\n  mov rdx, 3               ; PROT_READ | PROT_WRITE\n  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS\n  mov r8, -1              ; file descriptor empty, anonymous\n  mov r9, 0               ; offset\n  mov rax, 9               ; mmap\n  syscall\n  pop rdi\n  mov [page_pointer], rax\n  mov qword [memory_left], 4096\n  malloc_ret:\n  mov rax, [page_pointer]\n  add [page_pointer], rdi\n  sub [memory_left], rdi\n  pop r11\n  pop r10\n  pop r9\n  pop r8\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  ret\nmalloc_func:\n  pop rax\n  pop rdi\n  push rax\n  jmp malloc\nscmp:\n  cmp rdi, rsi\n  je end_of_string\n  cmp rdx, rcx\n  je end_of_string\n  sub rax, rax\n  mov al, [rdi]\n  push rbx\n  sub rbx, rbx\n  mov bl, [rdx]\n  sub rax, rbx\n  pop rbx\n  add rdi, 1\n  add rdx, 1\n  cmp rax, 0\n  je scmp\n  jl less\n  mov rax, 1\n  ret\n  less:\n  mov rax, -1\n  ret\n  end_of_string:\n  mov rax, 0\n  cmp rdi, rsi\n  jne not_first_shorter\n  add rax, -1\n  not_first_shorter:\n  cmp rdx, rcx\n  jne not_second_shorter\n  add rax, 1\n  not_second_shorter:\n  ret\ncur_label:\n  dq 1\ngen_label:\n  mov rdi, 8\n  call malloc\n  mov rdx, rax\n  mov rcx, [cur_label]\n  add qword [cur_label], 1\n  mov qword [rdx], 102\n  add rdx, 1\n  gen_label_loop:\n  mov rbx, rcx\n  and rbx, 7\n  add rbx, 48\n  mov [rdx], bl\n  add rdx, 1\n  shr rcx, 3\n  cmp rcx, 0\n  jne gen_label_loop\n  pop rcx\n  push rdx\n  jmp rcx\nstr_cmp_func:\n  pop rax\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  push rax\n  call scmp\n  ret\n");
 
-$res = main_start(input, flen);
+res = main_start(input, flen);
 
 ; eof
