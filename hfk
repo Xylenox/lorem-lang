@@ -1,18 +1,4 @@
-jmp start
-
-compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b
-  pop rax
-  pop rcx
-  pop rdi
-  pop rsi
-  cmp rax, rcx
-  jne compare_fail
-  push rdi
-  jmp runtime_call
-
-  compare_fail:
-    push rsi
-    jmp runtime_call
+start:
 
 $callcc = (ret, cont) {
   cont((res) { return ret res })
@@ -55,187 +41,15 @@ $eq = (ret a b) {
   compare(a, b, () { return ret (x y) {x} }, () { return ret (x y) {y} })
 };
 
-exit:
-  call flush_buffer
-  mov rax, 60
-  mov rdi, 0
-  syscall
-error:
-  mov qword [outf], 2
-  jmp error_help
 $error_help = (num) {
   {printf "error {}\n" num {add num 10}};
   {sysc 60 1 0 0 0 0 0};
   exit
 };
 
-runtime_call:
-  ; first input is closure containing | number of operands including function, function, environment |
-  mov rdx, [rsp]
-  mov rcx, [rdx]
-  shl rcx, 3
-  add rdx, 8
-  add rsp, 8
-  sub rsp, rcx
-
-  runtime_call_loop:
-  sub rcx, 8
-  mov rax, [rdx+rcx]
-  mov [rsp+rcx], rax
-  cmp rcx, 0
-  jne runtime_call_loop
-  
-  pop rax
-  jmp rax
-
-runtime_call_ret:
-  ; first input is closure containing | number of operands including function, function, environment |
-  pop rbp
-  mov rdx, [rsp]
-  mov rcx, [rdx]
-  shl rcx, 3
-  add rdx, 8
-  add rsp, 8
-  sub rsp, rcx
-
-  runtime_call_ret_loop:
-  sub rcx, 8
-  mov rax, [rdx+rcx]
-  mov [rsp+rcx], rax
-  cmp rcx, 0
-  jne runtime_call_ret_loop
-  
-  pop rax
-  push rbp
-  jmp rax
-
-page_pointer:
-dq 0
-memory_left:
-dq 0
-malloc:
-  push rcx
-  push rdx
-  push rsi
-  push rdi
-  push r8
-  push r9
-  push r10
-  push r11
-
-  cmp [memory_left], rdi
-  jl new_page
-  jmp malloc_ret
-  
-  new_page:
-  push rdi
-  mov rsi, 4096
-  mov rdi, 0               ; adress
-  mov rdx, 3               ; PROT_READ | PROT_WRITE
-  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS
-  mov r8, -1              ; file descriptor empty, anonymous
-  mov r9, 0               ; offset
-  mov rax, 9               ; mmap
-  syscall
-  pop rdi
-  mov [page_pointer], rax
-  mov qword [memory_left], 4096
-
-  malloc_ret:
-  mov rax, [page_pointer]
-  add [page_pointer], rdi
-  sub [memory_left], rdi
-
-  pop r11
-  pop r10
-  pop r9
-  pop r8
-  pop rdi
-  pop rsi
-  pop rdx
-  pop rcx
-  ret
-malloc_func:
-  pop rax
-  pop rdi
-  push rax
-  jmp malloc
-
 $make_nil = (!) { ! (cont_nil cont_leaf cont_internal) {cont_nil} };
 $make_leaf = (!l r) { ! (cont_nil cont_leaf cont_internal) {cont_leaf l r} };
 $make_internal = (!a b) { ! (cont_nil cont_leaf cont_internal) {cont_internal a b} };
-
-scmp:
-  cmp rdi, rsi
-  je end_of_string
-  cmp rdx, rcx
-  je end_of_string
-
-  sub rax, rax
-  mov al, [rdi]
-  push rbx
-  sub rbx, rbx
-  mov bl, [rdx]
-  sub rax, rbx
-  pop rbx
-  add rdi, 1
-  add rdx, 1
-  cmp rax, 0
-  je scmp
-  jl less
-  mov rax, 1
-  ret
-  less:
-  mov rax, -1
-  ret
-
-  end_of_string:
-  mov rax, 0
-  cmp rdi, rsi
-  jne not_first_shorter
-  add rax, -1
-  not_first_shorter:
-  cmp rdx, rcx
-  jne not_second_shorter
-  add rax, 1
-  not_second_shorter:
-  ret
-
-cur_label:
-  dq 1
-gen_label:
-  mov rdi, 8
-  call malloc
-  mov rdx, rax
-  mov rcx, [cur_label]
-  add qword [cur_label], 1
-  mov qword [rdx], "f"
-  add rdx, 1
-  gen_label_loop:
-  mov rbx, rcx
-  and rbx, 7
-  add rbx, "0"
-  mov [rdx], bl
-  add rdx, 1
-  shr rcx, 3
-  cmp rcx, 0
-  jne gen_label_loop
-  pop rcx
-  push rdx
-  jmp rcx
-
-
-str_cmp_func:
-  pop rax
-  pop rdi
-  pop rsi
-  pop rdx
-  pop rcx
-  push rax
-  call scmp
-  ret
-
-start:
 
 $str_equal_func = (ret a b l r) {
   res = str_cmp_func(a, b, l, r);
@@ -1031,6 +845,7 @@ $printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njm
 $printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rdi, 57\njg not_digit\nyes_digit:\nmov rax, 1\nret\nnot_digit:\nmov rax, 0\nret\n");
 $printf("is_alpha:\npop rax\npop rdi\npush rax\ncmp rdi, 97      ; a\njl nalp\ncmp rdi, 122     ; z\njg nalp\nyalp:\nmov rax, 1\nret\nnalp:\nmov rax, 0\nret\n");
 $printf("buff_curr: dq 0\nprint_char:\nmov rax, [buffer]\nmov rdx, [buff_curr]\nmov rcx, [rsp+8]\nmov [rax+rdx], rcx\nadd rdx, 1\nmov [buff_curr], rdx\ncmp rdx, 4096\njne print_char_done\ncall flush_buffer\nprint_char_done:\npop rax\nmov [rsp], rax\nret\nflush_buffer:\nmov rdx, [buff_curr]\nmov rsi, [buffer]\nmov rdi, [outf]\nmov rax, 1\nsyscall\nmov qword [buff_curr], 0\nret\n");
+$printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b\n  pop rax\n  pop rcx\n  pop rdi\n  pop rsi\n  cmp rax, rcx\n  jne compare_fail\n  push rdi\n  jmp runtime_call\n  compare_fail:\n    push rsi\n    jmp runtime_call\nexit:\n  call flush_buffer\n  mov rax, 60\n  mov rdi, 0\n  syscall\nerror:\n  mov qword [outf], 2\n  jmp error_help\nruntime_call:\n  ; first input is closure containing | number of operands including function, function, environment |\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_loop\n  \n  pop rax\n  jmp rax\nruntime_call_ret:\n  ; first input is closure containing | number of operands including function, function, environment |\n  pop rbp\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_ret_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_ret_loop\n  \n  pop rax\n  push rbp\n  jmp rax\npage_pointer:\ndq 0\nmemory_left:\ndq 0\nmalloc:\n  push rcx\n  push rdx\n  push rsi\n  push rdi\n  push r8\n  push r9\n  push r10\n  push r11\n  cmp [memory_left], rdi\n  jl new_page\n  jmp malloc_ret\n  \n  new_page:\n  push rdi\n  mov rsi, 4096\n  mov rdi, 0               ; adress\n  mov rdx, 3               ; PROT_READ | PROT_WRITE\n  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS\n  mov r8, -1              ; file descriptor empty, anonymous\n  mov r9, 0               ; offset\n  mov rax, 9               ; mmap\n  syscall\n  pop rdi\n  mov [page_pointer], rax\n  mov qword [memory_left], 4096\n  malloc_ret:\n  mov rax, [page_pointer]\n  add [page_pointer], rdi\n  sub [memory_left], rdi\n  pop r11\n  pop r10\n  pop r9\n  pop r8\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  ret\nmalloc_func:\n  pop rax\n  pop rdi\n  push rax\n  jmp malloc\nscmp:\n  cmp rdi, rsi\n  je end_of_string\n  cmp rdx, rcx\n  je end_of_string\n  sub rax, rax\n  mov al, [rdi]\n  push rbx\n  sub rbx, rbx\n  mov bl, [rdx]\n  sub rax, rbx\n  pop rbx\n  add rdi, 1\n  add rdx, 1\n  cmp rax, 0\n  je scmp\n  jl less\n  mov rax, 1\n  ret\n  less:\n  mov rax, -1\n  ret\n  end_of_string:\n  mov rax, 0\n  cmp rdi, rsi\n  jne not_first_shorter\n  add rax, -1\n  not_first_shorter:\n  cmp rdx, rcx\n  jne not_second_shorter\n  add rax, 1\n  not_second_shorter:\n  ret\ncur_label:\n  dq 1\ngen_label:\n  mov rdi, 8\n  call malloc\n  mov rdx, rax\n  mov rcx, [cur_label]\n  add qword [cur_label], 1\n  mov qword [rdx], 102\n  add rdx, 1\n  gen_label_loop:\n  mov rbx, rcx\n  and rbx, 7\n  add rbx, 48\n  mov [rdx], bl\n  add rdx, 1\n  shr rcx, 3\n  cmp rcx, 0\n  jne gen_label_loop\n  pop rcx\n  push rdx\n  jmp rcx\nstr_cmp_func:\n  pop rax\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  push rax\n  call scmp\n  ret\n");
 
 $res = main_start(input, flen);
 
