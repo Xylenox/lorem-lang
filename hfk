@@ -235,6 +235,8 @@ str_cmp_func:
   call scmp
   ret
 
+start:
+
 $str_equal_func = (ret a b l r) {
   res = str_cmp_func(a, b, l, r);
   return ret {eq 0 res}
@@ -245,32 +247,6 @@ $print_range = (ret a b) {
   {print_char {deref_byte a}};
   print_range ret {add a 1} b
 };
-
-buff_curr: dq 0
-print_char:
-  mov rax, [buffer]
-  mov rdx, [buff_curr]
-  mov rcx, [rsp+8]
-  mov [rax+rdx], rcx
-  add rdx, 1
-  mov [buff_curr], rdx
-  cmp rdx, 4096
-  jne print_char_done
-  call flush_buffer
-  print_char_done:
-  pop rax
-  mov [rsp], rax
-  ret
-flush_buffer:
-  mov rdx, [buff_curr]
-  mov rsi, [buffer]
-  mov rdi, [outf]
-  mov rax, 1
-  syscall
-  mov qword [buff_curr], 0
-  ret
-
-start:
 
 $print_num_help = (v cont) {
   {if {eq v 0}, (break) { cont }};
@@ -987,7 +963,7 @@ $print_function_application = (!fl fr context is_returning, gl, gr, appl) {
 };
 
 $main_start = (ret, lo, hi) {
-  printf("section .rwx progbits alloc exec write align=16\nglobal _start\n_start:\n");
+  printf("_start:\n");
   main_loop(make_nil(), lo, hi)
 };
 
@@ -1043,6 +1019,7 @@ $input = sysc(9, 0, flen, 3, 2, inpf, 0);
 $flen = add(flen, input);
 $buffer = malloc_func(4096);
 
+$printf("section .rwx progbits alloc exec write align=16\nglobal _start\n");
 $printf("add:\npop rbx\npop rax\npop rcx\npush rbx\nadd rax, rcx\nret\n");
 $printf("sysc:\npop rcx\npop rax\npop rdi\npop rsi\npop rdx\npop r10\npop r8\npop r9\npush rcx\nsyscall\nret\n");
 $printf("deref:\npop rdx\npop rax\npush rdx\nmov rax, [rax]\nret\n");
@@ -1053,6 +1030,7 @@ $printf("div:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\njmp rcx\n");
 $printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njmp rcx\n");
 $printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rdi, 57\njg not_digit\nyes_digit:\nmov rax, 1\nret\nnot_digit:\nmov rax, 0\nret\n");
 $printf("is_alpha:\npop rax\npop rdi\npush rax\ncmp rdi, 97      ; a\njl nalp\ncmp rdi, 122     ; z\njg nalp\nyalp:\nmov rax, 1\nret\nnalp:\nmov rax, 0\nret\n");
+$printf("buff_curr: dq 0\nprint_char:\nmov rax, [buffer]\nmov rdx, [buff_curr]\nmov rcx, [rsp+8]\nmov [rax+rdx], rcx\nadd rdx, 1\nmov [buff_curr], rdx\ncmp rdx, 4096\njne print_char_done\ncall flush_buffer\nprint_char_done:\npop rax\nmov [rsp], rax\nret\nflush_buffer:\nmov rdx, [buff_curr]\nmov rsi, [buffer]\nmov rdi, [outf]\nmov rax, 1\nsyscall\nmov qword [buff_curr], 0\nret\n");
 
 $res = main_start(input, flen);
 
