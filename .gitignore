@@ -1,3 +1,7 @@
 *.bak
 
 out*
+hfk_out
+hfk_out2
+tmp
+tmp.o

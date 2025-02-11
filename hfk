@@ -377,6 +377,9 @@ $search_tree = (ret tree l r) {
 };
 
 is_alpha:           ; is alpha
+  pop rax
+  pop rdi
+  push rax
   cmp rdi, "a"      ; a
   jl nalp
   cmp rdi, "z"     ; z
@@ -388,40 +391,14 @@ is_alpha:           ; is alpha
   mov rax, 0
   ret
 
-is_alpha_ret:
-  pop rax
-  pop rdi
-  push rax
-  call is_alpha
-  ret
-
-is_digit:           ; is alpha
-  cmp rdi, "0"
-  jl not_digit
-  cmp rdi, "9"
-  jg not_digit
-  yes_digit:
-  mov rax, 1
-  ret
-  not_digit:
-  mov rax, 0
-  ret
-
-is_digit_ret:
-  pop rax
-  pop rdi
-  push rax
-  call is_digit
-  ret
-
 start:  
 
 $is_alpha_bool = (!dig) {
-  ! eq(is_alpha_ret(dig), 1)
+  ! eq(is_alpha(dig), 1)
 };
 
 $is_digit_bool = (!dig) {
-  ! eq(is_digit_ret(dig), 1)
+  ! eq(is_digit(dig), 1)
 };
 
 $read_whitespace = (ret l r) {
@@ -714,7 +691,7 @@ $print_const_string = (ret str) {
 
 $print_aexp = (ret comb_args fname_l fname_r l r) {
   dig = deref_byte(l);
-  res = is_alpha_ret(dig);
+  res = is_alpha(dig);
   {if {eq res 1} (break_o) {
     bool = {search_tree comb_args l r};
     {if bool (break) {
@@ -723,7 +700,7 @@ $print_aexp = (ret comb_args fname_l fname_r l r) {
     }};
     break_o
   }};
-  {if {eq {is_digit_ret dig} 1} (break) {
+  {if {eq {is_digit dig} 1} (break) {
     {printf "push {}\n" l r};
     return ret 0
   }};
@@ -815,7 +792,7 @@ $read_assignment = (!orig_tokenizer) {
   assign, tokenizer = read_assign_val(orig_tokenizer);
   if(ne(assign, 0), (break) { ! (!) { ! assign_statement, assign }, tokenizer });
   l, r, cexp = read_function_application(orig_l, r);
-  {if {eq cexp 0} (break) { ! 0, orig_tokenizer }};
+  if(eq(cexp, 0), (break) { ! 0, orig_tokenizer });
   ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer(l, r)
 };
 
@@ -1030,7 +1007,7 @@ $main_start = (ret, lo, hi) {
 };
 
 $main_loop = (context, l, r) {
-  {if {eq} l r (break) { exit() }};
+  if(eq(l, r) (break) { exit() });
   c = deref_byte(l);
   {if {eq c {deref_byte "$"}} (break) {
     assign, tokenizer = read_assignment(make_tokenizer(add(l, 1), r));
@@ -1058,10 +1035,10 @@ $main_loop = (context, l, r) {
     }};
     main_loop(context, l, r)
   }};
-  {if {eq c 59} (break) {
+  if(eq(c,59) (break) {
     l, r = read_until(deref_byte("\n"), l, r);
     main_loop(context, l, r)
-  }};
+  });
   mid = add(l, 1);
   print_range(l, mid);
   main_loop(context, mid, r)
@@ -1089,6 +1066,7 @@ $printf("return:\npop rcx\npop rax\npush rcx\nret\n");
 $printf("mul:\npop rcx\npop rax\npop rdx\nmul rdx\njmp rcx\n");
 $printf("div:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\njmp rcx\n");
 $printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njmp rcx\n");
+$printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rdi, 57\njg not_digit\nyes_digit:\nmov rax, 1\nret\nnot_digit:\nmov rax, 0\nret\n");
 
 $res = main_start(input, flen);
 
