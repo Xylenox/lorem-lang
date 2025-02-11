@@ -1,4 +1,4 @@
-; start:
+/ start:
 
 callcc = (ret, cont) {
   cont((res) { return ret res })
@@ -226,8 +226,8 @@ read_const_string = (ret orig_l r) {
 };
 token_id = 1;
 token_string = 3;
-; 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
-; returns l r type il ir
+/ 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
+/ returns l r type il ir
 read_token = (ret l r) {
   l r = read_whitespace(l, r);
   {if {eq 34 {deref_byte l}} (break) {
@@ -242,6 +242,10 @@ read_token = (ret l r) {
   {if {matches ";" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   {if {matches ":" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   {if {matches "," l} (break) { return ret {add l 1} r 0 l {add l 1} }};
+  {if {matches "/" l} (break) { 
+    m, r = read_until(deref_byte("\n"), l, r);
+    return ret m r 4 l m
+  }};
   l r il ir = {read_identifier l r};
   {if {ne il ir} (break) { return ret l r token_id il ir }};
   error l
@@ -346,7 +350,7 @@ texp_string = 0;
 texp_block = 1;
 texp_func = 2;
 texp_aexp = 3;
-; returns l r texp
+/ returns l r texp
 read_texp = (!orig_l r) {
   l = orig_l;
   return_string =     (l r t) { ! l, r, (!) { ! texp_string, (x aexp block func) { x t } } };
@@ -795,7 +799,7 @@ main_loop = (context, l, r) {
     main_loop(context, mid, r)
   });
 
-  if(eq(c,59) (break) {
+  if(eq(c,47) (break) {
     l, r = read_until(deref_byte("\n"), l, r);
     main_loop(context, l, r)
   });
@@ -829,13 +833,13 @@ main_loop = (context, l, r) {
 inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
 inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
 outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
-; get input size
+/ get input size
 flen = (!) {
   buff = malloc_func(192);
   {sysc 5, inpf, buff, 0, 0, 0, 0};
   ! deref(add(buff, 48))
 }();
-; mmap input
+/ mmap input
 input = sysc(9, 0, flen, 3, 2, inpf, 0);
 flen = add(flen, input);
 buffer = malloc_func(4096);
@@ -856,4 +860,4 @@ printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or d
 
 res = main_start(input, flen);
 
-; eof
+/ eof
