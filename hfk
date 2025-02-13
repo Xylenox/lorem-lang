@@ -507,7 +507,7 @@ print_aexp = (ret comb_args fname_l fname_r l r) {
 };
 
 read_cexp = (!orig_tokenizer) {
-  assign, tokenizer = read_assignment(tokenizer_to_tokenizer2(orig_tokenizer));
+  assign, tokenizer = read_statement(tokenizer_to_tokenizer2(orig_tokenizer));
   tokenizer = tokenizer2_to_tokenizer(tokenizer);
   {if eq(assign, 0) (break) { ! 0, orig_tokenizer }};
   cexp, tokenizer = read_cexp(tokenizer);
@@ -567,7 +567,7 @@ read_assign_left = (!orig_tokenizer) {
   ! nl, nr, ids
 };
 
-read_assign_val = (!orig_tokenizer) {
+read_assignment_statement_help = (!orig_tokenizer) {
   orig_l, r = tokenizer_to_lr(orig_tokenizer);
   l, r, ids = read_assign_left(orig_tokenizer);
   {if eq(0, l), (break) { ! 0, orig_tokenizer }};
@@ -577,30 +577,35 @@ read_assign_val = (!orig_tokenizer) {
   ! (!) { ! ids, call_exp }, make_tokenizer(l, r)
 };
 
-assign_return = 1;
-assign_application = 2;
+read_assignment_statement = (!orig_tokenizer) {
+  l, r = orig_tokenizer();
+  assign_val, tokenizer = read_assignment_statement_help(tokenizer2_to_tokenizer(orig_tokenizer));
+  l, rr = tokenizer_to_lr(tokenizer);
+  ! assign_val, make_tokenizer2(l, r)
+};
+
+return_statement = 1;
+tail_recursion_statement = 2;
 assign_statement = 3;
-read_assignment = (!orig_tokenizer) {
+read_statement = (!orig_tokenizer) {
   orig_l, r = orig_tokenizer();
   token, tokenizer = read_token_t(orig_tokenizer);
-  nl, nr = tokenizer();
   if(token_matches("!", token), (break) {
-    l r call_exps = read_call_exp_list(nl, nr);
-    ! (!) { ! assign_return, (!) { ! call_exps } }, make_tokenizer2(l, r)
+    call_exps, tokenizer = read_call_exp_list_t(tokenizer);
+    ! (!) { ! return_statement, (!) { ! call_exps } }, tokenizer
   });
-  assign, tokenizer = read_assign_val(tokenizer2_to_tokenizer(orig_tokenizer));
+  assign, tokenizer = read_assignment_statement(orig_tokenizer);
   if(ne(assign, 0), (break) {
-    l, rr = tokenizer_to_lr(tokenizer);
-    ! (!) { ! assign_statement, assign }, make_tokenizer2(l, r)
+    ! (!) { ! assign_statement, assign }, tokenizer
   });
-  l, r, cexp = read_function_application(orig_l, r);
+  cexp, tokenizer = read_tail_recursion_statement(tokenizer);
   if(eq(cexp, 0), (break) { ! 0, orig_tokenizer });
-  ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer2(l, r)
+  ! (!) { ! tail_recursion_statement, (!) { ! cexp } }, tokenizer
 };
 
 print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
   assign_type, assign = orig_assign();
-  if(eq(assign_type, assign_return) (break) {
+  if(eq(assign_type, return_statement) (break) {
     call_exps = assign();
     printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
     map_tree(reverse_tree(call_exps), (!call_exp r) {
@@ -617,7 +622,7 @@ print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
     print_call_expression(fl, fr, context, ids, gl, gr, call_exp);
     ! orig_assign
   });
-  if (eq(assign_type, assign_application), (break) {
+  if (eq(assign_type, tail_recursion_statement), (break) {
     appl = assign();
     print_function_application(fl, fr, context, is_returning, gl, gr, appl);
     ! orig_assign
@@ -644,9 +649,15 @@ get_assignment_vars = (!assign) {
   ! make_nil()
 };
 
-read_call_exp_list = (ret l r) {
+read_call_exp_list = (!l r) {
   l r tree = read_call_exp_list_help(l, r, make_nil());
-  return ret l r tree
+  ! l r tree
+};
+
+read_call_exp_list_t = (!tokenizer) {
+  l, r = tokenizer();
+  l, r, tree = read_call_exp_list(l, r);
+  ! tree, make_tokenizer2(l, r)
 };
 
 read_call_exp_list_help = (ret l r tree) {
@@ -772,14 +783,15 @@ aexp_to_range = (!aexp) {
   ! l, r
 };
 
-read_function_application = (!orig_l r) {
+read_tail_recursion_statement = (!tokenizer) {
+  orig_l, r = tokenizer();
   l = orig_l;
   l r texp = read_texp(l, r);
   if(eq(texp, 0), (break) {
-    ! orig_l, r, 0
+    ! 0, tokenizer
   });
   l r op_list = read_func_appl_args(l, r);
-  ! l, r, (!) { ! op_list, texp }
+  ! (!) { ! op_list, texp }, make_tokenizer2(l, r)
 };
 
 print_function_application = (!fl fr context is_returning, gl, gr, appl) {
@@ -828,7 +840,7 @@ main_loop = (context, l, r) {
     main_loop(context, l, r)
   });
   
-  assign, tokenizer = read_assignment(make_tokenizer2(l, r));
+  assign, tokenizer = read_statement(make_tokenizer2(l, r));
   if(eq(assign, 0) (break) {
     exit()
   });
