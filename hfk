@@ -244,11 +244,17 @@ read_token = (ret l r) {
   {if {matches "," l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   {if {matches "/" l} (break) { 
     m, r = read_until(deref_byte("\n"), l, r);
-    return ret m r 4 l m
+    return ret m r 0 l m
   }};
   l r il ir = {read_identifier l r};
   {if {ne il ir} (break) { return ret l r token_id il ir }};
   error l
+};
+
+read_token_t = (! tokenizer) {
+  l, r = tokenizer();
+  l, r, t, tl, tr = read_token(l, r);
+  ! (!) { ! t, tl, tr }, make_tokenizer2(l, r)
 };
 
 make_tokenizer = (!l, r) {
@@ -256,6 +262,20 @@ make_tokenizer = (!l, r) {
     l, r, t, tl, tr = read_token(l, r);
     ! (!) { ! t, tl, tr }, make_tokenizer(l, r)
   }
+};
+
+make_tokenizer2 = (!l, r) {
+  ! (!) { ! l, r }
+};
+
+tokenizer2_to_tokenizer = (!tokenizer) {
+  l, r = tokenizer();
+  ! make_tokenizer(l, r)
+};
+
+tokenizer_to_tokenizer2 = (!tokenizer) {
+  l, r = tokenizer_to_lr(tokenizer);
+  ! make_tokenizer2(l, r)
 };
 
 tokenizer_to_lr = (!tokenizer) {
@@ -487,7 +507,8 @@ print_aexp = (ret comb_args fname_l fname_r l r) {
 };
 
 read_cexp = (!orig_tokenizer) {
-  assign, tokenizer = read_assignment(orig_tokenizer);
+  assign, tokenizer = read_assignment(tokenizer_to_tokenizer2(orig_tokenizer));
+  tokenizer = tokenizer2_to_tokenizer(tokenizer);
   {if eq(assign, 0) (break) { ! 0, orig_tokenizer }};
   cexp, tokenizer = read_cexp(tokenizer);
   ! (!) { ! assign, cexp }, tokenizer
@@ -560,18 +581,21 @@ assign_return = 1;
 assign_application = 2;
 assign_statement = 3;
 read_assignment = (!orig_tokenizer) {
-  orig_l, r = tokenizer_to_lr(orig_tokenizer);
-  token, tokenizer = orig_tokenizer();
-  nl, nr = tokenizer_to_lr(tokenizer);
+  orig_l, r = orig_tokenizer();
+  token, tokenizer = read_token_t(orig_tokenizer);
+  nl, nr = tokenizer();
   if(token_matches("!", token), (break) {
     l r call_exps = read_call_exp_list(nl, nr);
-    ! (!) { ! assign_return, (!) { ! call_exps } }, make_tokenizer(l, r)
+    ! (!) { ! assign_return, (!) { ! call_exps } }, make_tokenizer2(l, r)
   });
-  assign, tokenizer = read_assign_val(orig_tokenizer);
-  if(ne(assign, 0), (break) { ! (!) { ! assign_statement, assign }, tokenizer });
+  assign, tokenizer = read_assign_val(tokenizer2_to_tokenizer(orig_tokenizer));
+  if(ne(assign, 0), (break) {
+    l, rr = tokenizer_to_lr(tokenizer);
+    ! (!) { ! assign_statement, assign }, make_tokenizer2(l, r)
+  });
   l, r, cexp = read_function_application(orig_l, r);
   if(eq(cexp, 0), (break) { ! 0, orig_tokenizer });
-  ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer(l, r)
+  ! (!) { ! assign_application, (!) { ! cexp } }, make_tokenizer2(l, r)
 };
 
 print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
@@ -804,8 +828,11 @@ main_loop = (context, l, r) {
     main_loop(context, l, r)
   });
   
-  assign, tokenizer = read_assignment(make_tokenizer(l, r));
-  l, rr = tokenizer_to_lr(tokenizer);
+  assign, tokenizer = read_assignment(make_tokenizer2(l, r));
+  if(eq(assign, 0) (break) {
+    exit()
+  });
+  l, r = tokenizer();
   id_func = assign_to_function(assign);
   {if {eq id_func 0} (break) {
     ids = filter_context(get_assignment_vars(assign), context);
