@@ -571,7 +571,8 @@ read_assignment_statement_help = (!orig_tokenizer) {
   orig_l, r = tokenizer_to_lr(orig_tokenizer);
   l, r, ids = read_assign_left(orig_tokenizer);
   {if eq(0, l), (break) { ! 0, orig_tokenizer }};
-  l r call_exp = read_call_expression(l, r);
+  tokenizer, call_exp = read_call_expression(make_tokenizer2(l, r));
+  l, r = tokenizer();
   l r t tl tr = read_token(l, r);
   {if {not {matches ";" tl}}, (break) { ! 0, orig_tokenizer }};
   ! (!) { ! ids, call_exp }, make_tokenizer(l, r)
@@ -587,18 +588,18 @@ read_assignment_statement = (!orig_tokenizer) {
 eat_token = (!tokenizer, targ) {
   token, new_tokenizer = read_token_t(tokenizer);
   if (token_matches(targ, token), (break) {
-    ! (a, b) { a }, new_tokenizer
+    ! new_tokenizer, (a, b) { a }
   })
-  ! (a, b) { b }, tokenizer
+  ! tokenizer, (a, b) { b }
 };
 
 return_statement = 1;
 tail_recursion_statement = 2;
 assign_statement = 3;
 parse_statement = (!tokenizer) {
-  matches, tokenizer = eat_token(tokenizer, "!");
+  tokenizer, matches = eat_token(tokenizer, "!");
   if(matches, (break) {
-    call_exps, tokenizer = read_call_exp_list_t(tokenizer);
+    tokenizer, call_exps = read_expr_list(tokenizer);
     ! (!) { ! return_statement, (!) { ! call_exps } }, tokenizer
   });
   assign, tokenizer = read_assignment_statement(tokenizer);
@@ -658,27 +659,23 @@ get_assignment_vars = (!assign) {
   ! make_nil()
 };
 
-read_call_exp_list = (!l r) {
-  l r tree = read_call_exp_list_help(l, r, make_nil());
-  ! l r tree
+read_expr_list = (!tokenizer) {
+  tokenizer, tree = read_expr_list_help(tokenizer, make_nil());
+  ! tokenizer, tree
 };
 
-read_call_exp_list_t = (!tokenizer) {
-  l, r = tokenizer();
-  l, r, tree = read_call_exp_list(l, r);
-  ! tree, make_tokenizer2(l, r)
-};
-
-read_call_exp_list_help = (ret l r tree) {
-  nl nr t tl tr = read_token(l, r);
-  {if {matches "," tl} (break) {
-    read_call_exp_list_help ret nl nr tree
-  }};
-  l r call_exp = read_call_expression(l, r);
-  {if {eq call_exp 0} (break) { return ret l r tree }};
+read_expr_list_help = (!tokenizer, tree) {
+  tokenizer, matches = eat_token(tokenizer, ",");
+  if(matches (break) {
+    tokenizer, tree = read_expr_list_help(tokenizer, tree);
+    ! tokenizer, tree
+  });
+  tokenizer, call_exp = read_call_expression(tokenizer);
+  if(eq(call_exp, 0), (break) { ! tokenizer, tree });
   leaf = make_leaf(call_exp, 0);
   tree = make_internal(tree, leaf);
-  read_call_exp_list_help ret l r tree
+  tokenizer, tree = read_expr_list_help(tokenizer, tree);
+  ! tokenizer, tree
 };
 
 read_texp_list = (ret l r) {
@@ -712,7 +709,8 @@ read_call_expression_args = (ret orig_l r) {
   l = orig_l;
   nl nr t tl tr = read_token(l, r);
   {if not(matches("(", tl)) (break) { return(ret, orig_l, r, 0) }};
-  l r op_list = read_call_exp_list(nl, nr);
+  tokenizer, op_list = read_expr_list(make_tokenizer2(nl, nr));
+  l, r = tokenizer();
   l r t tl tr = read_token(l, r);
   {if not(matches(")", tl)) (break2) { return(ret, orig_l, r, 0) }};
   nl nr t tl tr = read_token(l, r);
@@ -720,7 +718,13 @@ read_call_expression_args = (ret orig_l r) {
   return ret l r op_list
 };
 
-read_call_expression = (ret orig_l r) {
+read_call_expression = (!tokenizer) {
+  l, r = tokenizer();
+  l, r, cexp = read_call_expression_help(l, r);
+  ! make_tokenizer2(l, r), cexp
+};
+
+read_call_expression_help = (ret orig_l r) {
   l = orig_l;
   l r texp = read_texp(l, r);
   {if {eq texp 0} (break) {
@@ -780,7 +784,8 @@ call_expression_to_function = (ret call_exp) {
 read_func_appl_args = (ret l r) {
   nl nr op_list = read_call_expression_args(l, r);
   {if {ne op_list 0} (break) { return(ret, nl, nr, op_list) }};
-  l r op_list = read_call_exp_list(l, r);
+  tokenizer, op_list = read_expr_list(make_tokenizer2(l, r));
+  l, r = tokenizer();
   return(ret, l, r, op_list)
 };
 
