@@ -507,7 +507,7 @@ print_aexp = (ret comb_args fname_l fname_r l r) {
 };
 
 read_cexp = (!orig_tokenizer) {
-  assign, tokenizer = read_statement(tokenizer_to_tokenizer2(orig_tokenizer));
+  assign, tokenizer = parse_statement(tokenizer_to_tokenizer2(orig_tokenizer));
   tokenizer = tokenizer2_to_tokenizer(tokenizer);
   {if eq(assign, 0) (break) { ! 0, orig_tokenizer }};
   cexp, tokenizer = read_cexp(tokenizer);
@@ -584,23 +584,32 @@ read_assignment_statement = (!orig_tokenizer) {
   ! assign_val, make_tokenizer2(l, r)
 };
 
+eat_token = (!tokenizer, targ) {
+  token, new_tokenizer = read_token_t(tokenizer);
+  if (token_matches(targ, token), (break) {
+    ! (a, b) { a }, new_tokenizer
+  })
+  ! (a, b) { b }, tokenizer
+};
+
 return_statement = 1;
 tail_recursion_statement = 2;
 assign_statement = 3;
-read_statement = (!orig_tokenizer) {
-  orig_l, r = orig_tokenizer();
-  token, tokenizer = read_token_t(orig_tokenizer);
-  if(token_matches("!", token), (break) {
+parse_statement = (!tokenizer) {
+  matches, tokenizer = eat_token(tokenizer, "!");
+  if(matches, (break) {
     call_exps, tokenizer = read_call_exp_list_t(tokenizer);
     ! (!) { ! return_statement, (!) { ! call_exps } }, tokenizer
   });
-  assign, tokenizer = read_assignment_statement(orig_tokenizer);
+  assign, tokenizer = read_assignment_statement(tokenizer);
   if(ne(assign, 0), (break) {
     ! (!) { ! assign_statement, assign }, tokenizer
   });
   cexp, tokenizer = read_tail_recursion_statement(tokenizer);
-  if(ne(cexp, 0), (break) { ! (!) { ! tail_recursion_statement, (!) { ! cexp } }, tokenizer });
-  ! 0, orig_tokenizer
+  if(ne(cexp, 0), (break) {
+    ! (!) { ! tail_recursion_statement, (!) { ! cexp } }, tokenizer
+  });
+  ! 0, tokenizer
 };
 
 print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
@@ -840,7 +849,7 @@ main_loop = (context, l, r) {
     main_loop(context, l, r)
   });
   
-  assign, tokenizer = read_statement(make_tokenizer2(l, r));
+  assign, tokenizer = parse_statement(make_tokenizer2(l, r));
   if(eq(assign, 0) (break) {
     exit()
   });
