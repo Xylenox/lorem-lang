@@ -599,8 +599,8 @@ read_statement = (!orig_tokenizer) {
     ! (!) { ! assign_statement, assign }, tokenizer
   });
   cexp, tokenizer = read_tail_recursion_statement(tokenizer);
-  if(eq(cexp, 0), (break) { ! 0, orig_tokenizer });
-  ! (!) { ! tail_recursion_statement, (!) { ! cexp } }, tokenizer
+  if(ne(cexp, 0), (break) { ! (!) { ! tail_recursion_statement, (!) { ! cexp } }, tokenizer });
+  ! 0, orig_tokenizer
 };
 
 print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
