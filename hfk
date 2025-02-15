@@ -831,40 +831,50 @@ print_function_application = (!fl fr context is_returning, gl, gr, appl) {
 
 main_start = (ret, lo, hi) {
   printf("_start:\n");
-  main_loop(make_nil(), lo, hi)
+  res = read_program(make_nil(), lo, hi);
+  print_program(res, make_nil());
+  exit()
 };
 
-main_loop = (context, l, r) {
-  if(eq(l, r) (break) { exit() });
+read_program = (! context, l, r) {
+  if(eq(l, r) (break) { ! (!) { ! 0, 0, 0 } });
   c = deref_byte(l);
 
   if(eq(c,10) (break) {
     mid = add(l, 1);
     print_range(l, mid);
-    main_loop(context, mid, r)
+    ! read_program(context, mid, r)
   });
   if(eq(c,32) (break) {
     mid = add(l, 1);
     print_range(l, mid);
-    main_loop(context, mid, r)
+    ! read_program(context, mid, r)
   });
 
   if(eq(c,47) (break) {
     l, r = read_until(deref_byte("\n"), l, r);
-    main_loop(context, l, r)
+    ! read_program(context, l, r)
   });
   
   assign, tokenizer = parse_statement(make_tokenizer2(l, r));
   if(eq(assign, 0) (break) {
-    exit()
+    ! (!) { ! 0, 0, 0 }
   });
   l, r = tokenizer();
+  tmp = read_program(context, l, r);
+  ! (!) { ! 1, assign, tmp }
+};
+
+print_program = (!assigns, context) {
+  has, assign, rem_assigns = assigns();
+  if (eq(has, 0), (break) { ! 0 });
+
   id_func = assign_to_function(assign);
   {if {eq id_func 0} (break) {
     ids = filter_context(get_assignment_vars(assign), context);
     map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
     print_assignment(0, 0, make_nil(), (a, b) { a }, 0, 0, assign);
-    main_loop(make_internal(context, ids), l, r)
+    ! print_program(rem_assigns, make_internal(context, ids))
   }};
   {if {ne id_func 0} (break) {
     ids func = id_func();
@@ -880,7 +890,7 @@ main_loop = (context, l, r) {
       (a, b) { break() }
     )
   }};
-  main_loop(context, l, r)
+  ! print_program(rem_assigns, context)
 };
 
 inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
