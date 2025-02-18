@@ -215,23 +215,28 @@ token_matches = (!pattern, token) {
   ! matches_strict(pattern, l, r)
 };
 
-read_const_string = (ret orig_l r) {
+read_const_string = (!tokenizer) {
+  orig_l, r = tokenizer();
   l r = {read_whitespace orig_l r};
   lb = {deref_byte l};
-  {if {ne lb 34} (break) { return ret orig_l r 0 }};
+  {if {ne lb 34} (break) { ! tokenizer, 0 }};
   l_start = add(l, 1);
   l_end r = read_until(34, l_start, r);
   l = add(l_end, 1);
-  return ret l r (!) { ! l_start l_end }
+  ! make_tokenizer(l, r), (!) { ! l_start l_end }
 };
 token_id = 1;
 token_string = 3;
 / 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 / returns l r type il ir
+token_eof = 6;
 read_token = (ret l r) {
   l r = read_whitespace(l, r);
+  if (eq(l, r) (break) { return ret l, l, token_eof, l, l });
   {if {eq 34 {deref_byte l}} (break) {
-    return ret {add l 1} r 0 l {add l 1}
+    l_start = add(l, 1);
+    l_end r = read_until(34, l_start, r);
+    return ret l r token_string l {add l 1}
   }};
   {if {matches "!" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
   {if {matches "(" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
@@ -254,34 +259,11 @@ read_token = (ret l r) {
 read_token_t = (! tokenizer) {
   l, r = tokenizer();
   l, r, t, tl, tr = read_token(l, r);
-  ! (!) { ! t, tl, tr }, make_tokenizer2(l, r)
+  ! make_tokenizer(l, r), (!) { ! t, tl, tr }
 };
 
 make_tokenizer = (!l, r) {
-  ! (!) {
-    l, r, t, tl, tr = read_token(l, r);
-    ! (!) { ! t, tl, tr }, make_tokenizer(l, r)
-  }
-};
-
-make_tokenizer2 = (!l, r) {
   ! (!) { ! l, r }
-};
-
-tokenizer2_to_tokenizer = (!tokenizer) {
-  l, r = tokenizer();
-  ! make_tokenizer(l, r)
-};
-
-tokenizer_to_tokenizer2 = (!tokenizer) {
-  l, r = tokenizer_to_lr(tokenizer);
-  ! make_tokenizer2(l, r)
-};
-
-tokenizer_to_lr = (!tokenizer) {
-  token, tokenizer = tokenizer();
-  t, l, r = token();
-  ! l, add(l, 100000)
 };
 
 token_type = (!token) {
@@ -289,42 +271,42 @@ token_type = (!token) {
   ! t
 };
 
-read_is_returning = (!orig_tokenizer) {
-  token, tokenizer = orig_tokenizer();
+parse_is_returning = (!orig_tokenizer) {
+  tokenizer, token = read_token_t(orig_tokenizer);
   if(token_matches("!", token), (break) {
-    ! (a b) { a }, tokenizer
+    ! tokenizer, (a b) { a }
   });
-  ! (a b) { b }, orig_tokenizer
+  ! orig_tokenizer, (a b) { b }
 };
 
-read_id_list = (!old_tokenizer) {
-  token, tokenizer = old_tokenizer();
+parse_id_list = (!old_tokenizer) {
+  tokenizer, token = read_token_t(old_tokenizer);
   if (eq(token_type(token), 1) (break) {
     t, tl, tr = token();
-    tree, tokenizer = read_id_list(tokenizer);
-    ! make_internal(make_leaf(tl, tr), tree), tokenizer
+    tokenizer, tree = parse_id_list(tokenizer);
+    ! tokenizer, make_internal(make_leaf(tl, tr), tree)
   });
   if (token_matches(",", token) (break) {
-    tree, tokenizer = read_id_list(tokenizer);
-    ! tree, tokenizer
+    tokenizer, tree = parse_id_list(tokenizer);
+    ! tokenizer, tree
   });
-  ! make_nil(), old_tokenizer
+  ! old_tokenizer, make_nil()
 };
 
-read_function = (!orig_tokenizer) {
-  token, tokenizer = orig_tokenizer();
-  if (not(token_matches("(", token)), (break) { ! 0, orig_tokenizer });
-  is_returning, tokenizer = read_is_returning(tokenizer);
-  fname_l, fname_r = gen_label(); 
-  new_args, tokenizer = read_id_list(tokenizer); 
-  token, tokenizer = tokenizer();
-  if (not(token_matches(")", token)), (break) { ! 0, orig_tokenizer });
-  token, tokenizer = tokenizer();
-  if (not(token_matches("{", token)), (break) { ! 0, orig_tokenizer });
-  cexp, tokenizer = read_cexp(tokenizer);
-  token, tokenizer = tokenizer();
-  {if {not token_matches("}", token)} (break) { ! 0, orig_tokenizer }};
-  ! (!) { ! fname_l fname_r new_args is_returning cexp }, tokenizer
+parse_function = (!orig_tokenizer) {
+  tokenizer, mt = eat_token(orig_tokenizer, "(");
+  if (not(mt), (break) { ! tokenizer, 0 });
+  tokenizer, is_returning = parse_is_returning(tokenizer);
+  fname_l, fname_r = gen_label();
+  tokenizer, new_args = parse_id_list(tokenizer); 
+  tokenizer, mt = eat_token(tokenizer, ")");
+  if (not(mt), (break) { ! orig_tokenizer, 0 });
+  tokenizer, mt = eat_token(tokenizer, "{");
+  if (not(mt), (break) { ! orig_tokenizer, 0 });
+  tokenizer, cexp = parse_cexp(tokenizer);
+  tokenizer, mt = eat_token(tokenizer, "}");
+  if (not(mt), (break) { ! orig_tokenizer, 0 });
+  ! tokenizer, (!) { ! fname_l fname_r new_args is_returning cexp }
 };
 
 print_function = (ret old_context, gl, gr, func) {
@@ -371,33 +353,31 @@ texp_block = 1;
 texp_func = 2;
 texp_aexp = 3;
 / returns l r texp
-read_texp = (!orig_l r) {
-  l = orig_l;
-  return_string =     (l r t) { ! l, r, (!) { ! texp_string, (x aexp block func) { x t } } };
-  return_block =      (l r b) { ! l, r, (!) { ! texp_block, (x aexp block func) { block b } } };
-  return_func =       (l r f) { ! l, r, (!) { ! texp_func, (x aexp block func) { func f } } };
-  return_aexp =       (l r a) { ! l, r, (!) { ! texp_aexp, (x aexp block func) { aexp a } } };
-  nl, nr, t, tl, tr = read_token(l, r);
-  {if {eq t 1} (break) { return_aexp(nl, nr, (!) { ! tl tr }) }};
+parse_texp = (!orig_tokenizer) {
+  l r = orig_tokenizer();
+  return_string =     (tokenizer, t) { ! tokenizer, (!) { ! texp_string, (x aexp block func) { x t } } };
+  return_block =      (tokenizer, b) { ! tokenizer, (!) { ! texp_block, (x aexp block func) { block b } } };
+  return_func =       (tokenizer, f) { ! tokenizer, (!) { ! texp_func, (x aexp block func) { func f } } };
+  return_aexp =       (tokenizer, a) { ! tokenizer, (!) { ! texp_aexp, (x aexp block func) { aexp a } } };
+  tokenizer, tk = read_token_t(orig_tokenizer);
+  t, tl, tr = tk();
+  {if {eq t token_id} (break) { return_aexp(tokenizer, (!) { ! tl tr }) }};
   {if matches("{", tl) (break) {
-    cexp, tokenizer = read_cexp(make_tokenizer(nl, nr));
-    l, r = tokenizer_to_lr(tokenizer);
-    l, r, t, tl, tr = read_token(l, r);
-    {if not(matches("}", tl)) (break2) { break }};
-    return_block(l, r, (!) { ! cexp })
+    tokenizer, cexp = parse_cexp(tokenizer);
+    tokenizer, mt = eat_token(tokenizer, "}");
+    {if not(mt) (break2) { break }};
+    return_block(tokenizer, (!) { ! cexp })
   }};
-  tokenizer = make_tokenizer(l, r);
-  func, tokenizer = read_function(tokenizer);
+  tokenizer, func = parse_function(orig_tokenizer);
   if(ne(func, 0), (break) {
-    token, tmp_tokenizer = tokenizer();
-    t, tl, tr = token();
-    return_func(tl, r, (!) { ! func })
+    tl, tr = tokenizer();
+    return_func(tokenizer, (!) { ! func })
   });
-  lo, hi, string = read_const_string(l, r);
+  tokenizer, string = read_const_string(tokenizer);
   {if {ne string 0} (break) {
-    return_string(lo, hi, string)
+    return_string(tokenizer, string)
   }};
-  ! orig_l, r, 0
+  ! orig_tokenizer, 0
 };
 
 print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
@@ -506,12 +486,11 @@ print_aexp = (ret comb_args fname_l fname_r l r) {
   return ret 0
 };
 
-read_cexp = (!orig_tokenizer) {
-  assign, tokenizer = parse_statement(tokenizer_to_tokenizer2(orig_tokenizer));
-  tokenizer = tokenizer2_to_tokenizer(tokenizer);
-  {if eq(assign, 0) (break) { ! 0, orig_tokenizer }};
-  cexp, tokenizer = read_cexp(tokenizer);
-  ! (!) { ! assign, cexp }, tokenizer
+parse_cexp = (!orig_tokenizer) {
+  tokenizer, assign = parse_statement(orig_tokenizer);
+  {if eq(assign, 0) (break) { ! orig_tokenizer, 0 }};
+  tokenizer, cexp = parse_cexp(tokenizer);
+  ! tokenizer, (!) { ! assign, cexp }
 };
 
 filter_context = (ret old_context ids) {
@@ -545,48 +524,27 @@ get_cexp_vars = (ret cexp) {
   return ret {make_internal ids ids2}
 };
 
-read_eq_if = (ret need l r) {
-  {if need (break) {
-    l, r, t, tl, tr = {read_token l r};
-    {if {not {matches "=" tl}} (break) { return 0 0 }};
-    return ret l r
-  }};
-  return ret l r
-};
-
-read_assign_left = (!orig_tokenizer) {
-  orig_l, r = tokenizer_to_lr(orig_tokenizer);
-  l = orig_l;
-  ids, tokenizer = read_id_list(orig_tokenizer);
-  l, r = tokenizer_to_lr(tokenizer);
-  nl, nr, t, tl, tr = read_token(l, r);
-  if(not(matches("=", tl)), (break) {
-    il ir = gen_label();
-    ! orig_l, r, make_leaf(il, ir)
-  });
-  ! nl, nr, ids
-};
-
-read_assignment_statement_help = (!orig_tokenizer) {
-  orig_l, r = tokenizer_to_lr(orig_tokenizer);
-  l, r, ids = read_assign_left(orig_tokenizer);
-  {if eq(0, l), (break) { ! 0, orig_tokenizer }};
-  tokenizer, call_exp = read_call_expression(make_tokenizer2(l, r));
-  l, r = tokenizer();
-  l r t tl tr = read_token(l, r);
-  {if {not {matches ";" tl}}, (break) { ! 0, orig_tokenizer }};
-  ! (!) { ! ids, call_exp }, make_tokenizer(l, r)
-};
-
-read_assignment_statement = (!orig_tokenizer) {
+parse_assign_left = (!orig_tokenizer) {
   l, r = orig_tokenizer();
-  assign_val, tokenizer = read_assignment_statement_help(tokenizer2_to_tokenizer(orig_tokenizer));
-  l, rr = tokenizer_to_lr(tokenizer);
-  ! assign_val, make_tokenizer2(l, r)
+  tokenizer, ids = parse_id_list(orig_tokenizer);
+  tokenizer, mt = eat_token(tokenizer, "=");
+  if(not(mt), (break) {
+    il ir = gen_label();
+    ! orig_tokenizer, make_leaf(il, ir)
+  });
+  ! tokenizer, ids
+};
+
+parse_assignment_statement = (!orig_tokenizer) {
+  tokenizer, ids = parse_assign_left(orig_tokenizer);
+  tokenizer, call_exp = parse_call_expression(tokenizer);
+  tokenizer, mt = eat_token(tokenizer, ";");
+  if(not(mt) (break) { ! orig_tokenizer, 0 });
+  ! tokenizer, (!) { ! ids, call_exp }
 };
 
 eat_token = (!tokenizer, targ) {
-  token, new_tokenizer = read_token_t(tokenizer);
+  new_tokenizer, token = read_token_t(tokenizer);
   if (token_matches(targ, token), (break) {
     ! new_tokenizer, (a, b) { a }
   })
@@ -599,18 +557,18 @@ assign_statement = 3;
 parse_statement = (!tokenizer) {
   tokenizer, matches = eat_token(tokenizer, "!");
   if(matches, (break) {
-    tokenizer, call_exps = read_expr_list(tokenizer);
-    ! (!) { ! return_statement, (!) { ! call_exps } }, tokenizer
+    tokenizer, call_exps = parse_expr_list(tokenizer);
+    ! tokenizer, (!) { ! return_statement, (!) { ! call_exps } }
   });
-  assign, tokenizer = read_assignment_statement(tokenizer);
+  tokenizer, assign = parse_assignment_statement(tokenizer);
   if(ne(assign, 0), (break) {
-    ! (!) { ! assign_statement, assign }, tokenizer
+    ! tokenizer, (!) { ! assign_statement, assign }
   });
-  cexp, tokenizer = read_tail_recursion_statement(tokenizer);
+  tokenizer, cexp = parse_tail_recursion_statement(tokenizer);
   if(ne(cexp, 0), (break) {
-    ! (!) { ! tail_recursion_statement, (!) { ! cexp } }, tokenizer
+    ! tokenizer, (!) { ! tail_recursion_statement, (!) { ! cexp } }
   });
-  ! 0, tokenizer
+  ! tokenizer, 0
 };
 
 print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
@@ -659,40 +617,23 @@ get_assignment_vars = (!assign) {
   ! make_nil()
 };
 
-read_expr_list = (!tokenizer) {
-  tokenizer, tree = read_expr_list_help(tokenizer, make_nil());
+parse_expr_list = (!tokenizer) {
+  tokenizer, tree = parse_expr_list_help(tokenizer, make_nil());
   ! tokenizer, tree
 };
 
-read_expr_list_help = (!tokenizer, tree) {
+parse_expr_list_help = (!tokenizer, tree) {
   tokenizer, matches = eat_token(tokenizer, ",");
   if(matches (break) {
-    tokenizer, tree = read_expr_list_help(tokenizer, tree);
+    tokenizer, tree = parse_expr_list_help(tokenizer, tree);
     ! tokenizer, tree
   });
-  tokenizer, call_exp = read_call_expression(tokenizer);
+  tokenizer, call_exp = parse_call_expression(tokenizer);
   if(eq(call_exp, 0), (break) { ! tokenizer, tree });
   leaf = make_leaf(call_exp, 0);
   tree = make_internal(tree, leaf);
-  tokenizer, tree = read_expr_list_help(tokenizer, tree);
+  tokenizer, tree = parse_expr_list_help(tokenizer, tree);
   ! tokenizer, tree
-};
-
-read_texp_list = (ret l r) {
-  l r tree = read_texp_list_help(l, r, make_nil());
-  return ret l r tree
-};
-
-read_texp_list_help = (ret l r tree) {
-  nl nr t tl tr = read_token(l, r);
-  {if {matches "," tl} (break) {
-    read_texp_list_help ret nl nr tree
-  }};
-  l r texp = read_texp(l, r);
-  {if {eq texp 0} (break) { return ret l r tree }};
-  leaf = make_leaf(texp, 0);
-  tree = make_internal(tree, leaf);
-  read_texp_list_help ret l r tree
 };
 
 print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
@@ -705,34 +646,23 @@ print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
   return ret 0
 };
 
-read_call_expression_args = (ret orig_l r) {
-  l = orig_l;
-  nl nr t tl tr = read_token(l, r);
-  {if not(matches("(", tl)) (break) { return(ret, orig_l, r, 0) }};
-  tokenizer, op_list = read_expr_list(make_tokenizer2(nl, nr));
-  l, r = tokenizer();
-  l r t tl tr = read_token(l, r);
-  {if not(matches(")", tl)) (break2) { return(ret, orig_l, r, 0) }};
-  nl nr t tl tr = read_token(l, r);
-  {if {matches "{" tl} (break2) { return(ret, orig_l, r, 0)  }};
-  return ret l r op_list
+parse_call_expression_args = (!orig_tokenizer) {
+  tokenizer, mt = eat_token(orig_tokenizer, "(");
+  {if not(mt) (break) { ! tokenizer, 0 }};
+  tokenizer, op_list = parse_expr_list(tokenizer);
+  tokenizer, mt = eat_token(tokenizer, ")");
+  {if not(mt) (break2) { ! orig_tokenizer, 0 }};
+  tmp_tokenizer, mt = eat_token(tokenizer, "{");
+  {if mt (break2) { ! orig_tokenizer, 0  }};
+  ! tokenizer, op_list
 };
 
-read_call_expression = (!tokenizer) {
-  l, r = tokenizer();
-  l, r, cexp = read_call_expression_help(l, r);
-  ! make_tokenizer2(l, r), cexp
-};
-
-read_call_expression_help = (ret orig_l r) {
-  l = orig_l;
-  l r texp = read_texp(l, r);
-  {if {eq texp 0} (break) {
-    return ret orig_l r 0
-  }};
-  l r op_list = read_call_expression_args(l, r);
-  {if {eq op_list 0} (break) { return(ret, l, r, (t1, t2) { t1(texp) }) }};
-  return ret l r (t1, t2) { t2(texp, op_list) }
+parse_call_expression = (!tokenizer) {
+  tokenizer, texp = parse_texp(tokenizer);
+  {if eq(texp, 0) (break) { ! tokenizer, 0 }};
+  tokenizer, op_list = parse_call_expression_args(tokenizer);
+  {if eq(op_list, 0) (break) { ! tokenizer, (t1, t2) { t1(texp) } }};
+  ! tokenizer, (t1, t2) { t2(texp, op_list) }
 };
 
 print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
@@ -781,12 +711,11 @@ call_expression_to_function = (ret call_exp) {
   )
 };
 
-read_func_appl_args = (ret l r) {
-  nl nr op_list = read_call_expression_args(l, r);
-  {if {ne op_list 0} (break) { return(ret, nl, nr, op_list) }};
-  tokenizer, op_list = read_expr_list(make_tokenizer2(l, r));
-  l, r = tokenizer();
-  return(ret, l, r, op_list)
+parse_func_appl_args = (!tokenizer) {
+  tokenizer, op_list = parse_call_expression_args(tokenizer);
+  {if ne(op_list, 0) (break) { ! tokenizer, op_list }};
+  tokenizer, op_list = parse_expr_list(tokenizer);
+  ! tokenizer, op_list
 };
 
 aexp_to_range = (!aexp) {
@@ -797,15 +726,11 @@ aexp_to_range = (!aexp) {
   ! l, r
 };
 
-read_tail_recursion_statement = (!tokenizer) {
-  orig_l, r = tokenizer();
-  l = orig_l;
-  l r texp = read_texp(l, r);
-  if(eq(texp, 0), (break) {
-    ! 0, tokenizer
-  });
-  l r op_list = read_func_appl_args(l, r);
-  ! (!) { ! op_list, texp }, make_tokenizer2(l, r)
+parse_tail_recursion_statement = (!tokenizer) {
+  tokenizer, texp = parse_texp(tokenizer);
+  if(eq(texp, 0), (break) { ! tokenizer, 0 });
+  tokenizer, op_list = parse_func_appl_args(tokenizer);
+  ! tokenizer, (!) { ! op_list, texp }
 };
 
 print_function_application = (!fl fr context is_returning, gl, gr, appl) {
@@ -829,39 +754,32 @@ print_function_application = (!fl fr context is_returning, gl, gr, appl) {
   });
 };
 
-main_start = (ret, lo, hi) {
-  printf("_start:\n");
-  res = read_program(make_nil(), lo, hi);
-  print_program(res, make_nil());
-  exit()
-};
-
-read_program = (! context, l, r) {
+parse_program = (!tokenizer) {
+  l, r = tokenizer();
   if(eq(l, r) (break) { ! (!) { ! 0, 0, 0 } });
   c = deref_byte(l);
 
   if(eq(c,10) (break) {
     mid = add(l, 1);
     print_range(l, mid);
-    ! read_program(context, mid, r)
+    ! parse_program(make_tokenizer(mid, r))
   });
   if(eq(c,32) (break) {
     mid = add(l, 1);
     print_range(l, mid);
-    ! read_program(context, mid, r)
+    ! parse_program(make_tokenizer(mid, r))
   });
 
   if(eq(c,47) (break) {
     l, r = read_until(deref_byte("\n"), l, r);
-    ! read_program(context, l, r)
+    ! parse_program(make_tokenizer(l, r))
   });
   
-  assign, tokenizer = parse_statement(make_tokenizer2(l, r));
+  tokenizer, assign = parse_statement(make_tokenizer(l, r));
   if(eq(assign, 0) (break) {
     ! (!) { ! 0, 0, 0 }
   });
-  l, r = tokenizer();
-  tmp = read_program(context, l, r);
+  tmp = parse_program(tokenizer);
   ! (!) { ! 1, assign, tmp }
 };
 
@@ -920,7 +838,9 @@ printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rd
 printf("is_alpha:\npop rax\npop rdi\npush rax\ncmp rdi, 97      ; a\njl nalp\ncmp rdi, 122     ; z\njg nalp\nyalp:\nmov rax, 1\nret\nnalp:\nmov rax, 0\nret\n");
 printf("buff_curr: dq 0\nprint_char:\nmov rax, [buffer]\nmov rdx, [buff_curr]\nmov rcx, [rsp+8]\nmov [rax+rdx], rcx\nadd rdx, 1\nmov [buff_curr], rdx\ncmp rdx, 4096\njne print_char_done\ncall flush_buffer\nprint_char_done:\npop rax\nmov [rsp], rax\nret\nflush_buffer:\nmov rdx, [buff_curr]\nmov rsi, [buffer]\nmov rdi, [outf]\nmov rax, 1\nsyscall\nmov qword [buff_curr], 0\nret\n");
 printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b\n  pop rax\n  pop rcx\n  pop rdi\n  pop rsi\n  cmp rax, rcx\n  jne compare_fail\n  push rdi\n  jmp runtime_call\n  compare_fail:\n    push rsi\n    jmp runtime_call\nexit:\n  call flush_buffer\n  mov rax, 60\n  mov rdi, 0\n  syscall\nerror:\n  mov qword [outf], 2\n  jmp error_help\nruntime_call:\n  ; first input is closure containing | number of operands including function, function, environment |\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_loop\n  \n  pop rax\n  jmp rax\nruntime_call_ret:\n  ; first input is closure containing | number of operands including function, function, environment |\n  pop rbp\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_ret_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_ret_loop\n  \n  pop rax\n  push rbp\n  jmp rax\npage_pointer:\ndq 0\nmemory_left:\ndq 0\nmalloc:\n  push rcx\n  push rdx\n  push rsi\n  push rdi\n  push r8\n  push r9\n  push r10\n  push r11\n  cmp [memory_left], rdi\n  jl new_page\n  jmp malloc_ret\n  \n  new_page:\n  push rdi\n  mov rsi, 4096\n  mov rdi, 0               ; adress\n  mov rdx, 3               ; PROT_READ | PROT_WRITE\n  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS\n  mov r8, -1              ; file descriptor empty, anonymous\n  mov r9, 0               ; offset\n  mov rax, 9               ; mmap\n  syscall\n  pop rdi\n  mov [page_pointer], rax\n  mov qword [memory_left], 4096\n  malloc_ret:\n  mov rax, [page_pointer]\n  add [page_pointer], rdi\n  sub [memory_left], rdi\n  pop r11\n  pop r10\n  pop r9\n  pop r8\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  ret\nmalloc_func:\n  pop rax\n  pop rdi\n  push rax\n  jmp malloc\nscmp:\n  cmp rdi, rsi\n  je end_of_string\n  cmp rdx, rcx\n  je end_of_string\n  sub rax, rax\n  mov al, [rdi]\n  push rbx\n  sub rbx, rbx\n  mov bl, [rdx]\n  sub rax, rbx\n  pop rbx\n  add rdi, 1\n  add rdx, 1\n  cmp rax, 0\n  je scmp\n  jl less\n  mov rax, 1\n  ret\n  less:\n  mov rax, -1\n  ret\n  end_of_string:\n  mov rax, 0\n  cmp rdi, rsi\n  jne not_first_shorter\n  add rax, -1\n  not_first_shorter:\n  cmp rdx, rcx\n  jne not_second_shorter\n  add rax, 1\n  not_second_shorter:\n  ret\ncur_label:\n  dq 1\ngen_label:\n  mov rdi, 8\n  call malloc\n  mov rdx, rax\n  mov rcx, [cur_label]\n  add qword [cur_label], 1\n  mov qword [rdx], 102\n  add rdx, 1\n  gen_label_loop:\n  mov rbx, rcx\n  and rbx, 7\n  add rbx, 48\n  mov [rdx], bl\n  add rdx, 1\n  shr rcx, 3\n  cmp rcx, 0\n  jne gen_label_loop\n  pop rcx\n  push rdx\n  jmp rcx\nstr_cmp_func:\n  pop rax\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  push rax\n  call scmp\n  ret\n");
+printf("_start:\n");
 
-res = main_start(input, flen);
-
-/ eof
+tokenizer = make_tokenizer(input, flen);
+res = parse_program(tokenizer);
+print_program(res, make_nil());
+exit();
