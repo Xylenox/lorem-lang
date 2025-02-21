@@ -524,7 +524,7 @@ parse_assign_left = (!orig_tokenizer) {
 
 parse_assignment_statement = (!orig_tokenizer) {
   tokenizer, ids = parse_assign_left(orig_tokenizer);
-  tokenizer, call_exp = parse_call_expression(tokenizer);
+  tokenizer, call_exp = parse_expr(tokenizer);
   tokenizer, mt = eat_token(tokenizer, ";");
   if(not(mt) (break) { ! orig_tokenizer, 0 });
   ! tokenizer, (!) { ! ids, call_exp }
@@ -566,7 +566,7 @@ print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
     map_tree(reverse_tree(call_exps), (!call_exp r) {
       il, ir = gen_label();
       printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
-      print_call_expression(fl, fr, context, make_leaf(il, ir), gl, gr, call_exp);
+      print_expr(fl, fr, context, make_leaf(il, ir), gl, gr, call_exp);
       printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
     });
     printf("pop rcx\npop rax\njmp rcx\n");
@@ -574,7 +574,7 @@ print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
   });
   if (eq(assign_type, assign_statement), (break) {
     ids, call_exp = assign();
-    print_call_expression(fl, fr, context, ids, gl, gr, call_exp);
+    print_expr(fl, fr, context, ids, gl, gr, call_exp);
     ! orig_assign
   });
   if (eq(assign_type, tail_recursion_statement), (break) {
@@ -588,7 +588,7 @@ assign_to_function = (!assign) {
   assign_type, assign = assign();
   if (eq(assign_type, assign_statement), (break) {
     ids, call_exp = assign();
-    func = call_expression_to_function(call_exp);
+    func = expr_to_function(call_exp);
     {if {eq func 0} (break) { ! 0 }};
     ! (!) { ! ids, func }
   });
@@ -615,7 +615,7 @@ parse_expr_list_help = (!tokenizer, tree) {
     tokenizer, tree = parse_expr_list_help(tokenizer, tree);
     ! tokenizer, tree
   });
-  tokenizer, call_exp = parse_call_expression(tokenizer);
+  tokenizer, call_exp = parse_expr(tokenizer);
   if(eq(call_exp, 0), (break) { ! tokenizer, tree });
   leaf = make_leaf(call_exp, 0);
   tree = make_internal(tree, leaf);
@@ -627,13 +627,13 @@ print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
   map_tree(reverse_tree(op_list), (!call_exp r) {
     il, ir = gen_label();
     printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
-    print_call_expression(fl, fr, old_context, make_leaf(il, ir), gl, gr, call_exp);
+    print_expr(fl, fr, old_context, make_leaf(il, ir), gl, gr, call_exp);
     printf("push qword [{}{}]\n", fl, fr, il, ir);
   });
   return ret 0
 };
 
-parse_call_expression_args = (!orig_tokenizer) {
+parse_expr_args = (!orig_tokenizer) {
   tokenizer, mt = eat_token(orig_tokenizer, "(");
   {if not(mt) (break) { ! tokenizer, 0 }};
   tokenizer, op_list = parse_expr_list(tokenizer);
@@ -644,22 +644,26 @@ parse_call_expression_args = (!orig_tokenizer) {
   ! tokenizer, op_list
 };
 
-parse_call_expression = (!tokenizer) {
+expr_call = 0;
+expr_texp = 1;
+parse_expr = (!tokenizer) {
   tokenizer, texp = parse_texp(tokenizer);
   {if eq(texp, 0) (break) { ! tokenizer, 0 }};
-  tokenizer, op_list = parse_call_expression_args(tokenizer);
-  {if eq(op_list, 0) (break) { ! tokenizer, (t1, t2) { t1(texp) } }};
-  ! tokenizer, (t1, t2) { t2(texp, op_list) }
+  tokenizer, op_list = parse_expr_args(tokenizer);
+  {if eq(op_list, 0) (break) { ! tokenizer, (!) { ! expr_texp, (!) { ! texp } } } };
+  ! tokenizer, (!) { ! expr_call, (!) { ! texp, op_list } }
 };
 
-print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
-  {if eq(call_exp, 0) (break) { return ret 0 }};
-  call_exp
-  (texp) {
+print_expr = (!fl fr old_context ids, gl, gr, expr) {
+  {if eq(expr, 0) (break) { ! 0 }};
+  expr_type, expr = expr();
+  if (eq(expr_type, expr_texp) (break) {
+    texp = expr();
     print_texp(fl, fr, old_context, ids, gl, gr, texp);
-    return ret 0
-  }
-  (texp, op_list) {
+    ! 0
+  });
+  if (eq(expr_type, expr_call), (break) {
+    texp, op_list = expr();
     context = map_tree(old_context, (!l r) {
       {if search_tree(ids, l, r) (break) { ! make_nil() }};
       ! make_leaf(l, r)
@@ -682,24 +686,21 @@ print_call_expression = (ret fl fr old_context ids, gl, gr, call_exp) {
     printf("push rax\n");
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
     map_tree(rev_context, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
-    return ret 0
-  }
+    ! 0
+  })
+  ! 0
 };
 
-call_expression_to_function = (ret call_exp) {
-  call_exp(
-    (texp) {
-      res = texp_to_function(texp);
-      return ret res
-    },
-    (texp, op_list) {
-      return ret 0
-    }
-  )
+expr_to_function = (!expr) {
+  expr_type, expr = expr();
+  if (ne(expr_type, expr_texp) (break) { ! 0 });
+  texp = expr();
+  res = texp_to_function(texp);
+  ! res
 };
 
 parse_func_appl_args = (!tokenizer) {
-  tokenizer, op_list = parse_call_expression_args(tokenizer);
+  tokenizer, op_list = parse_expr_args(tokenizer);
   {if ne(op_list, 0) (break) { ! tokenizer, op_list }};
   tokenizer, op_list = parse_expr_list(tokenizer);
   ! tokenizer, op_list
