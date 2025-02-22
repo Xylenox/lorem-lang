@@ -633,6 +633,40 @@ print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
   return ret 0
 };
 
+/ data structs
+expr_call = 0;
+expr_texp = 1;
+expr_type_get = (!expr) {
+  expr_type, expr = expr();
+  ! expr_type
+};
+expr_call_new = (!texp, op_list) {
+  ! (!) { ! expr_call, (!) { ! texp, op_list }}
+};
+expr_texp_new = (!texp) {
+  ! (!) { ! expr_texp, (!) { ! texp }}
+};
+expr_texp_texp = (!expr) {
+  expr_type, expr = expr();
+  texp = expr();
+  ! texp
+};
+expr_call_texp = (!expr) {
+  expr_type, expr = expr();
+  texp, op_list = expr();
+  ! texp
+};
+expr_call_op_list = (!expr) {
+  expr_type, expr = expr();
+  texp, op_list = expr();
+  ! op_list
+};
+expr_to_function = (!expr) {
+  if (ne(expr_type_get(expr), expr_texp) (break) { ! 0 });
+  ! texp_to_function(expr_texp_texp(expr))
+};
+
+/ parsing
 parse_expr_args = (!orig_tokenizer) {
   tokenizer, mt = eat_token(orig_tokenizer, "(");
   {if not(mt) (break) { ! tokenizer, 0 }};
@@ -643,37 +677,32 @@ parse_expr_args = (!orig_tokenizer) {
   {if mt (break2) { ! orig_tokenizer, 0  }};
   ! tokenizer, op_list
 };
-
-expr_call = 0;
-expr_texp = 1;
 parse_expr = (!tokenizer) {
   tokenizer, texp = parse_texp(tokenizer);
   {if eq(texp, 0) (break) { ! tokenizer, 0 }};
   tokenizer, op_list = parse_expr_args(tokenizer);
-  {if eq(op_list, 0) (break) { ! tokenizer, (!) { ! expr_texp, (!) { ! texp } } } };
-  ! tokenizer, (!) { ! expr_call, (!) { ! texp, op_list } }
+  {if eq(op_list, 0) (break) { ! tokenizer, expr_texp_new(texp) } };
+  ! tokenizer, expr_call_new(texp, op_list)
 };
 
+/ printing
 print_expr = (!fl fr old_context ids, gl, gr, expr) {
   {if eq(expr, 0) (break) { ! 0 }};
-  expr_type, expr = expr();
-  if (eq(expr_type, expr_texp) (break) {
-    texp = expr();
-    print_texp(fl, fr, old_context, ids, gl, gr, texp);
+  if (eq(expr_type_get(expr), expr_texp) (break) {
+    print_texp(fl, fr, old_context, ids, gl, gr, expr_texp_texp(expr));
     ! 0
   });
-  if (eq(expr_type, expr_call), (break) {
-    texp, op_list = expr();
+  if (eq(expr_type_get(expr), expr_call), (break) {
     context = map_tree(old_context, (!l r) {
       {if search_tree(ids, l, r) (break) { ! make_nil() }};
       ! make_leaf(l, r)
     });
     map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
     
-    al ar = aexp_to_range(get_aexp_from_texp(texp));
-    print_call_exp_args(fl, fr, old_context, gl, gr, op_list);
+    al ar = aexp_to_range(get_aexp_from_texp(expr_call_texp(expr)));
+    print_call_exp_args(fl, fr, old_context, gl, gr, expr_call_op_list(expr));
     if_else(or(eq(al, ar), search_tree(old_context, al, ar)), (break) {
-      print_texp(fl, fr, old_context, make_nil(), gl, gr, texp);
+      print_texp(fl, fr, old_context, make_nil(), gl, gr, expr_call_texp(expr));
       printf("call runtime_call_ret\n");
       break
     }
@@ -691,13 +720,6 @@ print_expr = (!fl fr old_context ids, gl, gr, expr) {
   ! 0
 };
 
-expr_to_function = (!expr) {
-  expr_type, expr = expr();
-  if (ne(expr_type, expr_texp) (break) { ! 0 });
-  texp = expr();
-  res = texp_to_function(texp);
-  ! res
-};
 
 parse_func_appl_args = (!tokenizer) {
   tokenizer, op_list = parse_expr_args(tokenizer);
