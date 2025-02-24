@@ -604,25 +604,6 @@ get_assignment_vars = (!assign) {
   ! make_nil()
 };
 
-parse_expr_list = (!tokenizer) {
-  tokenizer, tree = parse_expr_list_help(tokenizer, make_nil());
-  ! tokenizer, tree
-};
-
-parse_expr_list_help = (!tokenizer, tree) {
-  tokenizer, matches = eat_token(tokenizer, ",");
-  if(matches (break) {
-    tokenizer, tree = parse_expr_list_help(tokenizer, tree);
-    ! tokenizer, tree
-  });
-  tokenizer, call_exp = parse_expr(tokenizer);
-  if(eq(call_exp, 0), (break) { ! tokenizer, tree });
-  leaf = make_leaf(call_exp, 0);
-  tree = make_internal(tree, leaf);
-  tokenizer, tree = parse_expr_list_help(tokenizer, tree);
-  ! tokenizer, tree
-};
-
 print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
   map_tree(reverse_tree(op_list), (!call_exp r) {
     il, ir = gen_label();
@@ -667,6 +648,20 @@ expr_to_function = (!expr) {
 };
 
 / parsing
+parse_expr_list = (!tokenizer) {
+  tokenizer, matches = eat_token(tokenizer, ",");
+  if(matches (break) {
+    tokenizer, tree = parse_expr_list(tokenizer);
+    ! tokenizer, tree
+  });
+  tokenizer, call_exp = parse_expr(tokenizer);
+  if(eq(call_exp, 0), (break) { ! tokenizer, make_nil() });
+  tokenizer, tree = parse_expr_list(tokenizer);
+  leaf = make_leaf(call_exp, 0);
+  tree = make_internal(leaf, tree);
+  ! tokenizer, tree
+};
+
 parse_expr_args = (!orig_tokenizer) {
   tokenizer, mt = eat_token(orig_tokenizer, "(");
   {if not(mt) (break) { ! tokenizer, 0 }};
@@ -829,6 +824,11 @@ print_program = (!assigns, context) {
   ! print_program(rem_assigns, context)
 };
 
+stderr_print = (!st, len) {
+  sysc(1, 2, st, len, 0, 0, 0);
+  ! 0
+};
+
 inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
 inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
 outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
@@ -838,6 +838,7 @@ flen = (!) {
   {sysc 5, inpf, buff, 0, 0, 0, 0};
   ! deref(add(buff, 48))
 }();
+
 / mmap input
 input = sysc(9, 0, flen, 3, 2, inpf, 0);
 flen = add(flen, input);
