@@ -1,169 +1,196 @@
 / start:
 
 callcc = (ret, cont) {
-  cont((res) { return ret res })
+  cont((res) { return ret, res })
 };
 
-or = (ret cont1 cont2) {
-  cont1, () { return ret cont1 }, () { return ret cont2 }
+or = (!cont1, cont2) {
+  callcc((ret) {
+    cont1(() { ! cont1 }, () { ! cont2 })
+  });
+};
+and = (!cont1, cont2) {
+  callcc((ret) {
+    cont1(() { ! cont2 }, () { ! (a, b) { b } })
+  });
 };
 
-if = (ret v cont) {
-  break = () { return ret 0 };
-  v, () { cont break }, break
+if = (ret, v, cont) {
+  break = () { return ret, 0 };
+  v(() { cont break }, break)
 };
-if_else = (ret v cont1 cont2) {
-  break = () { return ret 0 };
-  v, () { cont1 break }, () { cont2 break }
+if_else = (ret, v, cont1, cont2) {
+  break = () { return ret, 0 };
+  v(() { cont1 break }, () { cont2 break })
 };
-if_ret = (ret v cont) {
-  break = () { return ret 0 };
-  v, () {
+if_ret = (ret, v, cont) {
+  break = () { return ret, 0 };
+  v(() {
     cont();
     break
   },
-  break
+  break)
 };
 
-if_else_ret = (ret v cont1 cont2) {
-  v, () { return ret {cont1} },
-  () { return ret {cont2} }
+if_else_ret = (ret, v, cont1, cont2) {
+  v(() { return ret, {cont1} },
+  () { return ret, {cont2} })
 };
 
-ne = (ret a b) {
-  compare(a, b, () { return ret (x y) {y} }, () { return ret (x y) {x} })
+ne = (!a, b) {
+  callcc((ret) {
+  compare(a, b, () { ! (x y) {y} }, () { ! (x y) {x} })
+  });
 };
-not = (ret x) {
-  x(() { return ret (a b) {b} }, () { return ret (a b) {a} })
-};
-
-eq = (ret a b) {
-  compare(a, b, () { return ret (x y) {x} }, () { return ret (x y) {y} })
-};
-
-error_help = (num) {
-  {printf "error {}\n" num {add num 10}};
-  {sysc 60 1 0 0 0 0 0};
-  exit
+not = (!x) {
+  callcc((ret) {
+    x(() { ! (a b) {b} }, () { ! (a b) {a} })
+  });
 };
 
-make_nil = (!) { ! (cont_nil cont_leaf cont_internal) {cont_nil} };
-make_leaf = (!l r) { ! (cont_nil cont_leaf cont_internal) {cont_leaf l r} };
-make_internal = (!a b) { ! (cont_nil cont_leaf cont_internal) {cont_internal a b} };
-
-str_equal_func = (ret a b l r) {
-  res = str_cmp_func(a, b, l, r);
-  return ret {eq 0 res}
-};
-  
-print_range = (ret a b) {
-  {if {eq a b} (break) { return ret 0 }};
-  {print_char {deref_byte a}};
-  print_range ret {add a 1} b
+eq = (!a, b) {
+  callcc((ret) {
+  compare(a, b, () { ! (x y) {x} }, () { ! (x y) {y} })
+  });
 };
 
-print_num_help = (v cont) {
-  {if {eq v 0}, (break) { cont }};
-  print_num_help {div v 10}, () {
-    {print_char {add {deref_byte "0"} {mod v 10}}};
-    cont
+make_nil = (!) { ! (cont_nil, cont_leaf, cont_internal) { cont_nil() } };
+make_leaf = (!l, r) { ! (cont_nil, cont_leaf, cont_internal) { cont_leaf(l, r) } };
+make_internal = (!a, b) { ! (cont_nil, cont_leaf, cont_internal) { cont_internal(a, b) } };
+
+is_nil = (!tree) {
+  ! (a, b) {
+    tree(
+      () { a },
+      (l, r) { b },
+      (a, c) { b }
+    )
   }
 };
-print_num = (ret v) { print_num_help(v, () { return ret 0 }) };
 
-printf = (ret l) {
-  lb = deref_byte(l);
-  {if {eq lb 0}, (break) {
-    return ret 0
-  }};
-  {if {eq lb 123}, (break a b) {
-    {print_range a b};
-    printf ret {add l 2}
-  }};
-  {print_char deref_byte(l)};
-  printf ret {add l 1}
+str_equal_func = (!a, b, l, r) {
+  res = str_cmp_func(a, b, l, r);
+  ! eq(0, res)
+};
+  
+print_range = (!a b) {
+  if(eq(a, b), (break) { ! 0 });
+  print_char(deref_byte(a));
+  print_range(add(a, 1), b);
 };
 
-tree_size = (ret tree) {
+print_num = (!v) {
+  if(eq(v, 0), (break) { ! 0 });
+  print_num(div(v, 10));
+  print_char(add(deref_byte("0"), mod(v, 10)));
+};
+
+printf = (ret, l) {
+  lb = deref_byte(l);
+  {if eq(lb, 0), (break) {
+    return(ret, 0)
+  }};
+  {if eq(lb, 123), (break, a, b) {
+    print_range(a, b);
+    printf(ret, add(l, 2))
+  }};
+  print_char(deref_byte(l));
+  printf(ret, add(l, 1))
+};
+
+tree_size = (!tree) {
+  callcc((ret) {
   tree(
-    () { return ret 0 },
-    (l, r) { return ret 1 },
+    () { ! 0 },
+    (l, r) { ! 1 },
     (a, b) {
       a = tree_size(a);
       b = tree_size(b);
-      return ret add(a, b)
+      ! add(a, b)
     }
   )
+  });
 };
 
-map_tree = (ret tree action) {
-  tree,
-  () { return ret make_nil() },
-  (l, r) {
-    return ret action(l, r)
-  },
-  (a, b) {
-    a = map_tree(a, action);
-    b = map_tree(b, action);
-    return ret make_internal(a, b)
-  }
-};
-
-first_leaf = (ret tree) {
+map_tree = (!tree action) {
+  callcc((ret) {
   tree(
-    () { return ret make_nil() },
-    (l, r) { return ret make_leaf(l, r) },
+    () { ! make_nil() },
+    (l, r) {
+      ! action(l, r)
+    },
+    (a, b) {
+      a = map_tree(a, action);
+      b = map_tree(b, action);
+      ! make_internal(a, b)
+    }
+  )
+  });
+};
+
+first_leaf = (!tree) {
+  callcc((ret) { tree(
+    () { ! make_nil() },
+    (l, r) { ! make_leaf(l, r) },
     (a, b) {
       a_leaf = first_leaf(a);
       b_leaf = first_leaf(b);
       a_leaf(
-        () { return ret b_leaf },
-        (l, r) { return ret a_leaf },
-        (a, b) { return ret b_leaf }
+        () { ! b_leaf },
+        (l, r) { ! a_leaf },
+        (a, b) { ! b_leaf }
       )
     }
   )
+  });
 };
 
-map_tree_iota_help = (ret n tree action) {
-  tree,
-    () { return(ret, n, make_nil()) },
-    (l, r) { return(ret, add(n, 1), action(n, l, r)) },
+map_tree_iota_help = (!n tree action) {
+  callcc((ret) {
+  tree(
+    () { ! n, make_nil() },
+    (l, r) { ! add(n, 1), action(n, l, r) },
     (a, b) {
       n, new_a = map_tree_iota_help(n, a, action);
       n, new_b = map_tree_iota_help(n, b, action);
       res = make_internal(new_a, new_b);
-      return ret n res
-    }
-};
-
-map_tree_iota = (ret tree action) {
-  n, t = map_tree_iota_help(0, tree, action);
-  return ret t
-};
-
-reverse_tree = (ret tree) {
-  tree(
-    () { return ret make_nil() },
-    (l, r) { return ret make_leaf(l, r) },
-    (a, b) {
-      return ret make_internal(reverse_tree(b), reverse_tree(a))
+      ! n, res
     }
   )
+  });
 };
 
-search_tree = (ret tree l r) {
-  tree(
-    () { return ret (a, b) { b } },
+map_tree_iota = (!tree action) {
+  n, t = map_tree_iota_help(0, tree, action);
+  ! t
+};
+
+reverse_tree = (!tree) {
+  callcc((ret) { tree(
+    () { ! make_nil() },
+    (l, r) { ! make_leaf(l, r) },
     (a, b) {
-      res = str_equal_func(l, r, a, b);
-      return ret res
-    },
-    (a, b) {
-      search_a = search_tree(a, l, r);
-      {if search_a (break) { return ret search_a }};
-      search_b = search_tree(b, l, r);
-      return ret search_b
+      ! make_internal(reverse_tree(b), reverse_tree(a))
+    }
+  ) });
+};
+
+search_tree = (!tree l r) {
+  callcc(
+    (ret) {
+      tree(
+        () { ! (a, b) { b } },
+        (a, b) {
+          res = str_equal_func(l, r, a, b);
+          ! res
+        },
+        (a, b) {
+          search_a = search_tree(a, l, r);
+          if(search_a, (break) { ! search_a });
+          search_b = search_tree(b, l, r);
+          ! search_b
+        }
+      )
     }
   )
 };
@@ -176,13 +203,14 @@ is_digit_bool = (!dig) {
   ! eq(is_digit(dig), 1)
 };
 
-read_whitespace = (ret l r) {
+read_whitespace = (! l r) {
   lb = deref_byte(l);
-  {if eq(l, r), (break) { return ret l r }};
-  {if or(eq(lb, 10), eq(lb, 32)) (break) {
-    read_whitespace ret add(l, 1) r
-  }};
-  return ret l r
+  if(eq(l, r), (break) { ! l, r });
+  if(or(eq(lb, 10), eq(lb, 32)), (break) {
+    l, r = read_whitespace(add(l, 1), r);
+    ! l, r
+  });
+  ! l, r
 };
 
 read_id_helper = (!l, r) {
@@ -199,15 +227,15 @@ read_identifier = (!l, r) {
   ! mid, r, l, mid
 };
 
-matches = (ret a b) {
-  {if {eq {deref_byte a} 0} (break) { return ret (a b) { a } }};
-  {if {ne {deref_byte a} {deref_byte b}} (break) { return ret (a b) { b } }};
-  matches ret {add a 1} {add b 1}
+matches = (!a b) {
+  if(eq(deref_byte(a), 0), (break) { ! (a b) { a } });
+  if(ne(deref_byte(a), deref_byte(b)), (break) { ! (a b) { b } });
+  ! matches(add(a, 1), add(b, 1))
 };
 
 matches_strict = (!pattern, l, r) {
-  if (eq(deref_byte(pattern), 0) (break) { ! eq(l, r) });
-  if (ne(deref_byte(pattern), deref_byte(l)) (break) { ! (a, b) { b } });
+  if (eq(deref_byte(pattern), 0), (break) { ! eq(l, r) });
+  if (ne(deref_byte(pattern), deref_byte(l)), (break) { ! (a, b) { b } });
   ! matches_strict(add(pattern, 1), add(l, 1), r)
 };
 token_matches = (!pattern, token) {
@@ -217,43 +245,44 @@ token_matches = (!pattern, token) {
 
 read_const_string = (!tokenizer) {
   orig_l, r = tokenizer();
-  l r = {read_whitespace orig_l r};
-  lb = {deref_byte l};
-  {if {ne lb 34} (break) { ! tokenizer, 0 }};
+  l r = read_whitespace(orig_l, r);
+  lb = deref_byte(l);
+  if(ne(lb, 34), (break) { ! tokenizer, 0 });
   l_start = add(l, 1);
   l_end r = read_until(34, l_start, r);
   l = add(l_end, 1);
-  ! make_tokenizer(l, r), (!) { ! l_start l_end }
+  ! make_tokenizer(l, r), (!) { ! l_start, l_end }
 };
 token_id = 1;
 token_string = 3;
 / 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 / returns l r type il ir
 token_eof = 6;
-read_token = (ret l r) {
+read_token = (!l r) {
   l r = read_whitespace(l, r);
-  if (eq(l, r) (break) { return ret l, l, token_eof, l, l });
-  {if {eq 34 {deref_byte l}} (break) {
+  if (eq(l, r), (break) { ! l, l, token_eof, l, l });
+  if(eq(34, deref_byte(l)), (break) {
     l_start = add(l, 1);
     l_end r = read_until(34, l_start, r);
-    return ret l r token_string l {add l 1}
-  }};
-  {if {matches "!" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches "(" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches ")" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches "{" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches "}" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches "=" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches ";" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches ":" l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches "," l} (break) { return ret {add l 1} r 0 l {add l 1} }};
-  {if {matches "/" l} (break) { 
+    ! l, r, token_string, l, add(l, 1)
+  });
+  if(matches("!", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches("(", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches(")", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches("{", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches("}", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches("=", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches(";", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches(":", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches(",", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches("/", l), (break) { 
     m, r = read_until(deref_byte("\n"), l, r);
-    read_token ret m r
-  }};
-  l r il ir = {read_identifier l r};
-  {if {ne il ir} (break) { return ret l r token_id il ir }};
-  error l
+    l, r, token_id, il, ir = read_token(m, r);
+    ! l, r, token_id, il, ir
+  });
+  l r il ir = read_identifier(l, r);
+  if(ne(il, ir), (break) { ! l, r, token_id, il, ir });
+  error(l)
 };
 
 read_token_t = (! tokenizer) {
@@ -274,19 +303,19 @@ token_type = (!token) {
 parse_is_returning = (!orig_tokenizer) {
   tokenizer, token = read_token_t(orig_tokenizer);
   if(token_matches("!", token), (break) {
-    ! tokenizer, (a b) { a }
+    ! tokenizer, (a, b) { a }
   });
-  ! orig_tokenizer, (a b) { b }
+  ! orig_tokenizer, (a, b) { b }
 };
 
 parse_id_list = (!old_tokenizer) {
   tokenizer, token = read_token_t(old_tokenizer);
-  if (eq(token_type(token), 1) (break) {
+  if (eq(token_type(token), 1), (break) {
     t, tl, tr = token();
     tokenizer, tree = parse_id_list(tokenizer);
     ! tokenizer, make_internal(make_leaf(tl, tr), tree)
   });
-  if (token_matches(",", token) (break) {
+  if (token_matches(",", token), (break) {
     tokenizer, tree = parse_id_list(tokenizer);
     ! tokenizer, tree
   });
@@ -306,11 +335,11 @@ parse_function = (!orig_tokenizer) {
   tokenizer, cexp = parse_cexp(tokenizer);
   tokenizer, mt = eat_token(tokenizer, "}");
   if (not(mt), (break) { ! orig_tokenizer, 0 });
-  ! tokenizer, (!) { ! fname_l fname_r new_args is_returning cexp }
+  ! tokenizer, (!) { ! fname_l, fname_r, new_args, is_returning, cexp }
 };
 
-print_function = (ret old_context, gl, gr, func) {
-  fname_l fname_r func_args is_returning cexp = func();
+print_function = (!old_context, gl, gr, func) {
+  fname_l, fname_r, func_args, is_returning, cexp = func();
   new_context = merge_context(old_context, func_args);
   cids = get_cexp_vars(cexp);
   cids = filter_context(cids, new_context);
@@ -326,7 +355,7 @@ print_function = (ret old_context, gl, gr, func) {
   if_ret(is_returning, (!) {
     printf("pop rax\n");
   });
-  {map_tree new_context (!l r) { {printf "pop qword [{}{}]\n" fname_l fname_r l r}; }};
+  map_tree(new_context, (!l r) { printf("pop qword [{}{}]\n", fname_l, fname_r, l, r); });
   new_context = if_else_ret(is_returning, (!) {
     printf("push rax\n");
     printf("mov [{}{}], rsp\n", fname_l, fname_r, gl, gr);
@@ -336,13 +365,13 @@ print_function = (ret old_context, gl, gr, func) {
     ! new_context
   });
   print_cexp(fname_l, fname_r, new_context, is_returning, gl, gr, cexp);
-  {if_ret is_returning (!) { {printf "ret\n"}; }};
+  if_ret(is_returning, (!) { {printf "ret\n"}; });
   printf("{}_end:\n", fname_l, fname_r);
-  return ret 0
+  ! 0
 };
 
 get_aexp_from_texp = (! texp) {
-  {if eq(texp, 0) (break) { ! 0 }};
+  if(eq(texp, 0), (break) { ! 0 });
   texp_type, texp = texp();
   if(eq(texp_type, texp_aexp), (break) {
     ! texp
@@ -359,61 +388,61 @@ parse_texp = (!orig_tokenizer) {
   l r = orig_tokenizer();
   tokenizer, tk = read_token_t(orig_tokenizer);
   t, tl, tr = tk();
-  {if eq(t, token_id) (break) { ! tokenizer, (!) { ! texp_aexp, (!) { ! tl tr } } }};
-  {if matches("{", tl) (break) {
+  if(eq(t, token_id), (break) { ! tokenizer, (!) { ! texp_aexp, (!) { ! tl, tr } } });
+  if(matches("{", tl), (break) {
     tokenizer, cexp = parse_cexp(tokenizer);
     tokenizer, mt = eat_token(tokenizer, "}");
-    {if not(mt) (break2) { break }};
+    if(not(mt), (break2) { break });
     ! tokenizer, (!) { ! texp_block, (!) { ! cexp } }
-  }};
+  });
   tokenizer, func = parse_function(orig_tokenizer);
   if(ne(func, 0), (break) {
     ! tokenizer, (!) { ! texp_func, (!) { ! func } }
   });
   tokenizer, string = read_const_string(tokenizer);
-  {if {ne string 0} (break) {
-    ! tokenizer (!) { ! texp_string, (!) { ! string } }
-  }};
+  if(ne(string, 0), (break) {
+    ! tokenizer, (!) { ! texp_string, (!) { ! string } }
+  });
   ! orig_tokenizer, 0
 };
 
 print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   if(eq(texp, 0), (break) { ! 0 });
   texp_type, texp = texp();
-  if (eq(texp_type, texp_string) (break) {
+  if (eq(texp_type, texp_string), (break) {
     string = texp();
     print_const_string(string);
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
     ! 0
   });
-  if (eq(texp_type, texp_block) (break) {
+  if (eq(texp_type, texp_block), (break) {
     cexp = texp();
     print_cexp(fl, fr, old_context, (a b) { a }, gl, gr, cexp);
     printf("push rax\n");
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
     ! 0
   });
-  if (eq(texp_type, texp_func) (break) {
+  if (eq(texp_type, texp_func), (break) {
     func = texp();
     fname_l fname_r func_args is_returning cexp = {func};
     old_context = filter_context(old_context, func_args);
     print_function(old_context, gl, gr, func);
-    context = {make_internal {make_leaf fname_l fname_r} old_context};
+    context = make_internal(make_leaf(fname_l, fname_r), old_context);
     printf("mov rdi, ");
     size = tree_size(context);
     print_num(mul(8, add(1, size)));
     printf("\ncall malloc\n");
 
     map_tree_iota(context, (!n l r) {
-      {if_else_ret {eq l fname_l} (!) {
-        {printf "mov qword [rax+"};
-        {print_num {mul 8 {add 1 n}}};
-        {printf "], {}\n" l r};
+      if_else_ret(eq(l, fname_l), (!) {
+        printf("mov qword [rax+");
+        print_num(mul(8, add(1, n)));
+        printf("], {}\n", l, r);
       }, (!) {
-        {printf "mov rcx, [{}{}]\nmov qword [rax+" fl fr l r};
-        {print_num {mul 8 {add 1 n}}};
-        {printf "], rcx\n"};
-      }};
+        printf("mov rcx, [{}{}]\nmov qword [rax+", fl, fr, l, r);
+        print_num(mul(8, add(1, n)));
+        printf("], rcx\n");
+      });
     });
     printf("mov qword [rax], ");
     print_num(size);
@@ -421,7 +450,7 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
     map_tree(ids, (!l r) { printf("pop qword [{}{}]\n", fl, fr, l, r); });
     ! 0
   });
-  if (eq(texp_type, texp_aexp) (break) {
+  if (eq(texp_type, texp_aexp), (break) {
     a, b = texp();
     print_aexp(old_context, fl, fr, a, b);
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
@@ -432,19 +461,20 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
 
 texp_to_function = (!texp) {
   texp_type, texp = texp();
-  if(eq(texp_type, texp_func) (break) {
+  if(eq(texp_type, texp_func), (break) {
     ! texp()
   });
   ! 0
 };
 
-read_until = (ret c l r) {
+read_until = (!c l r) {
   lb = deref_byte(l);
-  {if eq(lb, c) (break) { return ret l r }};
-  read_until ret c add(l, 1) r
+  if(eq(lb, c), (break) { ! l, r });
+  l, r = read_until(c, add(l, 1), r);
+  ! l, r
 };
 
-print_const_string = (ret str) {
+print_const_string = (!str) {
   l_start l_end = str();
   il ir = gen_label();
   printf("jmp {}_end\n{}: db ", il, ir, il, ir);
@@ -452,64 +482,65 @@ print_const_string = (ret str) {
   printf("{}", l_start, l_end);
   print_char(96);
   printf("\ndb 0\n{}_end: push {}\n", il, ir, il, ir);
-  return ret 0
+  ! 0
 };
 
-print_aexp = (ret comb_args fname_l fname_r l r) {
+/ lock in
+print_aexp = (!comb_args fname_l fname_r l r) {
   dig = deref_byte(l);
   res = is_alpha(dig);
-  {if {eq res 1} (break_o) {
-    bool = {search_tree comb_args l r};
-    {if bool (break) {
-      {printf "push qword [{}{}]\n" fname_l fname_r l r};
-      return ret 0
-    }};
+  if(eq(res, 1), (break_o) {
+    bool = search_tree(comb_args, l, r);
+    if(bool, (break) {
+      printf("push qword [{}{}]\n", fname_l, fname_r, l, r);
+      ! 0
+    });
     break_o
-  }};
-  {if {eq {is_digit dig} 1} (break) {
-    {printf "push {}\n" l r};
-    return ret 0
-  }};
-  {printf "push qword [{}]\n" l r};
-  return ret 0
+  });
+  if(eq(is_digit(dig), 1), (break) {
+    printf("push {}\n", l, r);
+    ! 0
+  });
+  printf("push qword [{}]\n", l, r);
+  ! 0
 };
 
 parse_cexp = (!orig_tokenizer) {
   tokenizer, assign = parse_statement(orig_tokenizer);
-  {if eq(assign, 0) (break) { ! orig_tokenizer, 0 }};
+  if(eq(assign, 0), (break) { ! orig_tokenizer, 0 });
   tokenizer, cexp = parse_cexp(tokenizer);
   ! tokenizer, (!) { ! assign, cexp }
 };
 
-filter_context = (ret old_context ids) {
+filter_context = (!old_context ids) {
   context = map_tree(old_context, (!l r) {
-    {if {search_tree ids l r} (break) { ! make_nil() }};
-    ! {make_leaf l r}
+    if(search_tree(ids, l, r), (break) { ! make_nil() });
+    ! make_leaf(l, r)
   });
-  return ret context
+  ! context
 };
 
-merge_context = (ret old_context ids) {
+merge_context = (!old_context ids) {
   context = filter_context(old_context, ids);
-  return ret {make_internal context ids}
+  ! make_internal(context, ids)
 };
 
-print_cexp = (ret fl fr context is_returning, gl, gr, cexp) {
+print_cexp = (!fl fr context is_returning, gl, gr, cexp) {
   assign cexp = cexp();
   print_assignment(fl, fr, context, is_returning, gl, gr, assign);
-  {if {eq cexp 0} (break) { return ret 0 }};
+  if(eq(cexp, 0), (break) { ! 0 });
   assign_vars = get_assignment_vars(assign);
   print_cexp(fl, fr, merge_context(context, assign_vars), is_returning, gl, gr, cexp);
-  return ret 0
+  ! 0
 };
 
-get_cexp_vars = (ret cexp) {
+get_cexp_vars = (!cexp) {
   assign cexp = cexp();
   ids = get_assignment_vars(assign);
-  {if {eq cexp 0} (break) { return ret ids }};
+  if(eq(cexp, 0), (break) { ! ids });
   ids2 = get_cexp_vars(cexp);
   ids2 = filter_context(ids2, ids);
-  return ret {make_internal ids ids2}
+  ! make_internal(ids, ids2)
 };
 
 parse_assign_left = (!orig_tokenizer) {
@@ -526,7 +557,7 @@ parse_assignment_statement = (!orig_tokenizer) {
   tokenizer, ids = parse_assign_left(orig_tokenizer);
   tokenizer, call_exp = parse_expr(tokenizer);
   tokenizer, mt = eat_token(tokenizer, ";");
-  if(not(mt) (break) { ! orig_tokenizer, 0 });
+  if(not(mt), (break) { ! orig_tokenizer, 0 });
   ! tokenizer, (!) { ! ids, call_exp }
 };
 
@@ -560,7 +591,7 @@ parse_statement = (!tokenizer) {
 
 print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
   assign_type, assign = orig_assign();
-  if(eq(assign_type, return_statement) (break) {
+  if(eq(assign_type, return_statement), (break) {
     call_exps = assign();
     printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
     map_tree(reverse_tree(call_exps), (!call_exp r) {
@@ -589,7 +620,7 @@ assign_to_function = (!assign) {
   if (eq(assign_type, assign_statement), (break) {
     ids, call_exp = assign();
     func = expr_to_function(call_exp);
-    {if {eq func 0} (break) { ! 0 }};
+    if(eq(func, 0), (break) { ! 0 });
     ! (!) { ! ids, func }
   });
   ! 0
@@ -604,14 +635,14 @@ get_assignment_vars = (!assign) {
   ! make_nil()
 };
 
-print_call_exp_args = (ret, fl, fr, old_context, gl, gr, op_list) {
+print_call_exp_args = (!fl, fr, old_context, gl, gr, op_list) {
   map_tree(reverse_tree(op_list), (!call_exp r) {
     il, ir = gen_label();
     printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
     print_expr(fl, fr, old_context, make_leaf(il, ir), gl, gr, call_exp);
     printf("push qword [{}{}]\n", fl, fr, il, ir);
   });
-  return ret 0
+  ! 0
 };
 
 / data structs
@@ -643,20 +674,21 @@ expr_call_op_list = (!expr) {
   ! op_list
 };
 expr_to_function = (!expr) {
-  if (ne(expr_type_get(expr), expr_texp) (break) { ! 0 });
+  if (ne(expr_type_get(expr), expr_texp), (break) { ! 0 });
   ! texp_to_function(expr_texp_texp(expr))
 };
 
 / parsing
 parse_expr_list = (!tokenizer) {
-  tokenizer, matches = eat_token(tokenizer, ",");
-  if(matches (break) {
-    tokenizer, tree = parse_expr_list(tokenizer);
-    ! tokenizer, tree
-  });
   tokenizer, call_exp = parse_expr(tokenizer);
   if(eq(call_exp, 0), (break) { ! tokenizer, make_nil() });
+  l, r = tokenizer();
+  tokenizer, matches = eat_token(tokenizer, ",");
   tokenizer, tree = parse_expr_list(tokenizer);
+  if (and(not(is_nil(tree)), not(matches)), (break) {
+    error(l);
+    break
+  });
   leaf = make_leaf(call_exp, 0);
   tree = make_internal(leaf, tree);
   ! tokenizer, tree
@@ -664,32 +696,32 @@ parse_expr_list = (!tokenizer) {
 
 parse_expr_args = (!orig_tokenizer) {
   tokenizer, mt = eat_token(orig_tokenizer, "(");
-  {if not(mt) (break) { ! tokenizer, 0 }};
+  if(not(mt), (break) { ! tokenizer, 0 });
   tokenizer, op_list = parse_expr_list(tokenizer);
   tokenizer, mt = eat_token(tokenizer, ")");
-  {if not(mt) (break2) { ! orig_tokenizer, 0 }};
+  if(not(mt), (break2) { ! orig_tokenizer, 0 });
   tmp_tokenizer, mt = eat_token(tokenizer, "{");
-  {if mt (break2) { ! orig_tokenizer, 0  }};
+  if(mt, (break2) { ! orig_tokenizer, 0  });
   ! tokenizer, op_list
 };
 parse_expr = (!tokenizer) {
   tokenizer, texp = parse_texp(tokenizer);
-  {if eq(texp, 0) (break) { ! tokenizer, 0 }};
+  {if eq(texp, 0), (break) { ! tokenizer, 0 }};
   tokenizer, op_list = parse_expr_args(tokenizer);
-  {if eq(op_list, 0) (break) { ! tokenizer, expr_texp_new(texp) } };
+  {if eq(op_list, 0), (break) { ! tokenizer, expr_texp_new(texp) } };
   ! tokenizer, expr_call_new(texp, op_list)
 };
 
 / printing
 print_expr = (!fl fr old_context ids, gl, gr, expr) {
-  {if eq(expr, 0) (break) { ! 0 }};
-  if (eq(expr_type_get(expr), expr_texp) (break) {
+  {if eq(expr, 0), (break) { ! 0 }};
+  if (eq(expr_type_get(expr), expr_texp), (break) {
     print_texp(fl, fr, old_context, ids, gl, gr, expr_texp_texp(expr));
     ! 0
   });
   if (eq(expr_type_get(expr), expr_call), (break) {
     context = map_tree(old_context, (!l r) {
-      {if search_tree(ids, l, r) (break) { ! make_nil() }};
+      {if search_tree(ids, l, r), (break) { ! make_nil() }};
       ! make_leaf(l, r)
     });
     map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
@@ -700,7 +732,7 @@ print_expr = (!fl fr old_context ids, gl, gr, expr) {
       print_texp(fl, fr, old_context, make_nil(), gl, gr, expr_call_texp(expr));
       printf("call runtime_call_ret\n");
       break
-    }
+    },
     (break) {
       printf("call {}\n", al, ar);
       break
@@ -718,7 +750,7 @@ print_expr = (!fl fr old_context ids, gl, gr, expr) {
 
 parse_func_appl_args = (!tokenizer) {
   tokenizer, op_list = parse_expr_args(tokenizer);
-  {if ne(op_list, 0) (break) { ! tokenizer, op_list }};
+  {if ne(op_list, 0), (break) { ! tokenizer, op_list }};
   tokenizer, op_list = parse_expr_list(tokenizer);
   ! tokenizer, op_list
 };
@@ -769,27 +801,25 @@ check_eof = (!tokenizer) {
 
 parse_program = (!tokenizer) {
   l, r = tokenizer();
-  if(check_eof(tokenizer) (break) { ! (!) { ! 0, 0, 0 } });
+  if(check_eof(tokenizer), (break) { ! (!) { ! 0, 0, 0 } });
   c = deref_byte(l);
   
-  if(eq(c,10) (break) {
+  if(eq(c,10), (break) {
     mid = add(l, 1);
-    print_range(l, mid);
     ! parse_program(make_tokenizer(mid, r))
   });
-  if(eq(c,32) (break) {
+  if(eq(c,32), (break) {
     mid = add(l, 1);
-    print_range(l, mid);
     ! parse_program(make_tokenizer(mid, r))
   });
 
-  if(eq(c,47) (break) {
+  if(eq(c,47), (break) {
     l, r = read_until(deref_byte("\n"), l, r);
     ! parse_program(make_tokenizer(l, r))
   });
   
   tokenizer, assign = parse_statement(make_tokenizer(l, r));
-  if(eq(assign, 0) (break) {
+  if(eq(assign, 0), (break) {
     ! (!) { ! 0, 0, 0 }
   });
   tmp = parse_program(tokenizer);
@@ -801,13 +831,13 @@ print_program = (!assigns, context) {
   if (eq(has, 0), (break) { ! 0 });
 
   id_func = assign_to_function(assign);
-  {if {eq id_func 0} (break) {
+  {if eq(id_func, 0), (break) {
     ids = filter_context(get_assignment_vars(assign), context);
     map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
     print_assignment(0, 0, make_nil(), (a, b) { a }, 0, 0, assign);
     ! print_program(rem_assigns, make_internal(context, ids))
   }};
-  {if {ne id_func 0} (break) {
+  {if ne(id_func, 0), (break) {
     ids func = id_func();
     fname = first_leaf(ids);
     fname_l fname_r func_args is_returning cexp = func();
@@ -815,7 +845,7 @@ print_program = (!assigns, context) {
       () { break },
       (l, r) {
         func = (!) { ! l, r, func_args, is_returning, cexp };
-        {print_function, make_nil(), 0, 0, func};
+        print_function(make_nil(), 0, 0, func);
         break()
       },
       (a, b) { break() }
@@ -828,6 +858,18 @@ stderr_print = (!st, len) {
   sysc(1, 2, st, len, 0, 0, 0);
   ! 0
 };
+warning = (!loc) {
+  stderr_print("warning:\n", 9);
+  stderr_print(sub(loc, 10), 20);
+  stderr_print("\n", 1);
+  ! 0
+};
+error = (!loc) {
+  stderr_print("error:\n", 9);
+  stderr_print(sub(loc, 10), 20);
+  stderr_print("\n", 1);
+  exit()
+};
 
 inpf_name, outf_name = (!argc, argv1, inpf, outf) { ! inpf, outf }();
 inpf = sysc(2, inpf_name, 0, 65535, 0, 0, 0);
@@ -839,6 +881,7 @@ flen = (!) {
   ! deref(add(buff, 48))
 }();
 
+
 / mmap input
 input = sysc(9, 0, flen, 3, 2, inpf, 0);
 flen = add(flen, input);
@@ -846,6 +889,7 @@ buffer = malloc_func(4096);
 
 printf("section .rwx progbits alloc exec write align=16\nglobal _start\n");
 printf("add:\npop rbx\npop rax\npop rcx\npush rbx\nadd rax, rcx\nret\n");
+printf("sub:\npop rbx\npop rax\npop rcx\npush rbx\nsub rax, rcx\nret\n");
 printf("sysc:\npop rcx\npop rax\npop rdi\npop rsi\npop rdx\npop r10\npop r8\npop r9\npush rcx\nsyscall\nret\n");
 printf("deref:\npop rdx\npop rax\npush rdx\nmov rax, [rax]\nret\n");
 printf("deref_byte:\npop rdx\npop rax\npush rdx\nmov al, [rax]\nand rax, 0xFF\nret\n");
@@ -856,7 +900,7 @@ printf("mod:\npop rcx\npop rax\nmov rdx, 0\npop rdi\nidiv rdi\nmov rax, rdx\njmp
 printf("is_digit:\npop rax\npop rdi\npush rax\ncmp rdi, 48\njl not_digit\ncmp rdi, 57\njg not_digit\nyes_digit:\nmov rax, 1\nret\nnot_digit:\nmov rax, 0\nret\n");
 printf("is_alpha:\npop rax\npop rdi\npush rax\ncmp rdi, 97      ; a\njl nalp\ncmp rdi, 122     ; z\njg nalp\nyalp:\nmov rax, 1\nret\nnalp:\nmov rax, 0\nret\n");
 printf("buff_curr: dq 0\nprint_char:\nmov rax, [buffer]\nmov rdx, [buff_curr]\nmov rcx, [rsp+8]\nmov [rax+rdx], rcx\nadd rdx, 1\nmov [buff_curr], rdx\ncmp rdx, 4096\njne print_char_done\ncall flush_buffer\nprint_char_done:\npop rax\nmov [rsp], rax\nret\nflush_buffer:\nmov rdx, [buff_curr]\nmov rsi, [buffer]\nmov rdi, [outf]\nmov rax, 1\nsyscall\nmov qword [buff_curr], 0\nret\n");
-printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b\n  pop rax\n  pop rcx\n  pop rdi\n  pop rsi\n  cmp rax, rcx\n  jne compare_fail\n  push rdi\n  jmp runtime_call\n  compare_fail:\n    push rsi\n    jmp runtime_call\nexit:\n  call flush_buffer\n  mov rax, 60\n  mov rdi, 0\n  syscall\nerror:\n  mov qword [outf], 2\n  jmp error_help\nruntime_call:\n  ; first input is closure containing | number of operands including function, function, environment |\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_loop\n  \n  pop rax\n  jmp rax\nruntime_call_ret:\n  ; first input is closure containing | number of operands including function, function, environment |\n  pop rbp\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_ret_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_ret_loop\n  \n  pop rax\n  push rbp\n  jmp rax\npage_pointer:\ndq 0\nmemory_left:\ndq 0\nmalloc:\n  push rcx\n  push rdx\n  push rsi\n  push rdi\n  push r8\n  push r9\n  push r10\n  push r11\n  cmp [memory_left], rdi\n  jl new_page\n  jmp malloc_ret\n  \n  new_page:\n  push rdi\n  mov rsi, 4096\n  mov rdi, 0               ; adress\n  mov rdx, 3               ; PROT_READ | PROT_WRITE\n  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS\n  mov r8, -1              ; file descriptor empty, anonymous\n  mov r9, 0               ; offset\n  mov rax, 9               ; mmap\n  syscall\n  pop rdi\n  mov [page_pointer], rax\n  mov qword [memory_left], 4096\n  malloc_ret:\n  mov rax, [page_pointer]\n  add [page_pointer], rdi\n  sub [memory_left], rdi\n  pop r11\n  pop r10\n  pop r9\n  pop r8\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  ret\nmalloc_func:\n  pop rax\n  pop rdi\n  push rax\n  jmp malloc\nscmp:\n  cmp rdi, rsi\n  je end_of_string\n  cmp rdx, rcx\n  je end_of_string\n  sub rax, rax\n  mov al, [rdi]\n  push rbx\n  sub rbx, rbx\n  mov bl, [rdx]\n  sub rax, rbx\n  pop rbx\n  add rdi, 1\n  add rdx, 1\n  cmp rax, 0\n  je scmp\n  jl less\n  mov rax, 1\n  ret\n  less:\n  mov rax, -1\n  ret\n  end_of_string:\n  mov rax, 0\n  cmp rdi, rsi\n  jne not_first_shorter\n  add rax, -1\n  not_first_shorter:\n  cmp rdx, rcx\n  jne not_second_shorter\n  add rax, 1\n  not_second_shorter:\n  ret\ncur_label:\n  dq 1\ngen_label:\n  mov rdi, 8\n  call malloc\n  mov rdx, rax\n  mov rcx, [cur_label]\n  add qword [cur_label], 1\n  mov qword [rdx], 102\n  add rdx, 1\n  gen_label_loop:\n  mov rbx, rcx\n  and rbx, 7\n  add rbx, 48\n  mov [rdx], bl\n  add rdx, 1\n  shr rcx, 3\n  cmp rcx, 0\n  jne gen_label_loop\n  pop rcx\n  push rdx\n  jmp rcx\nstr_cmp_func:\n  pop rax\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  push rax\n  call scmp\n  ret\n");
+printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b\n  pop rax\n  pop rcx\n  pop rdi\n  pop rsi\n  cmp rax, rcx\n  jne compare_fail\n  push rdi\n  jmp runtime_call\n  compare_fail:\n    push rsi\n    jmp runtime_call\nexit:\n  call flush_buffer\n  mov rax, 60\n  mov rdi, 0\n  syscall\nruntime_call:\n  ; first input is closure containing | number of operands including function, function, environment |\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_loop\n  \n  pop rax\n  jmp rax\nruntime_call_ret:\n  ; first input is closure containing | number of operands including function, function, environment |\n  pop rbp\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_ret_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_ret_loop\n  \n  pop rax\n  push rbp\n  jmp rax\npage_pointer:\ndq 0\nmemory_left:\ndq 0\nmalloc:\n  push rcx\n  push rdx\n  push rsi\n  push rdi\n  push r8\n  push r9\n  push r10\n  push r11\n  cmp [memory_left], rdi\n  jl new_page\n  jmp malloc_ret\n  \n  new_page:\n  push rdi\n  mov rsi, 4096\n  mov rdi, 0               ; adress\n  mov rdx, 3               ; PROT_READ | PROT_WRITE\n  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS\n  mov r8, -1              ; file descriptor empty, anonymous\n  mov r9, 0               ; offset\n  mov rax, 9               ; mmap\n  syscall\n  pop rdi\n  mov [page_pointer], rax\n  mov qword [memory_left], 4096\n  malloc_ret:\n  mov rax, [page_pointer]\n  add [page_pointer], rdi\n  sub [memory_left], rdi\n  pop r11\n  pop r10\n  pop r9\n  pop r8\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  ret\nmalloc_func:\n  pop rax\n  pop rdi\n  push rax\n  jmp malloc\nscmp:\n  cmp rdi, rsi\n  je end_of_string\n  cmp rdx, rcx\n  je end_of_string\n  sub rax, rax\n  mov al, [rdi]\n  push rbx\n  sub rbx, rbx\n  mov bl, [rdx]\n  sub rax, rbx\n  pop rbx\n  add rdi, 1\n  add rdx, 1\n  cmp rax, 0\n  je scmp\n  jl less\n  mov rax, 1\n  ret\n  less:\n  mov rax, -1\n  ret\n  end_of_string:\n  mov rax, 0\n  cmp rdi, rsi\n  jne not_first_shorter\n  add rax, -1\n  not_first_shorter:\n  cmp rdx, rcx\n  jne not_second_shorter\n  add rax, 1\n  not_second_shorter:\n  ret\ncur_label:\n  dq 1\ngen_label:\n  mov rdi, 8\n  call malloc\n  mov rdx, rax\n  mov rcx, [cur_label]\n  add qword [cur_label], 1\n  mov qword [rdx], 102\n  add rdx, 1\n  gen_label_loop:\n  mov rbx, rcx\n  and rbx, 7\n  add rbx, 48\n  mov [rdx], bl\n  add rdx, 1\n  shr rcx, 3\n  cmp rcx, 0\n  jne gen_label_loop\n  pop rcx\n  push rdx\n  jmp rcx\nstr_cmp_func:\n  pop rax\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  push rax\n  call scmp\n  ret\n");
 printf("_start:\n");
 
 tokenizer = make_tokenizer(input, flen);
