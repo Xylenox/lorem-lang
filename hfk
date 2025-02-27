@@ -820,17 +820,9 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
     });
     map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
     
-    al ar = aexp_to_range(get_aexp_from_texp(expr_call_get_texp(expr)));
-    print_call_exp_args(fl, fr, old_context, gl, gr, expr_call_get_op_list(expr));
-    if_else(or(eq(al, ar), search_tree(old_context, al, ar)), (break) {
-      print_expr(fl, fr, old_context, make_nil(), gl, gr, expr_texp_new(expr_call_get_texp(expr)));
-      printf("call runtime_call_ret\n");
-      break
-    },
-    (break) {
-      printf("call {}\n", al, ar);
-      break
-    });
+    op_list = expr_call_get_op_list(expr);
+    texp = expr_call_get_texp(expr);
+    print_function_application(fl, fr, old_context, (a, b) { a }, gl, gr, (!) { !op_list, texp });
 
     rev_context = reverse_tree(context);
     printf("push rax\n");
@@ -839,6 +831,27 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
     ! 0
   })
   ! 0
+};
+
+print_function_application = (!fl, fr, context, is_returning, gl, gr, appl) {
+  op_list, texp = appl();
+  al, ar = aexp_to_range(get_aexp_from_texp(texp));
+  print_call_exp_args(fl, fr, context, gl, gr, op_list);
+  if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
+    print_texp(fl, fr, context, make_nil(), gl, gr, texp);
+    if_else_ret(is_returning,
+      (!) { ! printf("call runtime_call_ret\n") },
+      (!) { ! printf("jmp runtime_call\n") },
+    );
+    break
+  },
+  (break) {
+    if_else_ret(is_returning,
+      (!) { ! printf("call {}\n", al, ar) },
+      (!) { ! printf("jmp {}\n", al, ar) },
+    );
+    break
+  });
 };
 
 print_program = (!program, context) {
@@ -884,27 +897,6 @@ parse_tail_recursion_statement = (!tokenizer) {
   if(eq(texp, 0), (break) { ! tokenizer, 0 });
   tokenizer, op_list = parse_func_appl_args(tokenizer);
   ! tokenizer, (!) { ! op_list, texp }
-};
-
-print_function_application = (!fl fr context is_returning, gl, gr, appl) {
-  op_list, texp = appl();
-  al, ar = aexp_to_range(get_aexp_from_texp(texp));
-  print_call_exp_args(fl, fr, context, gl, gr, op_list);
-  if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
-    print_texp(fl, fr, context, make_nil(), gl, gr, texp);
-    if_else_ret(is_returning,
-      (!) { ! printf("call runtime_call_ret\n") },
-      (!) { ! printf("jmp runtime_call\n") },
-    );
-    break
-  },
-  (break) {
-    if_else_ret(is_returning,
-      (!) { ! printf("call {}\n", al, ar) },
-      (!) { ! printf("jmp {}\n", al, ar) },
-    );
-    break
-  });
 };
 
 check_eof = (!tokenizer) {
