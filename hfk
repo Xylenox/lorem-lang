@@ -58,6 +58,36 @@ make_nil = (!) { ! (cont_nil, cont_leaf, cont_internal) { cont_nil() } };
 make_leaf = (!l, r) { ! (cont_nil, cont_leaf, cont_internal) { cont_leaf(l, r) } };
 make_internal = (!a, b) { ! (cont_nil, cont_leaf, cont_internal) { cont_internal(a, b) } };
 
+tree_is_leaf = (!tree) {
+  callcc((ret) {
+    tree(
+      () { ! (a, b) { b } },
+      (l, r) { ! (a, b) { a } },
+      (a, b) { ! (a, b) { b } }
+    )
+  });
+};
+
+tree_leaf_get_l = (!tree) {
+  callcc((ret) {
+    tree(
+      () { ! 0 },
+      (l, r) { ! l },
+      (a, b) { ! 0 }
+    )
+  });
+};
+
+tree_leaf_get_r = (!tree) {
+  callcc((ret) {
+    tree(
+      () { ! 0 },
+      (l, r) { ! r },
+      (a, b) { ! 0 }
+    )
+  });
+};
+
 is_nil = (!tree) {
   ! (a, b) {
     tree(
@@ -323,6 +353,7 @@ parse_id_list = (!old_tokenizer) {
 };
 
 parse_function = (!orig_tokenizer) {
+  l, r = orig_tokenizer();
   tokenizer, mt = eat_token(orig_tokenizer, "(");
   if (not(mt), (break) { ! tokenizer, 0 });
   tokenizer, is_returning = parse_is_returning(tokenizer);
@@ -365,7 +396,7 @@ print_function = (!old_context, gl, gr, func) {
     ! new_context
   });
   print_cexp(fname_l, fname_r, new_context, is_returning, gl, gr, cexp);
-  if_ret(is_returning, (!) { {printf "ret\n"}; });
+  if_ret(is_returning, (!) { printf("ret\n"); });
   printf("{}_end:\n", fname_l, fname_r);
   ! 0
 };
@@ -393,6 +424,7 @@ parse_texp = (!orig_tokenizer) {
     tokenizer, cexp = parse_cexp(tokenizer);
     tokenizer, mt = eat_token(tokenizer, "}");
     if(not(mt), (break2) { break });
+    warning(tl);
     ! tokenizer, (!) { ! texp_block, (!) { ! cexp } }
   });
   tokenizer, func = parse_function(orig_tokenizer);
@@ -424,7 +456,7 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   });
   if (eq(texp_type, texp_func), (break) {
     func = texp();
-    fname_l fname_r func_args is_returning cexp = {func};
+    fname_l fname_r func_args is_returning cexp = func();
     old_context = filter_context(old_context, func_args);
     print_function(old_context, gl, gr, func);
     context = make_internal(make_leaf(fname_l, fname_r), old_context);
@@ -527,7 +559,7 @@ merge_context = (!old_context ids) {
 
 print_cexp = (!fl fr context is_returning, gl, gr, cexp) {
   assign cexp = cexp();
-  print_assignment(fl, fr, context, is_returning, gl, gr, assign);
+  print_statement(fl, fr, context, is_returning, gl, gr, assign);
   if(eq(cexp, 0), (break) { ! 0 });
   assign_vars = get_assignment_vars(assign);
   print_cexp(fl, fr, merge_context(context, assign_vars), is_returning, gl, gr, cexp);
@@ -553,14 +585,6 @@ parse_assign_left = (!orig_tokenizer) {
   ! tokenizer, ids
 };
 
-parse_assignment_statement = (!orig_tokenizer) {
-  tokenizer, ids = parse_assign_left(orig_tokenizer);
-  tokenizer, call_exp = parse_expr(tokenizer);
-  tokenizer, mt = eat_token(tokenizer, ";");
-  if(not(mt), (break) { ! orig_tokenizer, 0 });
-  ! tokenizer, (!) { ! ids, call_exp }
-};
-
 eat_token = (!tokenizer, targ) {
   new_tokenizer, token = read_token_t(tokenizer);
   if (token_matches(targ, token), (break) {
@@ -569,29 +593,9 @@ eat_token = (!tokenizer, targ) {
   ! tokenizer, (a, b) { b }
 };
 
-return_statement = 1;
-tail_recursion_statement = 2;
-assign_statement = 3;
-parse_statement = (!tokenizer) {
-  tokenizer, matches = eat_token(tokenizer, "!");
-  if(matches, (break) {
-    tokenizer, call_exps = parse_expr_list(tokenizer);
-    ! tokenizer, (!) { ! return_statement, (!) { ! call_exps } }
-  });
-  tokenizer, assign = parse_assignment_statement(tokenizer);
-  if(ne(assign, 0), (break) {
-    ! tokenizer, (!) { ! assign_statement, assign }
-  });
-  tokenizer, cexp = parse_tail_recursion_statement(tokenizer);
-  if(ne(cexp, 0), (break) {
-    ! tokenizer, (!) { ! tail_recursion_statement, (!) { ! cexp } }
-  });
-  ! tokenizer, 0
-};
-
-print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
-  assign_type, assign = orig_assign();
-  if(eq(assign_type, return_statement), (break) {
+print_statement = (!fl, fr, context, is_returning, gl, gr, orig_statement) {
+  assign_type, assign = orig_statement();
+  if(eq(assign_type, stmt_return), (break) {
     call_exps = assign();
     printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
     map_tree(reverse_tree(call_exps), (!call_exp r) {
@@ -601,34 +605,23 @@ print_assignment = (!fl, fr, context, is_returning, gl, gr, orig_assign) {
       printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
     });
     printf("pop rcx\npop rax\njmp rcx\n");
-    ! orig_assign
+    ! orig_statement
   });
-  if (eq(assign_type, assign_statement), (break) {
+  if (eq(assign_type, stmt_assign), (break) {
     ids, call_exp = assign();
     print_expr(fl, fr, context, ids, gl, gr, call_exp);
-    ! orig_assign
+    ! orig_statement
   });
-  if (eq(assign_type, tail_recursion_statement), (break) {
+  if (eq(assign_type, stmt_tail_rec), (break) {
     appl = assign();
     print_function_application(fl, fr, context, is_returning, gl, gr, appl);
-    ! orig_assign
+    ! orig_statement
   });
-};
-
-assign_to_function = (!assign) {
-  assign_type, assign = assign();
-  if (eq(assign_type, assign_statement), (break) {
-    ids, call_exp = assign();
-    func = expr_to_function(call_exp);
-    if(eq(func, 0), (break) { ! 0 });
-    ! (!) { ! ids, func }
-  });
-  ! 0
 };
 
 get_assignment_vars = (!assign) {
   assign_type, assign = assign();
-  if (eq(assign_type, assign_statement), (break) {
+  if (eq(assign_type, stmt_assign), (break) {
     ids, call_exp = assign();
     ! ids
   });
@@ -645,10 +638,58 @@ print_call_exp_args = (!fl, fr, old_context, gl, gr, op_list) {
   ! 0
 };
 
+/ library
+cons = (!head, tail) {
+  ! (!) { ! head, tail }
+};
+head = (!list) {
+  head, tail = list();
+  ! head
+};
+tail = (!list) {
+  head, tail = list();
+  ! tail
+};
+
+assign_new = (!ids, call_exp) {
+  ! (!) { ! ids, call_exp }
+};
+
 / data structs
+stmt_return = 1;
+stmt_tail_rec = 2;
+stmt_assign = 3;
+stmt_type_get = (!stmt) {
+  stmt_type, stmt = stmt();
+  ! stmt_type
+};
+stmt_return_new = (!call_exps) {
+  ! (!) { ! stmt_return, (!) { ! call_exps } }
+};
+stmt_tail_rec_new = (!cexp) {
+  ! (!) { ! stmt_tail_rec, (!) { ! cexp } }
+};
+stmt_assign_new = (!assign) {
+  ! (!) { ! stmt_assign, assign }
+};
+stmt_assign_get = (!stmt) {
+  stmt_type, assign = stmt();
+  ! assign
+};
+stmt_to_function = (!stmt) {
+  if (eq(stmt_type_get(stmt), stmt_assign), (break) {
+    assign = stmt_assign_get(stmt);
+    ids, call_exp = assign();
+    func = expr_to_function(call_exp);
+    if(eq(func, 0), (break) { ! 0 });
+    ! (!) { ! ids, func }
+  });
+  ! 0
+};
+
 expr_call = 0;
 expr_texp = 1;
-expr_type_get = (!expr) {
+expr_get_type = (!expr) {
   expr_type, expr = expr();
   ! expr_type
 };
@@ -658,27 +699,52 @@ expr_call_new = (!texp, op_list) {
 expr_texp_new = (!texp) {
   ! (!) { ! expr_texp, (!) { ! texp }}
 };
-expr_texp_texp = (!expr) {
+expr_texp_get_texp = (!expr) {
   expr_type, expr = expr();
   texp = expr();
   ! texp
 };
-expr_call_texp = (!expr) {
+expr_call_get_texp = (!expr) {
   expr_type, expr = expr();
   texp, op_list = expr();
   ! texp
 };
-expr_call_op_list = (!expr) {
+expr_call_get_op_list = (!expr) {
   expr_type, expr = expr();
   texp, op_list = expr();
   ! op_list
 };
 expr_to_function = (!expr) {
-  if (ne(expr_type_get(expr), expr_texp), (break) { ! 0 });
-  ! texp_to_function(expr_texp_texp(expr))
+  if (ne(expr_get_type(expr), expr_texp), (break) { ! 0 });
+  ! texp_to_function(expr_texp_get_texp(expr))
 };
 
 / parsing
+parse_statement = (!tokenizer) {
+  tokenizer, matches = eat_token(tokenizer, "!");
+  if(matches, (break) {
+    tokenizer, call_exps = parse_expr_list(tokenizer);
+    ! tokenizer, stmt_return_new(call_exps)
+  });
+  tokenizer, assign = parse_assignment_statement(tokenizer);
+  if(ne(assign, 0), (break) {
+    ! tokenizer, stmt_assign_new(assign)
+  });
+  tokenizer, cexp = parse_tail_recursion_statement(tokenizer);
+  if(ne(cexp, 0), (break) {
+    ! tokenizer, stmt_tail_rec_new(cexp)
+  });
+  ! tokenizer, 0
+};
+
+parse_assignment_statement = (!orig_tokenizer) {
+  tokenizer, ids = parse_assign_left(orig_tokenizer);
+  tokenizer, call_exp = parse_expr(tokenizer);
+  tokenizer, mt = eat_token(tokenizer, ";");
+  if(not(mt), (break) { ! orig_tokenizer, 0 });
+  ! tokenizer, assign_new(ids, call_exp)
+};
+/ todo: switch to list
 parse_expr_list = (!tokenizer) {
   tokenizer, call_exp = parse_expr(tokenizer);
   if(eq(call_exp, 0), (break) { ! tokenizer, make_nil() });
@@ -694,7 +760,7 @@ parse_expr_list = (!tokenizer) {
   ! tokenizer, tree
 };
 
-parse_expr_args = (!orig_tokenizer) {
+parse_call_args = (!orig_tokenizer) {
   tokenizer, mt = eat_token(orig_tokenizer, "(");
   if(not(mt), (break) { ! tokenizer, 0 });
   tokenizer, op_list = parse_expr_list(tokenizer);
@@ -704,32 +770,60 @@ parse_expr_args = (!orig_tokenizer) {
   if(mt, (break2) { ! orig_tokenizer, 0  });
   ! tokenizer, op_list
 };
+/ todo: allow multiple calls
 parse_expr = (!tokenizer) {
   tokenizer, texp = parse_texp(tokenizer);
-  {if eq(texp, 0), (break) { ! tokenizer, 0 }};
-  tokenizer, op_list = parse_expr_args(tokenizer);
-  {if eq(op_list, 0), (break) { ! tokenizer, expr_texp_new(texp) } };
+  if(eq(texp, 0), (break) { ! tokenizer, 0 });
+  tokenizer, op_list = parse_call_args(tokenizer);
+  if(eq(op_list, 0), (break) { ! tokenizer, expr_texp_new(texp) });
   ! tokenizer, expr_call_new(texp, op_list)
 };
 
-/ printing
-print_expr = (!fl fr old_context ids, gl, gr, expr) {
-  {if eq(expr, 0), (break) { ! 0 }};
-  if (eq(expr_type_get(expr), expr_texp), (break) {
-    print_texp(fl, fr, old_context, ids, gl, gr, expr_texp_texp(expr));
+parse_program = (!tokenizer) {
+  l, r = tokenizer();
+  if(check_eof(tokenizer), (break) { ! 0 });
+  c = deref_byte(l);
+  
+  if(eq(c,10), (break) {
+    mid = add(l, 1);
+    ! parse_program(make_tokenizer(mid, r))
+  });
+  if(eq(c,32), (break) {
+    mid = add(l, 1);
+    ! parse_program(make_tokenizer(mid, r))
+  });
+
+  if(eq(c,47), (break) {
+    l, r = read_until(deref_byte("\n"), l, r);
+    ! parse_program(make_tokenizer(l, r))
+  });
+  
+  tokenizer, stmt = parse_statement(make_tokenizer(l, r));
+  if(eq(stmt, 0), (break) {
     ! 0
   });
-  if (eq(expr_type_get(expr), expr_call), (break) {
+  tmp = parse_program(tokenizer);
+  ! cons(stmt, tmp)
+};
+
+/ printing
+print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
+  if(eq(expr, 0), (break) { ! 0 });
+  if (eq(expr_get_type(expr), expr_texp), (break) {
+    print_texp(fl, fr, old_context, ids, gl, gr, expr_texp_get_texp(expr));
+    ! 0
+  });
+  if (eq(expr_get_type(expr), expr_call), (break) {
     context = map_tree(old_context, (!l r) {
-      {if search_tree(ids, l, r), (break) { ! make_nil() }};
+      if(search_tree(ids, l, r), (break) { ! make_nil() });
       ! make_leaf(l, r)
     });
     map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
     
-    al ar = aexp_to_range(get_aexp_from_texp(expr_call_texp(expr)));
-    print_call_exp_args(fl, fr, old_context, gl, gr, expr_call_op_list(expr));
+    al ar = aexp_to_range(get_aexp_from_texp(expr_call_get_texp(expr)));
+    print_call_exp_args(fl, fr, old_context, gl, gr, expr_call_get_op_list(expr));
     if_else(or(eq(al, ar), search_tree(old_context, al, ar)), (break) {
-      print_texp(fl, fr, old_context, make_nil(), gl, gr, expr_call_texp(expr));
+      print_expr(fl, fr, old_context, make_nil(), gl, gr, expr_texp_new(expr_call_get_texp(expr)));
       printf("call runtime_call_ret\n");
       break
     },
@@ -747,10 +841,32 @@ print_expr = (!fl fr old_context ids, gl, gr, expr) {
   ! 0
 };
 
+print_program = (!program, context) {
+  if (eq(program, 0), (break) { ! 0 });
+  stmt = head(program);
+
+  id_func = stmt_to_function(stmt);
+  if(eq(id_func, 0), (break) {
+    ids = filter_context(get_assignment_vars(stmt), context);
+    map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
+    print_statement(0, 0, make_nil(), (a, b) { a }, 0, 0, stmt);
+    ! print_program(tail(program), make_internal(context, ids))
+  });
+  if(ne(id_func, 0), (break) {
+    ids func = id_func();
+    fname = first_leaf(ids);
+    fname_l fname_r func_args is_returning cexp = func();
+    func = (!) { ! tree_leaf_get_l(fname), tree_leaf_get_r(fname), func_args, is_returning, cexp };
+    print_function(make_nil(), 0, 0, func);
+    break
+  });
+  ! print_program(tail(program), context)
+};
+
 
 parse_func_appl_args = (!tokenizer) {
-  tokenizer, op_list = parse_expr_args(tokenizer);
-  {if ne(op_list, 0), (break) { ! tokenizer, op_list }};
+  tokenizer, op_list = parse_call_args(tokenizer);
+  if(ne(op_list, 0), (break) { ! tokenizer, op_list });
   tokenizer, op_list = parse_expr_list(tokenizer);
   ! tokenizer, op_list
 };
@@ -799,61 +915,6 @@ check_eof = (!tokenizer) {
   ! (a, b) { b }
 };
 
-parse_program = (!tokenizer) {
-  l, r = tokenizer();
-  if(check_eof(tokenizer), (break) { ! (!) { ! 0, 0, 0 } });
-  c = deref_byte(l);
-  
-  if(eq(c,10), (break) {
-    mid = add(l, 1);
-    ! parse_program(make_tokenizer(mid, r))
-  });
-  if(eq(c,32), (break) {
-    mid = add(l, 1);
-    ! parse_program(make_tokenizer(mid, r))
-  });
-
-  if(eq(c,47), (break) {
-    l, r = read_until(deref_byte("\n"), l, r);
-    ! parse_program(make_tokenizer(l, r))
-  });
-  
-  tokenizer, assign = parse_statement(make_tokenizer(l, r));
-  if(eq(assign, 0), (break) {
-    ! (!) { ! 0, 0, 0 }
-  });
-  tmp = parse_program(tokenizer);
-  ! (!) { ! 1, assign, tmp }
-};
-
-print_program = (!assigns, context) {
-  has, assign, rem_assigns = assigns();
-  if (eq(has, 0), (break) { ! 0 });
-
-  id_func = assign_to_function(assign);
-  {if eq(id_func, 0), (break) {
-    ids = filter_context(get_assignment_vars(assign), context);
-    map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
-    print_assignment(0, 0, make_nil(), (a, b) { a }, 0, 0, assign);
-    ! print_program(rem_assigns, make_internal(context, ids))
-  }};
-  {if ne(id_func, 0), (break) {
-    ids func = id_func();
-    fname = first_leaf(ids);
-    fname_l fname_r func_args is_returning cexp = func();
-    fname(
-      () { break },
-      (l, r) {
-        func = (!) { ! l, r, func_args, is_returning, cexp };
-        print_function(make_nil(), 0, 0, func);
-        break()
-      },
-      (a, b) { break() }
-    )
-  }};
-  ! print_program(rem_assigns, context)
-};
-
 stderr_print = (!st, len) {
   sysc(1, 2, st, len, 0, 0, 0);
   ! 0
@@ -877,7 +938,7 @@ outf = sysc(2, outf_name, 578, 65535, 0, 0, 0);
 / get input size
 flen = (!) {
   buff = malloc_func(192);
-  {sysc 5, inpf, buff, 0, 0, 0, 0};
+  sysc(5, inpf, buff, 0, 0, 0, 0);
   ! deref(add(buff, 48))
 }();
 
