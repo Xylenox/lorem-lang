@@ -1,7 +1,7 @@
 / start:
 
 callcc = (ret, cont) {
-  cont((res) { return ret, res })
+  cont((res) { return(ret, res) })
 };
 
 or = (!cont1, cont2) {
@@ -11,46 +11,46 @@ or = (!cont1, cont2) {
 };
 and = (!cont1, cont2) {
   callcc((ret) {
-    cont1(() { ! cont2 }, () { ! (a, b) { b } })
+    cont1(() { ! cont2 }, () { ! (a, b) { b() } })
   });
 };
 
 if = (ret, v, cont) {
-  break = () { return ret, 0 };
-  v(() { cont break }, break)
+  break = () { return(ret, 0) };
+  v(() { cont(break) }, break)
 };
 if_else = (ret, v, cont1, cont2) {
-  break = () { return ret, 0 };
-  v(() { cont1 break }, () { cont2 break })
+  break = () { return(ret, 0) };
+  v(() { cont1(break) }, () { cont2(break) })
 };
 if_ret = (ret, v, cont) {
-  break = () { return ret, 0 };
+  break = () { return(ret, 0) };
   v(() {
     cont();
-    break
+    break()
   },
   break)
 };
 
 if_else_ret = (ret, v, cont1, cont2) {
-  v(() { return ret, {cont1} },
-  () { return ret, {cont2} })
+  v(() { return(ret, { cont1() }) },
+  () { return(ret, { cont2() }) })
 };
 
 ne = (!a, b) {
   callcc((ret) {
-  compare(a, b, () { ! (x y) {y} }, () { ! (x y) {x} })
+  compare(a, b, () { ! (x y) { y() } }, () { ! (x y) { x() } })
   });
 };
 not = (!x) {
   callcc((ret) {
-    x(() { ! (a b) {b} }, () { ! (a b) {a} })
+    x(() { ! (a b) { b() } }, () { ! (a b) { a() } })
   });
 };
 
 eq = (!a, b) {
   callcc((ret) {
-  compare(a, b, () { ! (x y) {x} }, () { ! (x y) {y} })
+  compare(a, b, () { ! (x y) { x() } }, () { ! (x y) { y() } })
   });
 };
 
@@ -61,9 +61,9 @@ make_internal = (!a, b) { ! (cont_nil, cont_leaf, cont_internal) { cont_internal
 tree_is_leaf = (!tree) {
   callcc((ret) {
     tree(
-      () { ! (a, b) { b } },
-      (l, r) { ! (a, b) { a } },
-      (a, b) { ! (a, b) { b } }
+      () { ! (a, b) { b() } },
+      (l, r) { ! (a, b) { a() } },
+      (a, b) { ! (a, b) { b() } }
     )
   });
 };
@@ -91,9 +91,9 @@ tree_leaf_get_r = (!tree) {
 is_nil = (!tree) {
   ! (a, b) {
     tree(
-      () { a },
-      (l, r) { b },
-      (a, c) { b }
+      () { a() },
+      (l, r) { b() },
+      (a, c) { b() }
     )
   }
 };
@@ -117,13 +117,13 @@ print_num = (!v) {
 
 printf = (ret, l) {
   lb = deref_byte(l);
-  {if eq(lb, 0), (break) {
+  {if(eq(lb, 0), (break) {
     return(ret, 0)
-  }};
-  {if eq(lb, 123), (break, a, b) {
+  })};
+  {if(eq(lb, 123), (break, a, b) {
     print_range(a, b);
     printf(ret, add(l, 2))
-  }};
+  })};
   print_char(deref_byte(l));
   printf(ret, add(l, 1))
 };
@@ -209,7 +209,7 @@ search_tree = (!tree l r) {
   callcc(
     (ret) {
       tree(
-        () { ! (a, b) { b } },
+        () { ! (a, b) { b() } },
         (a, b) {
           res = str_equal_func(l, r, a, b);
           ! res
@@ -258,14 +258,14 @@ read_identifier = (!l, r) {
 };
 
 matches = (!a b) {
-  if(eq(deref_byte(a), 0), (break) { ! (a b) { a } });
-  if(ne(deref_byte(a), deref_byte(b)), (break) { ! (a b) { b } });
+  if(eq(deref_byte(a), 0), (break) { ! (a b) { a() } });
+  if(ne(deref_byte(a), deref_byte(b)), (break) { ! (a b) { b() } });
   ! matches(add(a, 1), add(b, 1))
 };
 
 matches_strict = (!pattern, l, r) {
   if (eq(deref_byte(pattern), 0), (break) { ! eq(l, r) });
-  if (ne(deref_byte(pattern), deref_byte(l)), (break) { ! (a, b) { b } });
+  if (ne(deref_byte(pattern), deref_byte(l)), (break) { ! (a, b) { b() } });
   ! matches_strict(add(pattern, 1), add(l, 1), r)
 };
 token_matches = (!pattern, token) {
@@ -333,9 +333,9 @@ token_type = (!token) {
 parse_is_returning = (!orig_tokenizer) {
   tokenizer, token = read_token_t(orig_tokenizer);
   if(token_matches("!", token), (break) {
-    ! tokenizer, (a, b) { a }
+    ! tokenizer, (a, b) { a() }
   });
-  ! orig_tokenizer, (a, b) { b }
+  ! orig_tokenizer, (a, b) { b() }
 };
 
 parse_id_list = (!old_tokenizer) {
@@ -423,8 +423,7 @@ parse_texp = (!orig_tokenizer) {
   if(matches("{", tl), (break) {
     tokenizer, cexp = parse_cexp(tokenizer);
     tokenizer, mt = eat_token(tokenizer, "}");
-    if(not(mt), (break2) { break });
-    warning(tl);
+    if(not(mt), (break2) { break() });
     ! tokenizer, (!) { ! texp_block, (!) { ! cexp } }
   });
   tokenizer, func = parse_function(orig_tokenizer);
@@ -449,7 +448,7 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   });
   if (eq(texp_type, texp_block), (break) {
     cexp = texp();
-    print_cexp(fl, fr, old_context, (a b) { a }, gl, gr, cexp);
+    print_cexp(fl, fr, old_context, (a b) { a() }, gl, gr, cexp);
     printf("push rax\n");
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
     ! 0
@@ -527,7 +526,7 @@ print_aexp = (!comb_args fname_l fname_r l r) {
       printf("push qword [{}{}]\n", fname_l, fname_r, l, r);
       ! 0
     });
-    break_o
+    break_o()
   });
   if(eq(is_digit(dig), 1), (break) {
     printf("push {}\n", l, r);
@@ -588,35 +587,9 @@ parse_assign_left = (!orig_tokenizer) {
 eat_token = (!tokenizer, targ) {
   new_tokenizer, token = read_token_t(tokenizer);
   if (token_matches(targ, token), (break) {
-    ! new_tokenizer, (a, b) { a }
+    ! new_tokenizer, (a, b) { a() }
   })
-  ! tokenizer, (a, b) { b }
-};
-
-print_statement = (!fl, fr, context, is_returning, gl, gr, orig_statement) {
-  assign_type, assign = orig_statement();
-  if(eq(assign_type, stmt_return), (break) {
-    call_exps = assign();
-    printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
-    map_tree(reverse_tree(call_exps), (!call_exp r) {
-      il, ir = gen_label();
-      printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
-      print_expr(fl, fr, context, make_leaf(il, ir), gl, gr, call_exp);
-      printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
-    });
-    printf("pop rcx\npop rax\njmp rcx\n");
-    ! orig_statement
-  });
-  if (eq(assign_type, stmt_assign), (break) {
-    ids, call_exp = assign();
-    print_expr(fl, fr, context, ids, gl, gr, call_exp);
-    ! orig_statement
-  });
-  if (eq(assign_type, stmt_tail_rec), (break) {
-    appl = assign();
-    print_function_application(fl, fr, context, is_returning, gl, gr, appl);
-    ! orig_statement
-  });
+  ! tokenizer, (a, b) { b() }
 };
 
 get_assignment_vars = (!assign) {
@@ -719,6 +692,8 @@ expr_to_function = (!expr) {
   ! texp_to_function(expr_texp_get_texp(expr))
 };
 
+
+
 / parsing
 parse_statement = (!tokenizer) {
   tokenizer, matches = eat_token(tokenizer, "!");
@@ -744,6 +719,27 @@ parse_assignment_statement = (!orig_tokenizer) {
   if(not(mt), (break) { ! orig_tokenizer, 0 });
   ! tokenizer, assign_new(ids, call_exp)
 };
+
+parse_tail_recursion_statement = (!tokenizer) {
+  l, r = tokenizer();
+  tokenizer2, expr = parse_expr(tokenizer);
+  tokenizer, texp = parse_texp(tokenizer);
+  if(eq(texp, 0), (break) { ! tokenizer, 0 });
+  tokenizer, op_list = parse_func_appl_args(tokenizer);
+  if (ne(expr_get_type(expr), expr_call), (break) {
+    warning(l);
+    break()
+  });
+  ! tokenizer, (!) { ! op_list, texp }
+};
+
+parse_func_appl_args = (!tokenizer) {
+  tokenizer, op_list = parse_call_args(tokenizer);
+  if(ne(op_list, 0), (break) { ! tokenizer, op_list });
+  tokenizer, op_list = parse_expr_list(tokenizer);
+  ! tokenizer, op_list
+};
+
 / todo: switch to list
 parse_expr_list = (!tokenizer) {
   tokenizer, call_exp = parse_expr(tokenizer);
@@ -753,7 +749,7 @@ parse_expr_list = (!tokenizer) {
   tokenizer, tree = parse_expr_list(tokenizer);
   if (and(not(is_nil(tree)), not(matches)), (break) {
     error(l);
-    break
+    break()
   });
   leaf = make_leaf(call_exp, 0);
   tree = make_internal(leaf, tree);
@@ -806,6 +802,8 @@ parse_program = (!tokenizer) {
   ! cons(stmt, tmp)
 };
 
+
+
 / printing
 print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
   if(eq(expr, 0), (break) { ! 0 });
@@ -822,7 +820,7 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
     
     op_list = expr_call_get_op_list(expr);
     texp = expr_call_get_texp(expr);
-    print_function_application(fl, fr, old_context, (a, b) { a }, gl, gr, (!) { !op_list, texp });
+    print_function_application(fl, fr, old_context, (a, b) { a() }, gl, gr, (!) { !op_list, texp });
 
     rev_context = reverse_tree(context);
     printf("push rax\n");
@@ -831,6 +829,32 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
     ! 0
   })
   ! 0
+};
+
+print_statement = (!fl, fr, context, is_returning, gl, gr, orig_statement) {
+  assign_type, assign = orig_statement();
+  if(eq(assign_type, stmt_return), (break) {
+    call_exps = assign();
+    printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
+    map_tree(reverse_tree(call_exps), (!call_exp r) {
+      il, ir = gen_label();
+      printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
+      print_expr(fl, fr, context, make_leaf(il, ir), gl, gr, call_exp);
+      printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
+    });
+    printf("pop rcx\npop rax\njmp rcx\n");
+    ! orig_statement
+  });
+  if (eq(assign_type, stmt_assign), (break) {
+    ids, call_exp = assign();
+    print_expr(fl, fr, context, ids, gl, gr, call_exp);
+    ! orig_statement
+  });
+  if (eq(assign_type, stmt_tail_rec), (break) {
+    appl = assign();
+    print_function_application(fl, fr, context, is_returning, gl, gr, appl);
+    ! orig_statement
+  });
 };
 
 print_function_application = (!fl, fr, context, is_returning, gl, gr, appl) {
@@ -843,14 +867,14 @@ print_function_application = (!fl, fr, context, is_returning, gl, gr, appl) {
       (!) { ! printf("call runtime_call_ret\n") },
       (!) { ! printf("jmp runtime_call\n") },
     );
-    break
+    break()
   },
   (break) {
     if_else_ret(is_returning,
       (!) { ! printf("call {}\n", al, ar) },
       (!) { ! printf("jmp {}\n", al, ar) },
     );
-    break
+    break()
   });
 };
 
@@ -862,7 +886,7 @@ print_program = (!program, context) {
   if(eq(id_func, 0), (break) {
     ids = filter_context(get_assignment_vars(stmt), context);
     map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
-    print_statement(0, 0, make_nil(), (a, b) { a }, 0, 0, stmt);
+    print_statement(0, 0, make_nil(), (a, b) { a() }, 0, 0, stmt);
     ! print_program(tail(program), make_internal(context, ids))
   });
   if(ne(id_func, 0), (break) {
@@ -871,17 +895,9 @@ print_program = (!program, context) {
     fname_l fname_r func_args is_returning cexp = func();
     func = (!) { ! tree_leaf_get_l(fname), tree_leaf_get_r(fname), func_args, is_returning, cexp };
     print_function(make_nil(), 0, 0, func);
-    break
+    break()
   });
   ! print_program(tail(program), context)
-};
-
-
-parse_func_appl_args = (!tokenizer) {
-  tokenizer, op_list = parse_call_args(tokenizer);
-  if(ne(op_list, 0), (break) { ! tokenizer, op_list });
-  tokenizer, op_list = parse_expr_list(tokenizer);
-  ! tokenizer, op_list
 };
 
 aexp_to_range = (!aexp) {
@@ -892,19 +908,12 @@ aexp_to_range = (!aexp) {
   ! l, r
 };
 
-parse_tail_recursion_statement = (!tokenizer) {
-  tokenizer, texp = parse_texp(tokenizer);
-  if(eq(texp, 0), (break) { ! tokenizer, 0 });
-  tokenizer, op_list = parse_func_appl_args(tokenizer);
-  ! tokenizer, (!) { ! op_list, texp }
-};
-
 check_eof = (!tokenizer) {
   l, r = tokenizer();
   if(eq(l, r), (break) {
-    ! (a, b) { a }
+    ! (a, b) { a() }
   });
-  ! (a, b) { b }
+  ! (a, b) { b() }
 };
 
 stderr_print = (!st, len) {
