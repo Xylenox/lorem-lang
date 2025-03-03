@@ -639,8 +639,8 @@ stmt_type_get = (!stmt) {
 stmt_return_new = (!call_exps) {
   ! (!) { ! stmt_return, (!) { ! call_exps } }
 };
-stmt_tail_rec_new = (!cexp) {
-  ! (!) { ! stmt_tail_rec, (!) { ! cexp } }
+stmt_tail_rec_new = (!expr) {
+  ! (!) { ! stmt_tail_rec, expr }
 };
 stmt_assign_new = (!assign) {
   ! (!) { ! stmt_assign, assign }
@@ -648,6 +648,10 @@ stmt_assign_new = (!assign) {
 stmt_assign_get = (!stmt) {
   stmt_type, assign = stmt();
   ! assign
+};
+stmt_tail_rec_get = (!stmt) {
+  stmt_type, expr = stmt();
+  ! expr
 };
 stmt_to_function = (!stmt) {
   if (eq(stmt_type_get(stmt), stmt_assign), (break) {
@@ -705,9 +709,9 @@ parse_statement = (!tokenizer) {
   if(ne(assign, 0), (break) {
     ! tokenizer, stmt_assign_new(assign)
   });
-  tokenizer, cexp = parse_tail_recursion_statement(tokenizer);
-  if(ne(cexp, 0), (break) {
-    ! tokenizer, stmt_tail_rec_new(cexp)
+  tokenizer, expr = parse_tail_recursion_statement(tokenizer);
+  if(ne(expr, 0), (break) {
+    ! tokenizer, stmt_tail_rec_new(expr)
   });
   ! tokenizer, 0
 };
@@ -722,22 +726,13 @@ parse_assignment_statement = (!orig_tokenizer) {
 
 parse_tail_recursion_statement = (!tokenizer) {
   l, r = tokenizer();
-  tokenizer2, expr = parse_expr(tokenizer);
-  tokenizer, texp = parse_texp(tokenizer);
-  if(eq(texp, 0), (break) { ! tokenizer, 0 });
-  tokenizer, op_list = parse_func_appl_args(tokenizer);
+  tokenizer, expr = parse_expr(tokenizer);
+  if (eq(expr, 0), (break) { ! tokenizer, 0 });
   if (ne(expr_get_type(expr), expr_call), (break) {
-    warning(l);
+    error(l);
     break()
   });
-  ! tokenizer, (!) { ! op_list, texp }
-};
-
-parse_func_appl_args = (!tokenizer) {
-  tokenizer, op_list = parse_call_args(tokenizer);
-  if(ne(op_list, 0), (break) { ! tokenizer, op_list });
-  tokenizer, op_list = parse_expr_list(tokenizer);
-  ! tokenizer, op_list
+  ! tokenizer, expr
 };
 
 / todo: switch to list
@@ -817,10 +812,7 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
       ! make_leaf(l, r)
     });
     map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
-    
-    op_list = expr_call_get_op_list(expr);
-    texp = expr_call_get_texp(expr);
-    print_function_application(fl, fr, old_context, (a, b) { a() }, gl, gr, (!) { !op_list, texp });
+    print_function_application(fl, fr, old_context, (a, b) { a() }, gl, gr, expr);
 
     rev_context = reverse_tree(context);
     printf("push rax\n");
@@ -832,9 +824,9 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
 };
 
 print_statement = (!fl, fr, context, is_returning, gl, gr, orig_statement) {
-  assign_type, assign = orig_statement();
-  if(eq(assign_type, stmt_return), (break) {
-    call_exps = assign();
+  stmt_type, stmt = orig_statement();
+  if(eq(stmt_type_get(orig_statement), stmt_return), (break) {
+    call_exps = stmt();
     printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
     map_tree(reverse_tree(call_exps), (!call_exp r) {
       il, ir = gen_label();
@@ -845,20 +837,20 @@ print_statement = (!fl, fr, context, is_returning, gl, gr, orig_statement) {
     printf("pop rcx\npop rax\njmp rcx\n");
     ! orig_statement
   });
-  if (eq(assign_type, stmt_assign), (break) {
-    ids, call_exp = assign();
+  if (eq(stmt_type_get(orig_statement), stmt_assign), (break) {
+    ids, call_exp = stmt();
     print_expr(fl, fr, context, ids, gl, gr, call_exp);
     ! orig_statement
   });
-  if (eq(assign_type, stmt_tail_rec), (break) {
-    appl = assign();
-    print_function_application(fl, fr, context, is_returning, gl, gr, appl);
+  if (eq(stmt_type_get(orig_statement), stmt_tail_rec), (break) {
+    print_function_application(fl, fr, context, is_returning, gl, gr, stmt_tail_rec_get(orig_statement));
     ! orig_statement
   });
 };
 
-print_function_application = (!fl, fr, context, is_returning, gl, gr, appl) {
-  op_list, texp = appl();
+print_function_application = (!fl, fr, context, is_returning, gl, gr, expr) {
+  texp = expr_call_get_texp(expr);
+  op_list = expr_call_get_op_list(expr);
   al, ar = aexp_to_range(get_aexp_from_texp(texp));
   print_call_exp_args(fl, fr, context, gl, gr, op_list);
   if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
