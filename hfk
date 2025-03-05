@@ -410,6 +410,14 @@ get_aexp_from_texp = (! texp) {
   ! 0
 };
 
+get_aexp_from_expr = (!expr) {
+  if(eq(expr, 0), (break) { ! 0 });
+  if(eq(expr_get_type(expr), expr_texp), (break) {
+    ! get_aexp_from_texp(expr_texp_get_texp(expr))
+  });
+  ! 0
+};
+
 texp_string = 0;
 texp_block = 1;
 texp_func = 2;
@@ -674,8 +682,8 @@ expr_get_type = (!expr) {
   expr_type, expr = expr();
   ! expr_type
 };
-expr_call_new = (!texp, op_list) {
-  ! (!) { ! expr_call, (!) { ! texp, op_list }}
+expr_call_new = (!expr, op_list) {
+  ! (!) { ! expr_call, (!) { ! expr, op_list }}
 };
 expr_texp_new = (!texp) {
   ! (!) { ! expr_texp, (!) { ! texp }}
@@ -685,10 +693,10 @@ expr_texp_get_texp = (!expr) {
   texp = expr();
   ! texp
 };
-expr_call_get_texp = (!expr) {
+expr_call_get_expr = (!expr) {
   expr_type, expr = expr();
-  texp, op_list = expr();
-  ! texp
+  expr, op_list = expr();
+  ! expr
 };
 expr_call_get_op_list = (!expr) {
   expr_type, expr = expr();
@@ -765,13 +773,17 @@ parse_call_args = (!orig_tokenizer) {
   if(mt, (break2) { ! orig_tokenizer, 0  });
   ! tokenizer, op_list
 };
-/ todo: allow multiple calls
 parse_expr = (!tokenizer) {
   tokenizer, texp = parse_texp(tokenizer);
   if(eq(texp, 0), (break) { ! tokenizer, 0 });
+  tokenizer, expr = parse_expr_help(tokenizer, expr_texp_new(texp));
+  ! tokenizer, expr
+};
+parse_expr_help = (!tokenizer, expr) {
   tokenizer, op_list = parse_call_args(tokenizer);
-  if(eq(op_list, 0), (break) { ! tokenizer, expr_texp_new(texp) });
-  ! tokenizer, expr_call_new(texp, op_list)
+  if(eq(op_list, 0), (break) { ! tokenizer, expr });
+  tokenizer, expr = parse_expr_help(tokenizer, expr_call_new(expr, op_list));
+  ! tokenizer, expr
 };
 
 parse_program = (!tokenizer) {
@@ -853,12 +865,12 @@ print_statement = (!fl, fr, context, is_returning, gl, gr, stmt) {
 };
 
 print_function_application = (!fl, fr, context, is_returning, gl, gr, expr) {
-  texp = expr_call_get_texp(expr);
+  sub_expr = expr_call_get_expr(expr);
   op_list = expr_call_get_op_list(expr);
-  al, ar = aexp_to_range(get_aexp_from_texp(texp));
+  al, ar = aexp_to_range(get_aexp_from_expr(sub_expr));
   print_call_exp_args(fl, fr, context, gl, gr, op_list);
   if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
-    print_texp(fl, fr, context, make_nil(), gl, gr, texp);
+    print_expr(fl, fr, context, make_nil(), gl, gr, sub_expr);
     if_else_ret(is_returning,
       (!) { ! printf("call runtime_call_ret\n") },
       (!) { ! printf("jmp runtime_call\n") },
