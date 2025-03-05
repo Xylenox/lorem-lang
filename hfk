@@ -115,23 +115,19 @@ print_num = (!v) {
   print_char(add(deref_byte("0"), mod(v, 10)));
 };
 
-printf = (ret, l) {
+printf = (!l) {
   lb = deref_byte(l);
-  {if(eq(lb, 0), (break) {
-    return(ret, 0)
-  })};
-  {if(eq(lb, 123), (break, a, b) {
-    print_range(a, b);
-    printf(ret, add(l, 2))
-  })};
-  print_char(deref_byte(l));
-  printf(ret, add(l, 1))
-};
-
-printf2 = (!) {
-  ! (!a, b) {
+  if (eq(lb, 0), (break) {
     ! 0
-  }
+  });
+  if (eq(lb, 123), (break) {
+    ! (!a, b) {
+      print_range(a, b);
+      printf(add(l, 2))
+    }
+  })
+  print_char(lb);
+  ! printf(add(l, 1))
 };
 
 tree_size = (!tree) {
@@ -386,16 +382,16 @@ print_function = (!old_context, gl, gr, func) {
     ! gl, gr, cids
   },
   (!) { ! gl, gr, cids });
-  printf("jmp {}_end\n", fname_l, fname_r);
-  map_tree(make_internal(new_context, cids), (!l r) { printf("{}{}: dq 0\n", fname_l, fname_r, l, r); });
-  printf("{}:\n", fname_l, fname_r);
+  printf("jmp {}_end\n")(fname_l, fname_r);
+  map_tree(make_internal(new_context, cids), (!l r) { printf("{}{}: dq 0\n")(fname_l, fname_r)(l, r); });
+  printf("{}:\n")(fname_l, fname_r);
   if_ret(is_returning, (!) {
     printf("pop rax\n");
   });
-  map_tree(new_context, (!l r) { printf("pop qword [{}{}]\n", fname_l, fname_r, l, r); });
+  map_tree(new_context, (!l r) { printf("pop qword [{}{}]\n")(fname_l, fname_r)(l, r); });
   new_context = if_else_ret(is_returning, (!) {
     printf("push rax\n");
-    printf("mov [{}{}], rsp\n", fname_l, fname_r, gl, gr);
+    printf("mov [{}{}], rsp\n")(fname_l, fname_r)(gl, gr);
     ! make_internal(new_context, make_leaf(gl, gr))
   },
   (!) {
@@ -403,7 +399,7 @@ print_function = (!old_context, gl, gr, func) {
   });
   print_cexp(fname_l, fname_r, new_context, is_returning, gl, gr, cexp);
   if_ret(is_returning, (!) { printf("ret\n"); });
-  printf("{}_end:\n", fname_l, fname_r);
+  printf("{}_end:\n")(fname_l, fname_r);
   ! 0
 };
 
@@ -457,14 +453,14 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   if (eq(texp_type, texp_string), (break) {
     string = texp();
     print_const_string(string);
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
     ! 0
   });
   if (eq(texp_type, texp_block), (break) {
     cexp = texp();
     print_cexp(fl, fr, old_context, (a b) { a() }, gl, gr, cexp);
     printf("push rax\n");
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
     ! 0
   });
   if (eq(texp_type, texp_func), (break) {
@@ -482,9 +478,9 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
       if_else_ret(eq(l, fname_l), (!) {
         printf("mov qword [rax+");
         print_num(mul(8, add(1, n)));
-        printf("], {}\n", l, r);
+        printf("], {}\n")(l, r);
       }, (!) {
-        printf("mov rcx, [{}{}]\nmov qword [rax+", fl, fr, l, r);
+        printf("mov rcx, [{}{}]\nmov qword [rax+")(fl, fr)(l, r);
         print_num(mul(8, add(1, n)));
         printf("], rcx\n");
       });
@@ -492,13 +488,13 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
     printf("mov qword [rax], ");
     print_num(size);
     printf("\npush rax\n");
-    map_tree(ids, (!l r) { printf("pop qword [{}{}]\n", fl, fr, l, r); });
+    map_tree(ids, (!l r) { printf("pop qword [{}{}]\n")(fl, fr)(l, r); });
     ! 0
   });
   if (eq(texp_type, texp_aexp), (break) {
     a, b = texp();
     print_aexp(old_context, fl, fr, a, b);
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
     ! 0
   });
   ! 0
@@ -522,11 +518,11 @@ read_until = (!c l r) {
 print_const_string = (!str) {
   l_start l_end = str();
   il ir = gen_label();
-  printf("jmp {}_end\n{}: db ", il, ir, il, ir);
+  printf("jmp {}_end\n{}: db ")(il, ir)(il, ir);
   print_char(96);
-  printf("{}", l_start, l_end);
+  printf("{}")(l_start, l_end);
   print_char(96);
-  printf("\ndb 0\n{}_end: push {}\n", il, ir, il, ir);
+  printf("\ndb 0\n{}_end: push {}\n")(il, ir)(il, ir);
   ! 0
 };
 
@@ -537,16 +533,16 @@ print_aexp = (!comb_args fname_l fname_r l r) {
   if(eq(res, 1), (break_o) {
     bool = search_tree(comb_args, l, r);
     if(bool, (break) {
-      printf("push qword [{}{}]\n", fname_l, fname_r, l, r);
+      printf("push qword [{}{}]\n")(fname_l, fname_r)(l, r);
       ! 0
     });
     break_o()
   });
   if(eq(is_digit(dig), 1), (break) {
-    printf("push {}\n", l, r);
+    printf("push {}\n")(l, r);
     ! 0
   });
-  printf("push qword [{}]\n", l, r);
+  printf("push qword [{}]\n")(l, r);
   ! 0
 };
 
@@ -618,9 +614,9 @@ get_assignment_vars = (!assign) {
 print_call_exp_args = (!fl, fr, old_context, gl, gr, op_list) {
   map_tree(reverse_tree(op_list), (!call_exp r) {
     il, ir = gen_label();
-    printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
+    printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n")(il, ir)(fl, fr)(il, ir)(il, ir);
     print_expr(fl, fr, old_context, make_leaf(il, ir), gl, gr, call_exp);
-    printf("push qword [{}{}]\n", fl, fr, il, ir);
+    printf("push qword [{}{}]\n")(fl, fr)(il, ir);
   });
   ! 0
 };
@@ -833,13 +829,13 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
       if(search_tree(ids, l, r), (break) { ! make_nil() });
       ! make_leaf(l, r)
     });
-    map_tree(context, (!l r) { ! printf("push qword [{}{}]\n", fl, fr, l, r) });
+    map_tree(context, (!l r) { ! printf("push qword [{}{}]\n")(fl, fr)(l, r) });
     print_function_application(fl, fr, old_context, (a, b) { a() }, gl, gr, expr);
 
     rev_context = reverse_tree(context);
     printf("push rax\n");
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
-    map_tree(rev_context, (!l r) { ! printf("pop qword [{}{}]\n", fl, fr, l, r) });
+    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
+    map_tree(rev_context, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
     ! 0
   })
   ! 0
@@ -848,12 +844,12 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
 print_statement = (!fl, fr, context, is_returning, gl, gr, stmt) {
   if(eq(stmt_type_get(stmt), stmt_return), (break) {
     call_exps = stmt_return_get(stmt);
-    printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
+    printf("mov rsp, [{}{}]\n")(fl, fr)(gl, gr);
     map_tree(reverse_tree(call_exps), (!call_exp r) {
       il, ir = gen_label();
-      printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
+      printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n")(il, ir)(fl, fr)(il, ir)(il, ir);
       print_expr(fl, fr, context, make_leaf(il, ir), gl, gr, call_exp);
-      printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
+      printf("pop rax\npush qword [{}{}]\npush rax\n")(fl, fr)(il, ir);
     });
     printf("pop rcx\npop rax\njmp rcx\n");
     ! stmt
@@ -877,9 +873,9 @@ print_function_application = (!fl, fr, context, is_returning, gl, gr, expr) {
   if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
     print_call_exp_args(fl, fr, context, gl, gr, op_list);
     il, ir = gen_label();
-    printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
+    printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n")(il, ir)(fl, fr)(il, ir)(il, ir);
     print_expr(fl, fr, context, make_leaf(il, ir), gl, gr, sub_expr);
-    printf("push qword [{}{}]\n", fl, fr, il, ir);
+    printf("push qword [{}{}]\n")(fl, fr)(il, ir);
     if_else_ret(is_returning,
       (!) { ! printf("call runtime_call_ret\n") },
       (!) { ! printf("jmp runtime_call\n") },
@@ -889,8 +885,8 @@ print_function_application = (!fl, fr, context, is_returning, gl, gr, expr) {
   (break) {
     print_call_exp_args(fl, fr, context, gl, gr, op_list);
     if_else_ret(is_returning,
-      (!) { ! printf("call {}\n", al, ar) },
-      (!) { ! printf("jmp {}\n", al, ar) },
+      (!) { ! printf("call {}\n")(al, ar) },
+      (!) { ! printf("jmp {}\n")(al, ar) },
     );
     break()
   });
@@ -903,7 +899,7 @@ print_program = (!program, context) {
   id_func = stmt_to_function(stmt);
   if(eq(id_func, 0), (break) {
     ids = filter_context(get_assignment_vars(stmt), context);
-    map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n", l, r, l, r, l, r)});
+    map_tree(ids, (!l r) { ! printf("jmp {}_end\n{}: dq 0\n{}_end:\n")(l, r)(l, r)(l, r)});
     print_statement(0, 0, make_nil(), (a, b) { a() }, 0, 0, stmt);
     ! print_program(tail(program), make_internal(context, ids))
   });
