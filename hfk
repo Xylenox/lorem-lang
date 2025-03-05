@@ -128,6 +128,12 @@ printf = (ret, l) {
   printf(ret, add(l, 1))
 };
 
+printf2 = (!) {
+  ! (!a, b) {
+    ! 0
+  }
+};
+
 tree_size = (!tree) {
   callcc((ret) {
   tree(
@@ -868,9 +874,12 @@ print_function_application = (!fl, fr, context, is_returning, gl, gr, expr) {
   sub_expr = expr_call_get_expr(expr);
   op_list = expr_call_get_op_list(expr);
   al, ar = aexp_to_range(get_aexp_from_expr(sub_expr));
-  print_call_exp_args(fl, fr, context, gl, gr, op_list);
   if_else(or(eq(al, ar), search_tree(context, al, ar)), (break) {
-    print_expr(fl, fr, context, make_nil(), gl, gr, sub_expr);
+    print_call_exp_args(fl, fr, context, gl, gr, op_list);
+    il, ir = gen_label();
+    printf("jmp {}_end\n{}{}: dq 0\n{}_end:\n", il, ir, fl, fr, il, ir, il, ir);
+    print_expr(fl, fr, context, make_leaf(il, ir), gl, gr, sub_expr);
+    printf("push qword [{}{}]\n", fl, fr, il, ir);
     if_else_ret(is_returning,
       (!) { ! printf("call runtime_call_ret\n") },
       (!) { ! printf("jmp runtime_call\n") },
@@ -878,6 +887,7 @@ print_function_application = (!fl, fr, context, is_returning, gl, gr, expr) {
     break()
   },
   (break) {
+    print_call_exp_args(fl, fr, context, gl, gr, op_list);
     if_else_ret(is_returning,
       (!) { ! printf("call {}\n", al, ar) },
       (!) { ! printf("jmp {}\n", al, ar) },
