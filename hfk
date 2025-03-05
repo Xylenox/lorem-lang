@@ -637,10 +637,18 @@ stmt_type_get = (!stmt) {
   ! stmt_type
 };
 stmt_return_new = (!call_exps) {
-  ! (!) { ! stmt_return, (!) { ! call_exps } }
+  ! (!) { ! stmt_return, call_exps }
+};
+stmt_return_get = (!stmt) {
+  stmt_type, call_exps = stmt();
+  ! call_exps
 };
 stmt_tail_rec_new = (!expr) {
   ! (!) { ! stmt_tail_rec, expr }
+};
+stmt_tail_rec_get = (!stmt) {
+  stmt_type, expr = stmt();
+  ! expr
 };
 stmt_assign_new = (!assign) {
   ! (!) { ! stmt_assign, assign }
@@ -648,10 +656,6 @@ stmt_assign_new = (!assign) {
 stmt_assign_get = (!stmt) {
   stmt_type, assign = stmt();
   ! assign
-};
-stmt_tail_rec_get = (!stmt) {
-  stmt_type, expr = stmt();
-  ! expr
 };
 stmt_to_function = (!stmt) {
   if (eq(stmt_type_get(stmt), stmt_assign), (break) {
@@ -823,10 +827,9 @@ print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
   ! 0
 };
 
-print_statement = (!fl, fr, context, is_returning, gl, gr, orig_statement) {
-  stmt_type, stmt = orig_statement();
-  if(eq(stmt_type_get(orig_statement), stmt_return), (break) {
-    call_exps = stmt();
+print_statement = (!fl, fr, context, is_returning, gl, gr, stmt) {
+  if(eq(stmt_type_get(stmt), stmt_return), (break) {
+    call_exps = stmt_return_get(stmt);
     printf("mov rsp, [{}{}]\n", fl, fr, gl, gr);
     map_tree(reverse_tree(call_exps), (!call_exp r) {
       il, ir = gen_label();
@@ -835,16 +838,17 @@ print_statement = (!fl, fr, context, is_returning, gl, gr, orig_statement) {
       printf("pop rax\npush qword [{}{}]\npush rax\n", fl, fr, il, ir);
     });
     printf("pop rcx\npop rax\njmp rcx\n");
-    ! orig_statement
+    ! stmt
   });
-  if (eq(stmt_type_get(orig_statement), stmt_assign), (break) {
-    ids, call_exp = stmt();
+  if (eq(stmt_type_get(stmt), stmt_assign), (break) {
+    assign = stmt_assign_get(stmt);
+    ids, call_exp = assign();
     print_expr(fl, fr, context, ids, gl, gr, call_exp);
-    ! orig_statement
+    ! stmt
   });
-  if (eq(stmt_type_get(orig_statement), stmt_tail_rec), (break) {
-    print_function_application(fl, fr, context, is_returning, gl, gr, stmt_tail_rec_get(orig_statement));
-    ! orig_statement
+  if (eq(stmt_type_get(stmt), stmt_tail_rec), (break) {
+    print_function_application(fl, fr, context, is_returning, gl, gr, stmt_tail_rec_get(stmt));
+    ! stmt
   });
 };
 
