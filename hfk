@@ -32,14 +32,16 @@ if_ret = (ret, v, cont) {
   break)
 };
 
-if_else_ret = (ret, v, cont1, cont2) {
-  v(() {
-    res = cont1();
-    return(ret, res)
-  }, () {
-    res = cont2();
-    return(ret, res)
-  })
+if_else_ret = (!v, cont1, cont2) {
+  callcc((ret) {
+    v(() {
+      res = cont1();
+      ! res
+    }, () {
+      res = cont2();
+      ! res
+    })
+  });
 };
 
 ne = (!a, b) {
@@ -780,33 +782,11 @@ parse_expr_help = (!tokenizer, expr) {
 };
 
 parse_program = (!tokenizer) {
-  l, r = tokenizer();
-  if(check_eof(tokenizer), (break) { ! 0 });
-  c = deref_byte(l);
-  
-  if(eq(c,10), (break) {
-    mid = add(l, 1);
-    ! parse_program(make_tokenizer(mid, r))
-  });
-  if(eq(c,32), (break) {
-    mid = add(l, 1);
-    ! parse_program(make_tokenizer(mid, r))
-  });
-
-  if(eq(c,47), (break) {
-    l, r = read_until(deref_byte("\n"), l, r);
-    ! parse_program(make_tokenizer(l, r))
-  });
-  
-  tokenizer, stmt = parse_statement(make_tokenizer(l, r));
-  if(eq(stmt, 0), (break) {
-    ! 0
-  });
+  tokenizer, stmt = parse_statement(tokenizer);
+  if(eq(stmt, 0), (break) { ! 0 });
   tmp = parse_program(tokenizer);
   ! cons(stmt, tmp)
 };
-
-
 
 / printing
 print_expr = (!fl, fr, old_context, ids, gl, gr, expr) {
