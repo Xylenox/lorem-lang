@@ -33,8 +33,13 @@ if_ret = (ret, v, cont) {
 };
 
 if_else_ret = (ret, v, cont1, cont2) {
-  v(() { return(ret, { cont1() }) },
-  () { return(ret, { cont2() }) })
+  v(() {
+    res = cont1();
+    return(ret, res)
+  }, () {
+    res = cont2();
+    return(ret, res)
+  })
 };
 
 ne = (!a, b) {
@@ -379,9 +384,9 @@ print_function = (!old_context, gl, gr, func) {
   gl, gr, cids = if_else_ret(is_returning, (!) {
     gl, gr = gen_label();
     cids = make_internal(cids, make_leaf(gl, gr));
-    ! gl, gr, cids
+    ! (!) { ! gl, gr, cids }
   },
-  (!) { ! gl, gr, cids });
+  (!) { ! (!) { ! gl, gr, cids } })();
   printf("jmp {}_end\n")(fname_l, fname_r);
   map_tree(make_internal(new_context, cids), (!l r) { printf("{}{}: dq 0\n")(fname_l, fname_r)(l, r); });
   printf("{}:\n")(fname_l, fname_r);
@@ -421,21 +426,14 @@ get_aexp_from_expr = (!expr) {
 };
 
 texp_string = 0;
-texp_block = 1;
-texp_func = 2;
-texp_aexp = 3;
+texp_func = 1;
+texp_aexp = 2;
 / returns l r texp
 parse_texp = (!orig_tokenizer) {
   l r = orig_tokenizer();
   tokenizer, tk = read_token_t(orig_tokenizer);
   t, tl, tr = tk();
   if(eq(t, token_id), (break) { ! tokenizer, (!) { ! texp_aexp, (!) { ! tl, tr } } });
-  if(matches("{", tl), (break) {
-    tokenizer, cexp = parse_cexp(tokenizer);
-    tokenizer, mt = eat_token(tokenizer, "}");
-    if(not(mt), (break2) { break() });
-    ! tokenizer, (!) { ! texp_block, (!) { ! cexp } }
-  });
   tokenizer, func = parse_function(orig_tokenizer);
   if(ne(func, 0), (break) {
     ! tokenizer, (!) { ! texp_func, (!) { ! func } }
@@ -453,13 +451,6 @@ print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   if (eq(texp_type, texp_string), (break) {
     string = texp();
     print_const_string(string);
-    map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
-    ! 0
-  });
-  if (eq(texp_type, texp_block), (break) {
-    cexp = texp();
-    print_cexp(fl, fr, old_context, (a b) { a() }, gl, gr, cexp);
-    printf("push rax\n");
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
     ! 0
   });
