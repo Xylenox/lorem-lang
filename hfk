@@ -292,43 +292,63 @@ read_const_string = (!tokenizer) {
   l = add(l_end, 1);
   ! make_tokenizer(l, r), (!) { ! l_start, l_end }
 };
+
+Token_special = 0;
 token_id = 1;
 token_string = 3;
 / 0 -> special, 1 -> id, 2 -> number, 3 -> string, 4 -> comment, 5 -> newline, 6 -> eof
 / returns l r type il ir
 token_eof = 6;
-read_token = (!l r) {
+read_token = (!l, r) {
   l r = read_whitespace(l, r);
-  if (eq(l, r), (break) { ! l, l, token_eof, l, l });
+  if (eq(l, r), (break) { ! l, l, Token(token_eof, l, l) });
   if(eq(34, deref_byte(l)), (break) {
     l_start = add(l, 1);
     l_end r = read_until(34, l_start, r);
-    ! l, r, token_string, l, add(l, 1)
+    ! add(l_end, 1), r, Token(token_string, l_start, l_end)
   });
-  if(matches("!", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches("(", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches(")", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches("{", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches("}", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches("=", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches(";", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches(":", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
-  if(matches(",", l), (break) { ! add(l, 1), r, 0, l, add(l, 1) });
+  if(matches("!", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches("(", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches(")", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches("{", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches("}", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches("=", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches(";", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches(":", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches(",", l), (break) { ! add(l, 1), r, Token(0, l, add(l, 1)) });
+  if(matches("let", l), (break) { ! add(l, 3), r, Token(0, l, add(l, 3)) });
   if(matches("/", l), (break) { 
     m, r = read_until(deref_byte("\n"), l, r);
-    l, r, token_id, il, ir = read_token(m, r);
-    ! l, r, token_id, il, ir
+    l, r, token = read_token(m, r);
+    ! l, r, token
   });
   l r il ir = read_identifier(l, r);
-  if(ne(il, ir), (break) { ! l, r, token_id, il, ir });
+  if(ne(il, ir), (break) { ! l, r, Token(token_id, il, ir) });
   error(l)
+};
+
+Token = (!t, l, r) {
+  ! (!) { ! t, l, r }
+};
+Token_type = (!token) {
+  t, l, r = token();
+  ! t
+};
+
+tokenize = (!s) {
+  l, rr, token = read_token(String_l(s), String_r(s));
+  if (eq(Token_type(token), token_eof), (break) {
+    ! 0
+  });
+  ! cons(token, tokenize(String(l, rr)))
 };
 
 read_token_t = (! tokenizer) {
   l, r = tokenizer();
-  l, r, t, tl, tr = read_token(l, r);
-  ! make_tokenizer(l, r), (!) { ! t, tl, tr }
+  l, r, token = read_token(l, r);
+  ! make_tokenizer(l, r), token
 };
+
 
 make_tokenizer = (!l, r) {
   ! (!) { ! l, r }
@@ -485,6 +505,7 @@ texp_to_function = (!texp) {
 };
 
 read_until = (!c l r) {
+  if (eq(l, r), (break) { ! l, r });
   lb = deref_byte(l);
   if(eq(lb, c), (break) { ! l, r });
   l, r = read_until(c, add(l, 1), r);
@@ -553,16 +574,6 @@ get_cexp_vars = (!cexp) {
   ! make_internal(ids, ids2)
 };
 
-parse_assign_left = (!orig_tokenizer) {
-  tokenizer, ids = parse_id_list(orig_tokenizer);
-  tokenizer, mt = eat_token(tokenizer, "=");
-  if(not(mt), (break) {
-    il ir = gen_label();
-    ! orig_tokenizer, make_leaf(il, ir)
-  });
-  ! tokenizer, ids
-};
-
 eat_token = (!tokenizer, targ) {
   new_tokenizer, token = read_token_t(tokenizer);
   if (token_matches(targ, token), (break) {
@@ -604,6 +615,14 @@ tail = (!list) {
 };
 String = (!l, r) {
   ! (!) { ! l, r }
+};
+String_l = (!s) {
+  l, r = s();
+  ! l
+};
+String_r = (!s) {
+  l, r = s();
+  ! r
 };
 
 assign_new = (!ids, call_exp) {
@@ -732,7 +751,21 @@ parse_block = (!tokenizer) {
 };
 
 parse_assignment_statement = (!orig_tokenizer) {
-  tokenizer, ids = parse_assign_left(orig_tokenizer);
+  tokenizer, mt = eat_token(orig_tokenizer, "let");
+  tokenizer, ids, is_assign = (!orig_tokenizer) {
+    tokenizer, ids = parse_id_list(orig_tokenizer);
+    tokenizer, mt = eat_token(tokenizer, "=");
+    if(not(mt), (break) {
+      il ir = gen_label();
+      ! orig_tokenizer, make_leaf(il, ir), (a, b) { b() }
+    });
+    ! tokenizer, ids, (a, b) { a() }
+  }(tokenizer);
+  if (and(not(mt), is_assign), (break) {
+    l, r = tokenizer();
+    warning(l);
+    break()
+  });
   tokenizer, call_exp = parse_expr(tokenizer);
   tokenizer, mt = eat_token(tokenizer, ";");
   if(not(mt), (break) { ! orig_tokenizer, 0 });
@@ -789,10 +822,10 @@ parse_expr_help = (!tokenizer, expr) {
   ! tokenizer, expr
 };
 
-parse_program = (!tokenizer) {
+parse_program = (!tokenizer, tokens) {
   tokenizer, stmt = parse_statement(tokenizer);
   if(eq(stmt, 0), (break) { ! 0 });
-  tmp = parse_program(tokenizer);
+  tmp = parse_program(tokenizer, tokens);
   ! cons(stmt, tmp)
 };
 
@@ -958,7 +991,8 @@ printf("buff_curr: dq 0\nprint_char:\nmov rax, [buffer]\nmov rdx, [buff_curr]\nm
 printf("compare: ; takes in (a b equal_cont diff_cont) and calls equal_cont or diff_cont depending on a == b\n  pop rax\n  pop rcx\n  pop rdi\n  pop rsi\n  cmp rax, rcx\n  jne compare_fail\n  push rdi\n  jmp runtime_call\n  compare_fail:\n    push rsi\n    jmp runtime_call\nexit:\n  call flush_buffer\n  mov rax, 60\n  mov rdi, 0\n  syscall\nruntime_call:\n  ; first input is closure containing | number of operands including function, function, environment |\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_loop\n  \n  pop rax\n  jmp rax\nruntime_call_ret:\n  ; first input is closure containing | number of operands including function, function, environment |\n  pop rbp\n  mov rdx, [rsp]\n  mov rcx, [rdx]\n  shl rcx, 3\n  add rdx, 8\n  add rsp, 8\n  sub rsp, rcx\n  runtime_call_ret_loop:\n  sub rcx, 8\n  mov rax, [rdx+rcx]\n  mov [rsp+rcx], rax\n  cmp rcx, 0\n  jne runtime_call_ret_loop\n  \n  pop rax\n  push rbp\n  jmp rax\npage_pointer:\ndq 0\nmemory_left:\ndq 0\nmalloc:\n  push rcx\n  push rdx\n  push rsi\n  push rdi\n  push r8\n  push r9\n  push r10\n  push r11\n  cmp [memory_left], rdi\n  jl new_page\n  jmp malloc_ret\n  \n  new_page:\n  push rdi\n  mov rsi, 4096\n  mov rdi, 0               ; adress\n  mov rdx, 3               ; PROT_READ | PROT_WRITE\n  mov r10, 0x22           ; MAP_SHARED | MAP_ANONYMOUS\n  mov r8, -1              ; file descriptor empty, anonymous\n  mov r9, 0               ; offset\n  mov rax, 9               ; mmap\n  syscall\n  pop rdi\n  mov [page_pointer], rax\n  mov qword [memory_left], 4096\n  malloc_ret:\n  mov rax, [page_pointer]\n  add [page_pointer], rdi\n  sub [memory_left], rdi\n  pop r11\n  pop r10\n  pop r9\n  pop r8\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  ret\nmalloc_func:\n  pop rax\n  pop rdi\n  push rax\n  jmp malloc\nscmp:\n  cmp rdi, rsi\n  je end_of_string\n  cmp rdx, rcx\n  je end_of_string\n  sub rax, rax\n  mov al, [rdi]\n  push rbx\n  sub rbx, rbx\n  mov bl, [rdx]\n  sub rax, rbx\n  pop rbx\n  add rdi, 1\n  add rdx, 1\n  cmp rax, 0\n  je scmp\n  jl less\n  mov rax, 1\n  ret\n  less:\n  mov rax, -1\n  ret\n  end_of_string:\n  mov rax, 0\n  cmp rdi, rsi\n  jne not_first_shorter\n  add rax, -1\n  not_first_shorter:\n  cmp rdx, rcx\n  jne not_second_shorter\n  add rax, 1\n  not_second_shorter:\n  ret\ncur_label:\n  dq 1\ngen_label:\n  mov rdi, 8\n  call malloc\n  mov rdx, rax\n  mov rcx, [cur_label]\n  add qword [cur_label], 1\n  mov qword [rdx], 102\n  add rdx, 1\n  gen_label_loop:\n  mov rbx, rcx\n  and rbx, 7\n  add rbx, 48\n  mov [rdx], bl\n  add rdx, 1\n  shr rcx, 3\n  cmp rcx, 0\n  jne gen_label_loop\n  pop rcx\n  push rdx\n  jmp rcx\nstr_cmp_func:\n  pop rax\n  pop rdi\n  pop rsi\n  pop rdx\n  pop rcx\n  push rax\n  call scmp\n  ret\n");
 printf("_start:\n");
 
+tokens = tokenize(String(input, flen));
 tokenizer = make_tokenizer(input, flen);
-res = parse_program(tokenizer);
+res = parse_program(tokenizer, tokens);
 print_program(res, make_nil());
 exit();
