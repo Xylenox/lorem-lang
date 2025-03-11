@@ -632,11 +632,15 @@ let assign_new = (!ids, call_exp) {
 / data structs
 let stmt_tail_rec = 2;
 let stmt_assign = 3;
+let stmt_empty_id = 4;
+let stmt_return_id = 1;
+let stmt_empty = (!) {
+  ! (!) { ! stmt_empty_id, 0 }
+};
 let stmt_type_get = (!stmt) {
   let stmt_type, stmt = stmt();
   ! stmt_type
 };
-let stmt_return_id = 1;
 let stmt_return = (!call_exps) {
   ! (!) { ! stmt_return_id, call_exps }
 };
@@ -712,13 +716,13 @@ let parse_statement = (!tokenizer) {
   });
   let tokenizer, assign = parse_assignment_statement(tokenizer);
   if(ne(assign, 0), (break) {
-    ! tokenizer, stmt_assign_new(assign)
+    ! tokenizer, assign
   });
   let tokenizer, expr = parse_tail_recursion_statement(tokenizer);
   if(ne(expr, 0), (break) {
     ! tokenizer, stmt_tail_rec_new(expr)
   });
-  ! tokenizer, 0
+  ! tokenizer, stmt_empty()
 };
 
 let parse_function = (!orig_tokenizer) {
@@ -730,16 +734,16 @@ let parse_function = (!orig_tokenizer) {
   let tokenizer, new_args = parse_id_list(tokenizer); 
   let tokenizer, mt = eat_token(tokenizer, ")");
   if (not(mt), (break) { ! orig_tokenizer, 0 });
-  let tokenizer, cexp = parse_block(tokenizer);
-  if (eq(cexp, 0), (break) { ! orig_tokenizer, 0 });
-  ! tokenizer, (!) { ! fname_l, fname_r, new_args, is_returning, cexp }
+  let tokenizer, block = parse_block(tokenizer);
+  if (eq(block, 0), (break) { ! orig_tokenizer, 0 });
+  ! tokenizer, (!) { ! fname_l, fname_r, new_args, is_returning, block }
 };
 
 let parse_cexp = (!orig_tokenizer) {
-  let tokenizer, assign = parse_statement(orig_tokenizer);
-  if(eq(assign, 0), (break) { ! orig_tokenizer, 0 });
+  let tokenizer, stmt = parse_statement(orig_tokenizer);
+  if(eq(stmt_type_get(stmt), stmt_empty_id), (break) { ! orig_tokenizer, 0 });
   let tokenizer, cexp = parse_cexp(tokenizer);
-  ! tokenizer, (!) { ! assign, cexp }
+  ! tokenizer, (!) { ! stmt, cexp }
 };
 
 let parse_block = (!tokenizer) {
@@ -761,15 +765,15 @@ let parse_assignment_statement = (!orig_tokenizer) {
     });
     ! tokenizer, ids, (a, b) { a() }
   }(tokenizer);
-  if (and(not(mt), is_assign), (break) {
+  if (or(and(not(mt), is_assign), and(mt, not(is_assign))), (break) {
     let l, r = tokenizer();
     error(l);
     break()
   });
-  let tokenizer, call_exp = parse_expr(tokenizer);
+  let tokenizer, expr = parse_expr(tokenizer);
   let tokenizer, mt = eat_token(tokenizer, ";");
   if(not(mt), (break) { ! orig_tokenizer, 0 });
-  ! tokenizer, assign_new(ids, call_exp)
+  ! tokenizer, stmt_assign_new(assign_new(ids, expr))
 };
 
 let parse_tail_recursion_statement = (!tokenizer) {
@@ -799,14 +803,15 @@ let parse_expr_list = (!tokenizer) {
   ! tokenizer, tree
 };
 
-let parse_call_args = (!orig_tokenizer) {
-  let tokenizer, mt = eat_token(orig_tokenizer, "(");
+let parse_call_args = (!tokenizer) {
+  let tokenizer, mt = eat_token(tokenizer, "(");
   if(not(mt), (break) { ! tokenizer, 0 });
   let tokenizer, op_list = parse_expr_list(tokenizer);
   let tokenizer, mt = eat_token(tokenizer, ")");
-  if(not(mt), (break2) { ! orig_tokenizer, 0 });
-  let tmp_tokenizer, mt = eat_token(tokenizer, "{");
-  if(mt, (break2) { ! orig_tokenizer, 0  });
+  if(not(mt), (break2) {
+    let l, r = tokenizer();
+    error(l);  
+  });
   ! tokenizer, op_list
 };
 let parse_expr = (!tokenizer) {
@@ -824,7 +829,7 @@ let parse_expr_help = (!tokenizer, expr) {
 
 let parse_program = (!tokenizer, tokens) {
   let tokenizer, stmt = parse_statement(tokenizer);
-  if(eq(stmt, 0), (break) { ! 0 });
+  if(eq(stmt_type_get(stmt), stmt_empty_id), (break) { ! 0 });
   let tmp = parse_program(tokenizer, tokens);
   ! cons(stmt, tmp)
 };
@@ -946,6 +951,13 @@ let stderr_print = (!st, len) {
   sysc(1, 2, st, len, 0, 0, 0);
   ! 0
 };
+let stderr_prints = (!s) {
+  if (eq(deref_byte(s), 0), (break) {
+    ! 0
+  });
+  sysc(1, 2, s, 1, 0, 0, 0);
+  stderr_prints(add(s, 1));
+};
 let warning = (!loc) {
   stderr_print("warning:\n", 9);
   stderr_print(sub(loc, 10), 20);
@@ -955,6 +967,14 @@ let warning = (!loc) {
 let error = (!loc) {
   stderr_print("error:\n", 9);
   stderr_print(sub(loc, 10), 20);
+  stderr_print("\n", 1);
+  exit()
+};
+let error_message = (!loc, message) {
+  stderr_print("error: ", 7);
+  stderr_prints(message);
+  stderr_print("\n", 1);
+  stderr_print(loc, 20);
   stderr_print("\n", 1);
   exit()
 };
