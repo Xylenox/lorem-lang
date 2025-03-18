@@ -167,6 +167,20 @@ let map_tree = (!tree action) {
   });
 };
 
+let fold_tree = (!f, z, tree) {
+  callcc((ret) {
+  tree(
+    () { ! z },
+    (l, r) {
+      ! f(z, l, r)
+    },
+    (a, b) {
+      ! fold_tree(f, fold_tree(f, z, a), b)
+    }
+  )
+  });
+};
+
 let first_leaf = (!tree) {
   callcc((ret) { tree(
     () { ! make_nil() },
@@ -430,9 +444,18 @@ let get_aexp_from_expr = (!expr) {
   ! 0
 };
 
-let texp_string = 0;
+let texp_string_id = 0;
 let texp_func = 1;
 let texp_aexp = 2;
+let texp_string_get_string = (!texp) {
+  let texp_id, texp = texp();
+  ! texp()
+};
+let texp_get_type = (!texp) {
+  let texp_type, texp = texp();
+  ! texp_type
+};
+
 / returns l r texp
 let parse_texp = (!orig_tokenizer) {
   let l r = orig_tokenizer();
@@ -445,20 +468,34 @@ let parse_texp = (!orig_tokenizer) {
   });
   let tokenizer, string = read_const_string(tokenizer);
   if(ne(string, 0), (break) {
-    ! tokenizer, (!) { ! texp_string, (!) { ! string } }
+    ! tokenizer, (!) { ! texp_string_id, (!) { ! string } }
   });
   ! orig_tokenizer, 0
+  let texp_string_get_string = (!texp) {
+    let texp_id, texp = texp();
+    ! texp()
+  };
 };
 
+let context_to_context2 = (!fl, fr, context, gl, gr) {
+  ! 0
+};
+let print_texp2 = (!context, texp) {
+  if (eq(texp_get_type(texp), texp_string_id), (break) {
+    let string = texp_string_get_string(texp);
+    print_const_string(string);
+  });
+  ! 0
+};
 let print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   if(eq(texp, 0), (break) { ! 0 });
-  let texp_type, texp = texp();
-  if (eq(texp_type, texp_string), (break) {
-    let string = texp();
+  if (eq(texp_get_type(texp), texp_string_id), (break) {
+    let string = texp_string_get_string(texp);
     print_const_string(string);
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
     ! 0
   });
+  let texp_type, texp = texp();
   if (eq(texp_type, texp_func), (break) {
     let func = texp();
     let fname_l fname_r func_args is_returning cexp = func();
