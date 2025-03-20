@@ -116,10 +116,14 @@ let print_range = (!a b) {
   print_range(add(a, 1), b);
 };
 
-let print_num = (!v) {
+let print_num_help = (!v) {
   if(eq(v, 0), (break) { ! 0 });
-  print_num(div(v, 10));
+  print_num_help(div(v, 10));
   print_char(add(deref_byte("0"), mod(v, 10)));
+};
+let print_num = (!v) {
+  if (eq(v, 0), (break) { ! printf("0") });
+  print_num_help(v);
 };
 
 let printf = (!l) {
@@ -477,13 +481,41 @@ let parse_texp = (!orig_tokenizer) {
   };
 };
 
-let context_to_context2 = (!fl, fr, context, gl, gr) {
+/ returns list of pairs (variable name, position on stack)
+let push_context_to_stack = (!fl, fr, context, gl, gr) {
+  let context = if_else_ret(eq(gl, gr), (!) { ! context }, (!) { ! make_internal(make_leaf(gl, gr), context) });
+  let var_list = fold_tree((!z, l, r) {
+    printf("push qword [{}{}]\n")(fl, fr)(l, r);
+    ! cons((!) { ! l, r }, z)
+  }, 0, context);
+  let pos, var_pos = fold_list((!z, var) {
+    let l, r = var();
+    let pos, res = z();
+    ! (!) { ! add(pos, 8), cons((!) { ! var, pos }, res) }
+  }, (!) { ! 0, 0 }, var_list)();
+  ! var_pos
+};
+let pop_context_from_stack = (!fl, fr, gl, gr, var_pos) {
+  fold_list((!z, var_pos) {
+    let var, pos = var_pos();
+    let l, r = var();
+    printf("mov rdx, [rsp+");
+    print_num(pos);
+    printf("]\n");
+    printf("mov [{}{}], rdx\n")(fl, fr)(l, r);
+    ! 0
+  }, 0, var_pos);
+  fold_list((!z, var_pos) {
+    printf("add rsp, 8\n");
+    ! 0
+  }, 0, var_pos);
   ! 0
 };
-let print_texp2 = (!context, texp) {
+let print_texp_using_stack = (!var_pos, texp) {
   if (eq(texp_get_type(texp), texp_string_id), (break) {
     let string = texp_string_get_string(texp);
     print_const_string(string);
+    ! 0
   });
   ! 0
 };
@@ -491,8 +523,10 @@ let print_texp = (!fl, fr, old_context, ids, gl, gr, texp) {
   if(eq(texp, 0), (break) { ! 0 });
   if (eq(texp_get_type(texp), texp_string_id), (break) {
     let string = texp_string_get_string(texp);
-    print_const_string(string);
+    let var_pos = push_context_to_stack(fl, fr, old_context, gl, gr);
+    print_texp_using_stack(var_pos, texp);
     map_tree(ids, (!l r) { ! printf("pop qword [{}{}]\n")(fl, fr)(l, r) });
+    pop_context_from_stack(fl, fr, gl, gr, var_pos);
     ! 0
   });
   let texp_type, texp = texp();
@@ -649,6 +683,10 @@ let head = (!list) {
 let tail = (!list) {
   let head, tail = list();
   ! tail
+};
+let fold_list = (!f, z, list) {
+  if (eq(list, 0), (break) { ! z });
+  ! fold_list(f, f(z, head(list)), tail(list))
 };
 let String = (!l, r) {
   ! (!) { ! l, r }
